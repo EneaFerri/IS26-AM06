@@ -27,5 +27,5 @@ public abstract class Card {
     }
 
     // Metodo per permettere di applicare effetto delle specifica sottoclasse
-    public abstract void applyEffect();
+    // public abstract void applyEffect();
 }
