@@ -1,14 +1,31 @@
 package it.polimi.ingsw.model.player;
 
-import it.polimi.ingsw.model.board.OfferSpace;
+import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.enums.TotemColor;
 
 public class Totem {
 
-    TotemColor color;
-    OfferSpace offerSpacePosition;
+    private final TotemColor color;
+    private BoardSpace position;
 
-    //TODO: come indico posizione sul TurnOder?
+    public Totem(TotemColor color) {
+        this.color = color;
+        this.position = null;
+    }
 
+    public TotemColor getColor() {
+        return color;
+    }
 
+    public BoardSpace getPosition() {
+        return position;
+    }
+
+    public void place(BoardSpace space) {
+        this.position = space;
+    }
+
+    public void remove() {
+        this.position = null;
+    }
 }

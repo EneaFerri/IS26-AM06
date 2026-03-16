@@ -3,9 +3,6 @@ package it.polimi.ingsw.model.cards;
 import it.polimi.ingsw.model.enums.Age;
 
 public abstract class Card {
-
-    //int cardID;
-    //Age cardAge;
     //boolean drawed;
     //boolean discarded;
 
@@ -19,13 +16,15 @@ public abstract class Card {
     }
 
     // Getters
-    public int getCardID(){
-        return this.cardID;
+    public int getID(){
+        return cardID;
     }
-    public Age getCardAge() {
-        return this.cardAge;
+
+    public Age getAge() {
+        return cardAge;
     }
 
     // Metodo per permettere di applicare effetto delle specifica sottoclasse
     // public abstract void applyEffect();
+    // MEGLIO NON METTERE IL METODO EFFECT QUI abbiamo deciso
 }
