@@ -16,10 +16,6 @@ public class Sustenance extends EventCard {
         this.prestigeMalus = prestigeMalus;
     }
 
-    public int getFoodCost() {
-        return FOOD_PRICE;
-    }
-
     public int getPrestigeMalus() {
         return prestigeMalus;
     }

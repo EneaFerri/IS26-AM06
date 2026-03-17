@@ -12,18 +12,18 @@ public class Player {
     private final String nickname;
     private final Totem myTotem;
 
-    private int food;
+    private int nuggets;
     private int prestige;
 
     private boolean inTurn;
 
-    private final List<CharacterCard> myCharacterCards;
-    private final List<BuildingCard> myBuildingCards;
+    private List<CharacterCard> myCharacterCards;
+    private List<BuildingCard> myBuildingCards;
 
     public Player(String nickname, Totem myTotem) {
         this.nickname = nickname;
         this.myTotem = myTotem;
-        this.food = 0;
+        this.nuggets = 0;
         this.prestige = 0;
         this.inTurn = false;
         this.myCharacterCards = new ArrayList<>();
@@ -39,7 +39,7 @@ public class Player {
     }
 
     public int getFood() {
-        return food;
+        return nuggets;
     }
 
     public int getPrestige() {
@@ -55,11 +55,11 @@ public class Player {
     }
 
     public void addFood(int food) {
-        this.food += food;
+        this.nuggets += food;
     }
 
     public void removeFood(int food) {
-        this.food -= food;
+        this.nuggets -= food;
     }
 
     public void addPrestige(int prestige) {
