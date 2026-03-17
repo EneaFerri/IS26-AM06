@@ -24,9 +24,9 @@ public class Sustenance extends EventCard {
     public void resolve(List<Player> players) {
         for (Player player : players) {
             // mi calcolo il numero tot di carte per comodità
-            int totalCards = player.getCharacterCards().size() + player.getBuildingCards().size();
+            int totalCharacters = player.getCharacterCards().size();
 
-            int totalCost = Math.max(0, (FOOD_PRICE * totalCards) - player.getTotalFoodDiscount());
+            int totalCost = Math.max(0, (FOOD_PRICE * totalCharacters) - player.getTotalFoodDiscount());
 
             if (player.getFood() >= totalCost) {
                 player.removeFood(totalCost); //il giocatore è ricco di SCIBO, tipo il coppe
