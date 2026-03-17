@@ -2,6 +2,7 @@ package it.polimi.ingsw.model.cards.Events;
 
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.player.Player;
 
 import java.util.List;
@@ -11,7 +12,7 @@ public class Sustenance extends EventCard {
     private final int prestigeMalus;
 
     public Sustenance(int cardID, Age cardAge, int prestigeMalus) {
-        super(cardID, cardAge);
+        super(cardID, cardAge, EventType.SUSTENANCE);
         this.prestigeMalus = prestigeMalus;
     }
 

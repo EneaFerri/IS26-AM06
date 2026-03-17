@@ -1,5 +1,6 @@
 package it.polimi.ingsw.model.board;
 
+import it.polimi.ingsw.model.GameActions;
 import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.player.Totem;
 
@@ -89,8 +90,6 @@ public class Board {
 
         return lowRowEvents;
     }
-
-
 
 
 }

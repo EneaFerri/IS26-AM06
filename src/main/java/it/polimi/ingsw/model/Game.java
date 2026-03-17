@@ -94,7 +94,7 @@ public class Game implements GameActions {
         //TODO
     }
 
-    public void setUpFirstTurn() {
+    public void setUpFirstRound() {
         //TODO
     }
 
@@ -105,7 +105,7 @@ public class Game implements GameActions {
 
         gameState = GameState.START;
         currentAge = Age.Era_I;
-        setUpFirstTurn();
+        setUpFirstRound();
         gameState = GameState.START;
     }
 
