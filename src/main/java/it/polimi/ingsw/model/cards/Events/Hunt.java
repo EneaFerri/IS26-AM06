@@ -20,11 +20,8 @@ public class Hunt extends EventCard {
         this.prestigeBonus = prestigeBonus;
     }
 
-    public int getFoodBonus() {
-        return FOOD_BONUS;
-    }
 
-    public int getPrestigePrice() {
+    public int getPrestigeBonus() {
         return prestigeBonus;
     }
 
