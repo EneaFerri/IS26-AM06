@@ -8,6 +8,7 @@ public abstract class Card {
 
     private final int cardID;
     private final Age cardAge;
+    private boolean drawed = false;
 
     // Costruttore
     public Card(int cardID, Age cardAge){
@@ -23,6 +24,15 @@ public abstract class Card {
     public Age getAge() {
         return cardAge;
     }
+
+    public boolean isDrawed() {
+        return drawed;
+    }
+
+    public void markAsDrawed() {
+        this.drawed = true;
+    }
+
 
     // Metodo per permettere di applicare effetto delle specifica sottoclasse
     // public abstract void applyEffect();

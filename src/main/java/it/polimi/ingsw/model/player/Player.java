@@ -72,10 +72,12 @@ public class Player {
 
     public void addCharacterCard(CharacterCard card) {
         myCharacterCards.add(card);
+        card.markAsDrawed();
     }
 
     public void addBuildingCard(BuildingCard card) {
         myBuildingCards.add(card);
+        card.markAsDrawed();
     }
 
     public List<CharacterCard> getCharacterCards() {

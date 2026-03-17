@@ -57,17 +57,63 @@ public class Board {
     }
 
     public BoardSpace getBoardSpace(char letter){
-        //TODO
+        for (BoardSpace space : offerField) {
+            if (space.getLetter() == letter) {
+                return space;
+            }
+        }
+        return null;
     }
     public List<BoardSpace> getFreeBoardSpaces(){
-        //TODO
+        List<BoardSpace> freeSpaces = new ArrayList<>();
+        for (BoardSpace space : offerField) {
+            if (space.isFree()) {
+                freeSpaces.add(space);
+            }
+        }
+        return freeSpaces;
     }
-    public List<TribeCard> getAvailableTribeCards(){
-        //TODO
+
+    public List<TribeCard> getAvailableUpperTribeCards(){
+        List<TribeCard> availableTribeUp = new ArrayList<>();
+        for (TribeCard card : topTribeCards) {
+            if (card.isDrawed()) {
+                availableTribeUp.add(card);
+            }
+        }
+        return availableTribeUp;
     }
-    public List<BuildingCard> getAvailableBuildingCards(){
-        //TODO
+
+    public List<TribeCard> getAvailableBottomTribeCards(){
+        List<TribeCard> availableTribeBo = new ArrayList<>();
+        for (TribeCard card : bottomTribeCards) {
+            if (card.isDrawed()) {
+                availableTribeBo.add(card);
+            }
+        }
+        return availableTribeBo;
     }
+
+    public List<BuildingCard> getAvailableUpperBuildingCards() {
+        List<BuildingCard> availableBuildUp = new ArrayList<>();
+        for (BuildingCard card : topBuildingCards ) {
+            if (card.isDrawed()) {
+                availableBuildUp.add(card);
+            }
+        }
+        return availableBuildUp;
+    }
+
+    public List<BuildingCard> getAvailableBottomBuildingCards(){
+        List<BuildingCard> availableBuildBo = new ArrayList<>();
+        for (BuildingCard card : bottomBuildingCards ) {
+            if (card.isDrawed()) {
+                availableBuildBo.add(card);
+            }
+        }
+        return availableBuildBo;
+    }
+
     public void removeCard(Card card){
         //TODO
     }
@@ -75,7 +121,9 @@ public class Board {
         //TODO
     }
     public void clearBoardSpaces(){
-        //TODO
+        for (BoardSpace space : offerField) {
+            space.removeTotem();
+        }
     }
 
     public List<EventCard> getLowRowEvents() {

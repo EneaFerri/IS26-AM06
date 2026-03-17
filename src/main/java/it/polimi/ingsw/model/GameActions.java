@@ -22,6 +22,7 @@ public interface GameActions {
     void TotemPositionEndRound();
     void nextTurn();
     void endGame();
+
     /*
     Player getPlayerInTurn();
     List<Player> getPlayers();
