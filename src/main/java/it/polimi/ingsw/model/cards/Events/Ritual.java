@@ -2,7 +2,6 @@ package it.polimi.ingsw.model.cards.Events;
 
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
-import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.player.Player;
 
 import java.util.List;
@@ -12,7 +11,7 @@ public class Ritual extends EventCard {
     private final int maxMalus;
 
     public Ritual(int cardID, Age cardAge, int maxBonus, int maxMalus) {
-        super(cardID, cardAge, EventType.RITUAL);
+        super(cardID, cardAge);
         this.maxBonus = maxBonus;
         this.maxMalus = maxMalus;
     }

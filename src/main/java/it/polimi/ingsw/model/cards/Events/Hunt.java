@@ -2,7 +2,6 @@ package it.polimi.ingsw.model.cards.Events;
 
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
-import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.player.Player;
 
 import it.polimi.ingsw.model.cards.CharacterCard;
@@ -17,7 +16,7 @@ public class Hunt extends EventCard {
     private final int prestigeBonus;
 
     public Hunt(int cardID, Age cardAge, int prestigeBonus) {
-        super(cardID, cardAge, EventType.HUNT);
+        super(cardID, cardAge);
         this.prestigeBonus = prestigeBonus;
     }
 
