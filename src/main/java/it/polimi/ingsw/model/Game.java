@@ -2,7 +2,10 @@ package it.polimi.ingsw.model;
 
 import it.polimi.ingsw.model.board.Board;
 import it.polimi.ingsw.model.board.BoardSpace;
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Deck;
+import it.polimi.ingsw.model.cards.EventCard;
+import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
@@ -122,7 +125,17 @@ public class Game implements GameActions {
     }
 
     public void resolveLowerEvents() {
-        // TODO
+        // TODO: completare però potrebbe essere un buon inizio
+        List<EventCard> events = gameBoard.getLowRowEvents();
+
+        for (EventCard event : events) {
+            event.resolve(players);
+            for (Player player : players) {
+                for (BuildingCard building : player.getBuildingCards()) {
+                    building.applyEffect(this, player, event);
+                }
+            }
+        }
     }
 
     public void updateAge() {
@@ -141,3 +154,6 @@ public class Game implements GameActions {
         gameState = GameState.END;
     }
 }
+
+
+

@@ -1,11 +1,9 @@
 package it.polimi.ingsw.model.board;
 
-import it.polimi.ingsw.model.cards.BuildingCard;
-import it.polimi.ingsw.model.cards.Card;
-import it.polimi.ingsw.model.cards.Deck;
-import it.polimi.ingsw.model.cards.TribeCard;
+import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.player.Totem;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Board {
@@ -79,6 +77,18 @@ public class Board {
         //TODO
     }
 
+    public List<EventCard> getLowRowEvents() {
+        //TODO
+        List<EventCard> lowRowEvents = new ArrayList<>();
+
+        for (TribeCard card : bottomTribeCards) { //così salviamo anche l'ordine
+            if (card instanceof EventCard) {
+                lowRowEvents.add((EventCard) card);
+            }
+        }
+
+        return lowRowEvents;
+    }
 
 
 
