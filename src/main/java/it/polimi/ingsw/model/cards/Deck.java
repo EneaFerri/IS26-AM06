@@ -30,6 +30,14 @@ public class Deck
         return tribeCards.remove(0);
     }
 
+    public List<TribeCard> draw(int n) {
+        List<TribeCard> drawn = new ArrayList<>();
+        for (int i = 0; i < n && !tribeCards.isEmpty(); i++) {
+            drawn.add(tribeCards.remove(0));
+        }
+        return drawn;
+    }
+
     public void randomize (){
         Collections.shuffle(tribeCards);
 

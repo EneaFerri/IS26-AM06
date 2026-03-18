@@ -35,7 +35,7 @@ public class Pictures extends EventCard {
     public void resolve(List<Player> players) {
         for (Player player : players) {
             if (player.getNumArtists() >= minimumArtists) {
-                player.addPrestige(prestigeBonus);
+                player.addPrestige(prestigeBonus * player.getNumArtists()); // PP per ogni artista
             } else {
                 player.removePrestige(prestigeMalus);
             }

@@ -2,6 +2,7 @@ package it.polimi.ingsw.model.player;
 
 import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.CharacterCard;
+import it.polimi.ingsw.model.cards.Characters.Shaman;
 import it.polimi.ingsw.model.enums.CharacterType;
 
 import java.util.ArrayList;
@@ -124,9 +125,10 @@ public class Player {
     public int getStarsFromShamans() {
         int counter = 0;
         for (CharacterCard card : myCharacterCards) {
-            //TODO semplicemente contare stelle degli shamani
+            if (card.getCharacterType() == CharacterType.SHAMAN) {
+                counter += ((Shaman) card).getStars();
+            }
         }
-
         return counter;
     }
 }

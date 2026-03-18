@@ -1,9 +1,11 @@
 package it.polimi.ingsw.model.enums;
 
-public enum GameState
-{
+public enum GameState {
     LOGIN,
     START,
-    GAME,
-    END;
+    BOARD_PREPARATION,
+    OFFER_SPACE_CHOOSE,
+    RESOLVING,
+    EVENTS,
+    END
 }

@@ -41,13 +41,10 @@ public class Ritual extends EventCard {
         }
 
         for (Player player : players) {
-            int stars = player.getStarsFromShamans();
-            if (stars == maxStars) {
-                player.addPrestige(maxBonus);
-            }
-            if (stars == minStars) {
-                player.removePrestige(maxMalus);
-            }
+            if (player.getStarsFromShamans() == maxStars) player.addPrestige(maxBonus);
+        }
+        for (Player player : players) {
+            if (player.getStarsFromShamans() == minStars) player.removePrestige(maxMalus);
         }
     }
 }

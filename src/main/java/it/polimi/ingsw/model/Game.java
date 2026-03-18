@@ -2,24 +2,22 @@ package it.polimi.ingsw.model;
 
 import it.polimi.ingsw.model.board.Board;
 import it.polimi.ingsw.model.board.BoardSpace;
-import it.polimi.ingsw.model.cards.BuildingCard;
-import it.polimi.ingsw.model.cards.Deck;
-import it.polimi.ingsw.model.cards.EventCard;
-import it.polimi.ingsw.model.cards.TribeCard;
+import it.polimi.ingsw.model.board.TurnOrder;
+import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
+import it.polimi.ingsw.model.player.Totem;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class Game implements GameActions {
     private final int gameID;
 
     private final List<Player> players;
     private Player playerInTurn;
+    private final TurnOrder turnOrder;
     private int numberOfPlayers;
 
     private GameState gameState;
@@ -32,7 +30,7 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
-    public Game(int gameID, Board gameBoard, Deck mainDeck, Deck deck1, Deck deck2, Deck deck3) {
+    public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, Deck deck1, Deck deck2, Deck deck3) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
         this.playerInTurn = null;
@@ -40,6 +38,7 @@ public class Game implements GameActions {
         this.gameState = GameState.LOGIN;
         this.currentAge = null;
         this.gameBoard = gameBoard;
+        this.turnOrder = turn;
         this.mainDeck = mainDeck;
         this.deck1 = deck1;
         this.deck2 = deck2;
@@ -52,6 +51,10 @@ public class Game implements GameActions {
 
     public List<Player> getPlayers() {
         return players;
+    }
+
+    public TurnOrder getTurnOrder() {
+        return turnOrder;
     }
 
     public Player getCurrentPlayer() {
@@ -90,12 +93,58 @@ public class Game implements GameActions {
         return deck3;
     }
 
+
     public void addPlayer(Player player) {
-        //TODO
+        if (gameState != GameState.LOGIN) {
+            throw new IllegalStateException("Cannot add players after game has started");
+        }
+        if (players.stream().anyMatch(p -> p.getNickname().equals(player.getNickname()))) {
+            throw new IllegalArgumentException("Nickname already taken: " + player.getNickname());
+        }
+        players.add(player);
+        numberOfPlayers++;
     }
 
     public void setUpFirstRound() {
         //TODO
+    }
+
+    public void placeTotemOnOfferSpace(Player player, BoardSpace boardSpace) {
+        Objects.requireNonNull(player, "player cannot be null");
+        Objects.requireNonNull(boardSpace, "boardSpace cannot be null");
+
+        if (gameState != GameState.OFFER_SPACE_CHOOSE) {
+            throw new IllegalStateException("Cannot place totem: wrong game state");
+        }
+        if (!boardSpace.isFree()) {
+            throw new IllegalStateException("BoardSpace " + boardSpace.getLetter() + " is already occupied");
+        }
+
+        gameBoard.placeTotem(player.getTotem(), boardSpace);
+
+        // se tutti i giocatori hanno piazzato, avanza alla risoluzione
+        boolean allPlaced = players.stream()
+                .allMatch(p -> p.getTotem().getPosition() != null);
+        if (allPlaced) {
+            gameState = GameState.RESOLVING;
+            // il primo a risolvere è quello più a sinistra (lettera minore)
+            playerInTurn = gameBoard.getFreeBoardSpaces().isEmpty()
+                    ? turnOrder.getOrder().get(0)
+                    : findLeftmostPlayer();
+        }
+    }
+
+    private Player findLeftmostPlayer() {
+        // gli spazi sono ordinati per lettera nel tracciato offerte
+        for (BoardSpace space : gameBoard.getOfferField()) {
+            if (!space.isFree()) {
+                Totem t = space.getTotem();
+                for (Player p : players) {
+                    if (p.getTotem() == t) return p;
+                }
+            }
+        }
+        return players.get(0);
     }
 
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
@@ -109,19 +158,65 @@ public class Game implements GameActions {
         gameState = GameState.START;
     }
 
-    public void TotemPositionStartRound(Player player, BoardSpace boardSpace) {
+    public void pickTribeCard(Player player, TribeCard card, boolean fromTopRow) {
         Objects.requireNonNull(player, "player cannot be null");
-        Objects.requireNonNull(boardSpace, "boardSpace cannot be null");
+        Objects.requireNonNull(card, "card cannot be null");
 
-        if (gameBoard == null) {
-            throw new IllegalStateException("Board not initialized");
+        if (card instanceof EventCard) {
+            throw new IllegalArgumentException("Event cards cannot be picked by players");
         }
 
-        gameBoard.placeTotem(player.getTotem(), boardSpace);
+        // verifica che la carta sia disponibile nella riga richiesta
+        List<TribeCard> available = fromTopRow
+                ? gameBoard.getAvailableUpperTribeCards()
+                : gameBoard.getAvailableBottomTribeCards();
+
+        if (!available.contains(card)) {
+            throw new IllegalArgumentException("Card not available in the specified row");
+        }
+
+        gameBoard.removeCard(card);
+        player.addCharacterCard((CharacterCard) card);
     }
 
-    public void CardSelectionPhase() {
-        // TODO: implementare la fase di pescaggio delle carte
+    public void pickBuildingCard(Player player, BuildingCard card, boolean fromTopRow) {
+        Objects.requireNonNull(player, "player cannot be null");
+        Objects.requireNonNull(card, "card cannot be null");
+
+        int actualCost = Math.max(0, card.getFoodCost() - player.getTotalFoodDiscount());
+
+        if (player.getFood() < actualCost) {
+            throw new IllegalStateException("Not enough food to pick building card");
+        }
+
+        // verifica che la carta sia disponibile nella riga richiesta
+        List<BuildingCard> available = fromTopRow
+                ? gameBoard.getAvailableUpperBuildingCards()
+                : gameBoard.getAvailableBottomBuildingCards();
+
+        if (!available.contains(card)) {
+            throw new IllegalArgumentException("Building card not available in the specified row");
+        }
+
+        player.removeFood(actualCost);
+        gameBoard.removeCard(card);
+        player.addBuildingCard(card);
+
+        // effetto immediato ON_ACQUIRE
+        card.applyEffect(this, player, null);
+    }
+
+    public void returnTotemToTurnOrder(Player player) {
+        Objects.requireNonNull(player, "player cannot be null");
+
+        turnOrder.placeTotemFirstFree(player);
+
+        // se tutti sono tornati sulla tessera ordine, avanza agli eventi
+        boolean allReturned = players.stream()
+                .allMatch(p -> p.getTotem().getPosition() == null);
+        if (allReturned) {
+            gameState = GameState.EVENTS;
+        }
     }
 
     public void resolveLowerEvents() {
@@ -139,7 +234,7 @@ public class Game implements GameActions {
     }
 
     public void updateAge() {
-        // TODO: aggiornare l'era quando il gioco raggiunhge quella successiva
+        //TODO
     }
 
     public void TotemPositionEndRound() {
@@ -147,11 +242,70 @@ public class Game implements GameActions {
     }
 
     public void nextTurn() {
-        //TODO
+        // refresh tabellone
+        gameBoard.shiftRows();
+        gameBoard.clearBoardSpaces();
+        turnOrder.clearAll();
+
+        // controlla cambio era
+        updateAge();
+
+        // ripesca (numPlayers + 4) carte per la nuova fila superiore
+        List<TribeCard> newTopRow = mainDeck.draw(numberOfPlayers + 4);
+        gameBoard.setTopTribeCards(newTopRow);
+
+        // aggiorna stato e ordine turno per il prossimo round
+        gameState = GameState.OFFER_SPACE_CHOOSE;
+        playerInTurn = turnOrder.getOrder().get(0);
     }
 
     public void endGame() {
         gameState = GameState.END;
+
+        // nell'ultimo round si risolvono anche gli eventi in fila superiore
+        List<EventCard> finalEvents = new ArrayList<>(gameBoard.getLowRowEvents());
+        for (TribeCard card : gameBoard.getTopRowTribe()) {
+            if (card instanceof EventCard) {
+                finalEvents.add((EventCard) card);
+            }
+        }
+
+        // Sostentamento sempre per ultimo
+        finalEvents.sort(Comparator.comparingInt(e ->
+                e.getType() == EventType.SUSTENANCE ? 1 : 0));
+
+        for (EventCard event : finalEvents) {
+            event.resolve(players);
+        }
+
+        // punteggi finali
+        for (Player p : players) {
+            p.getTotalPoints();
+        }
+    }
+
+    public List<Player> getWinners() {
+        int maxScore = players.stream()
+                .mapToInt(Player::getPrestige)
+                .max()
+                .orElse(0);
+
+        List<Player> winners = players.stream()
+                .filter(p -> p.getPrestige() == maxScore)
+                .toList();
+
+        // tiebreaker: più cibo
+        if (winners.size() > 1) {
+            int maxFood = winners.stream()
+                    .mapToInt(Player::getFood)
+                    .max()
+                    .orElse(0);
+            winners = winners.stream()
+                    .filter(p -> p.getFood() == maxFood)
+                    .toList();
+        }
+
+        return winners;
     }
 }
 

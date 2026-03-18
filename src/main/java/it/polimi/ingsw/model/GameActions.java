@@ -12,27 +12,33 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public interface GameActions {
+
+    // --- LOBBY ---
     void addPlayer(Player player);
     void startGame();
+
+    // --- SETUP ---
     void setUpFirstRound();
-    void TotemPositionStartRound(Player player, BoardSpace boardSpace);
-    void CardSelectionPhase();
+
+    // --- FASE 1: piazzamento totem (era TotemPositionStartRound) ---
+    // rinominato per chiarezza, aggiunto boardSpace come parametro esplicito
+    void placeTotemOnOfferSpace(Player player, BoardSpace boardSpace);
+
+    // --- FASE 2: selezione carte (era CardSelectionPhase — troppo vago) ---
+    // il controller invoca questi quando il giocatore sceglie
+    void pickTribeCard(Player player, TribeCard card, boolean fromTopRow);
+    void pickBuildingCard(Player player, BuildingCard card, boolean fromTopRow);
+
+    // --- FINE TURNO GIOCATORE: ritorno totem (era TotemPositionEndRound) ---
+    // aggiunto position perché ha effetti immediati (cibo/penalità)
+    void returnTotemToTurnOrder(Player player);
+
+    // --- FINE ROUND ---
     void resolveLowerEvents();
     void updateAge();
-    void TotemPositionEndRound();
     void nextTurn();
-    void endGame();
 
-    /*
-    Player getPlayerInTurn();
-    List<Player> getPlayers();
-    GameState getStatus();
-    Age getCurrentAge();
-    Board getBoard();
-    List<BoardSpace> getFreeBoardSpaces();
-    List<TribeCard> getAvailableTribeCards();
-    List<BuildingCard> getAvailableBuildingCards();
-    List<EventCard> getLowRowEvents();
-    */
+    // --- FINE PARTITA ---
+    void endGame();
 }
 

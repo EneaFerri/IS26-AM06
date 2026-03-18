@@ -56,6 +56,10 @@ public class Board {
         totem.place(space);
     }
 
+    public void setTopTribeCards(List<TribeCard> cards) {
+        this.topTribeCards = cards;
+    }
+
     public BoardSpace getBoardSpace(char letter){
         for (BoardSpace space : offerField) {
             if (space.getLetter() == letter) {
@@ -107,7 +111,7 @@ public class Board {
     public List<BuildingCard> getAvailableBottomBuildingCards(){
         List<BuildingCard> availableBuildBo = new ArrayList<>();
         for (BuildingCard card : bottomBuildingCards ) {
-            if (card.isDrawed()) {
+            if (!card.isDrawed()) {
                 availableBuildBo.add(card);
             }
         }
@@ -126,7 +130,7 @@ public class Board {
         }
     }
 
-    public List<EventCard> getLowRowEvents() {
+    public List<EventCard> getLowRowEvents() { // l'ho messo anche nell'interfaccia di game...ovviamente
         //TODO
         List<EventCard> lowRowEvents = new ArrayList<>();
 

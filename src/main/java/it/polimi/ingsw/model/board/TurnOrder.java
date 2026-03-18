@@ -39,6 +39,36 @@ public class TurnOrder {
     public void updateOrderFromBoard(List<BoardSpace> spaces, List<Player> players) {
     }
 
+    //L'ho aggiunto ragas perchè non c'era un metodo che ci portasse (alla fine del turno)
+    // i totem sulla carta delle offerte nell'ordine corretto
+    public void placeTotemFirstFree(Player player) {
+        for (OrderBlock block : orderBlocks) {
+            if (block.isFree()) {
+                block.setTotem(player.getTotem());
+                player.getTotem().remove(); // totem non è più sull'offerta
+
+                int bonus = block.getNuggetsBonusOrMalus();
+                if (bonus > 0) player.addFood(bonus);
+                int malus = block.getPrestigeMalus();
+                if (malus != 0) {
+                    if (player.getFood() > 0) player.removeFood(1);
+                    else player.addPrestige(malus);
+                }
+                return;
+            }
+        }
+        throw new IllegalStateException("No free blocks on TurnOrder tile");
+    }
+
+    public void clearAll() {
+        for (OrderBlock block : orderBlocks) {
+            if (!block.isFree()) {
+                block.getTotemOn().remove();
+                block.removeTotem();
+            }
+        }
+    }
+
     // resets order using the left‑to‑right order of the board
     public void resetToLeft(List<Player> playersFromBoardLeftToRight) {
     }
