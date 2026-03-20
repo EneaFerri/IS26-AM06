@@ -1,5 +1,6 @@
 package it.polimi.ingsw.model.cards.Events;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
@@ -23,10 +24,15 @@ public class Sustenance extends EventCard {
     @Override
     public void resolve(List<Player> players) {
         for (Player player : players) {
+            for(BuildingCard bCard : player.getBuildingCards()){
+                bCard.applyEventEffect(EventType.SUSTENANCE, player);
+            }
             // mi calcolo il numero tot di carte per comodità
             int totalCharacters = player.getCharacterCards().size();
 
             int totalCost = Math.max(0, (FOOD_PRICE * totalCharacters) - player.getTotalFoodDiscount());
+
+            player.foodDiscountFromBuildings = 0; //riazzeramento per futuri eventi
 
             if (player.getFood() >= totalCost) {
                 player.removeFood(totalCost); //il giocatore è ricco di SCIBO, tipo il coppe

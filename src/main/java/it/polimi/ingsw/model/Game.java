@@ -203,7 +203,7 @@ public class Game implements GameActions {
         player.addBuildingCard(card);
 
         // effetto immediato ON_ACQUIRE
-        card.applyEffect(this, player, null);
+        card.applyEachTurnEffect();
     }
 
     public void returnTotemToTurnOrder(Player player) {
@@ -225,11 +225,6 @@ public class Game implements GameActions {
 
         for (EventCard event : events) {
             event.resolve(players);
-            for (Player player : players) {
-                for (BuildingCard building : player.getBuildingCards()) {
-                    building.applyEffect(this, player, event);
-                }
-            }
         }
     }
 

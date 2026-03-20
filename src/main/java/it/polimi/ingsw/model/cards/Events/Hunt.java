@@ -1,5 +1,6 @@
 package it.polimi.ingsw.model.cards.Events;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
@@ -30,6 +31,10 @@ public class Hunt extends EventCard {
     public void resolve(List<Player> players) {
         for (Player player : players) {
             int hunters = 0;
+
+            for(BuildingCard bCard : player.getBuildingCards()){
+                bCard.applyEventEffect(EventType.HUNT, player);
+            }
 
             for (CharacterCard card : player.getCharacterCards()) {
                 if (card.getCharacterType() == CharacterType.HUNTER) {

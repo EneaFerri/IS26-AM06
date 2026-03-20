@@ -26,7 +26,7 @@ public class Ritual extends EventCard {
     }
 
     @Override
-    public void resolve(List<Player> players) {
+    public void resolve(List<Player> players) { //TODO: da implementare la applyEventEffect una volta fatta su ritual nelle buildingCard
         int maxStars = -1;
         int minStars = Integer.MAX_VALUE;
 
@@ -44,6 +44,7 @@ public class Ritual extends EventCard {
             if (player.getStarsFromShamans() == maxStars) player.addPrestige(maxBonus);
         }
         for (Player player : players) {
+
             if (player.getStarsFromShamans() == minStars) player.removePrestige(maxMalus);
         }
     }

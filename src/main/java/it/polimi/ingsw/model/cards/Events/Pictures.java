@@ -1,5 +1,6 @@
 package it.polimi.ingsw.model.cards.Events;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
@@ -34,6 +35,11 @@ public class Pictures extends EventCard {
     @Override
     public void resolve(List<Player> players) {
         for (Player player : players) {
+
+            for(BuildingCard bCard : player.getBuildingCards()){
+                bCard.applyEventEffect(EventType.PICTURES, player);
+            }
+
             if (player.getNumArtists() >= minimumArtists) {
                 player.addPrestige(prestigeBonus * player.getNumArtists()); // PP per ogni artista
             } else {

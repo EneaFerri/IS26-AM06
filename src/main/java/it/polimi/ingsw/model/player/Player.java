@@ -4,6 +4,7 @@ import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.Characters.Shaman;
 import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.enums.EventType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,6 +21,8 @@ public class Player {
 
     private List<CharacterCard> myCharacterCards;
     private List<BuildingCard> myBuildingCards;
+
+    public int foodDiscountFromBuildings=0; //variabile comoda per tenere sconti di cibo dalle building
 
     public Player(String nickname, Totem myTotem) {
         this.nickname = nickname;
@@ -90,32 +93,41 @@ public class Player {
     }
 
     // L'ho aggiunto per calcolare los conto totale di cibo durante il gioco in base al numero di raccoglitori che si hanno
-    public int getTotalFoodDiscount() {
-        int collectors = 0;
+    public int getCollectorsFoodDiscount() {
+        int numcollectors = 0;
         for (CharacterCard card : myCharacterCards) {
             if (card.getCharacterType() == CharacterType.COLLECTOR) {
-                collectors++;
+                numcollectors++;
             }
         }
-        return collectors * 3;
+
+        return numcollectors*3;
     }
 
-    // l'ho messa per calcolare il punteggio totale però la rivediamo domani, penso possa essere utile
-    // (però bisogna aggiungere anche gli altri casi)
-    public int getTotalPoints() {
-        int total = prestige;
+    //funzione d'appoggio per maggiore chiarimento di come calcolare sconto totale
+    public int getTotalFoodDiscount() {
+        int fromCollectors = getCollectorsFoodDiscount();
+        int fromBuildings = foodDiscountFromBuildings;
 
-        for (BuildingCard card : myBuildingCards) {
-            total += card.getPrestigePoint();
-        }
-
-        return total;
+        return fromCollectors+fromBuildings;
     }
+
+
 
     public int getNumArtists() {
         int counter = 0;
         for (CharacterCard card : myCharacterCards) {
             if (card.getCharacterType() == CharacterType.ARTIST) {
+                counter++;
+            }
+        }
+        return counter;
+    }
+
+    public int getNumHunters() {
+        int counter = 0;
+        for (CharacterCard card : myCharacterCards) {
+            if (card.getCharacterType() == CharacterType.HUNTER) {
                 counter++;
             }
         }
@@ -131,4 +143,33 @@ public class Player {
         }
         return counter;
     }
+
+    //punti totali pre effetti finali delle buildings
+    public int getTotalPointsPre() {
+        int total = prestige;
+
+        for (CharacterCard card : myCharacterCards) {
+            //TODO: calcolo punti in base ai personaggi (n invenzioni per inventori, coppie di artisti=+10, costruttori)
+        }
+
+        for (BuildingCard card : myBuildingCards) {
+            total += card.getPrestigePoint();
+        }
+        return total;
+    }
+
+    public int pointsFromEndEffect=0;
+    public int getPointsFromEndEffect() {
+
+        for (BuildingCard bCard : myBuildingCards) {
+            bCard.applyEndEffect(this);
+        }
+        return pointsFromEndEffect;
+    }
+
+    public int getTotalPoints() {
+        return getTotalPointsPre() +  getPointsFromEndEffect();
+    }
+
+
 }
