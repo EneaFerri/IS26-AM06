@@ -81,7 +81,7 @@ public class Board {
     public List<TribeCard> getAvailableUpperTribeCards(){
         List<TribeCard> availableTribeUp = new ArrayList<>();
         for (TribeCard card : topTribeCards) {
-            if (card.isDrawed()) {
+            if (!card.isDrawed()) {
                 availableTribeUp.add(card);
             }
         }
@@ -91,7 +91,7 @@ public class Board {
     public List<TribeCard> getAvailableBottomTribeCards(){
         List<TribeCard> availableTribeBo = new ArrayList<>();
         for (TribeCard card : bottomTribeCards) {
-            if (card.isDrawed()) {
+            if (!card.isDrawed()) {
                 availableTribeBo.add(card);
             }
         }
@@ -101,7 +101,7 @@ public class Board {
     public List<BuildingCard> getAvailableUpperBuildingCards() {
         List<BuildingCard> availableBuildUp = new ArrayList<>();
         for (BuildingCard card : topBuildingCards ) {
-            if (card.isDrawed()) {
+            if (!card.isDrawed()) {
                 availableBuildUp.add(card);
             }
         }
