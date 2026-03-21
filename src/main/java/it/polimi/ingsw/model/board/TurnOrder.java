@@ -32,9 +32,6 @@ public class TurnOrder {
         return playersOrder;
     }
 
-    public void saveStartRoundOrder(List<Player> players) {
-    }
-
     // updates order according to totem positions on the board
     public void updateOrderFromBoard(List<BoardSpace> spaces, List<Player> players) {
     }
@@ -67,10 +64,6 @@ public class TurnOrder {
                 block.removeTotem();
             }
         }
-    }
-
-    // resets order using the left‑to‑right order of the board
-    public void resetToLeft(List<Player> playersFromBoardLeftToRight) {
     }
 
 }

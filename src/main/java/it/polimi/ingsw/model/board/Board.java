@@ -2,6 +2,7 @@ package it.polimi.ingsw.model.board;
 
 import it.polimi.ingsw.model.GameActions;
 import it.polimi.ingsw.model.cards.*;
+import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
 import java.util.ArrayList;
@@ -76,6 +77,21 @@ public class Board {
             }
         }
         return freeSpaces;
+    }
+
+    public List<Player> getPlayerInOfferOrder(List <Player> players){
+        List<Player> ordered = new ArrayList<>();
+        for (BoardSpace space : offerField) {
+            if (!space.isFree()) {
+                for (Player player : players) {
+                    if (player.getTotem().equals(space.getTotem())) {
+                        ordered.add(player);
+                        break;
+                    }
+                }
+            }
+        }
+        return ordered;
     }
 
     public List<TribeCard> getAvailableUpperTribeCards(){

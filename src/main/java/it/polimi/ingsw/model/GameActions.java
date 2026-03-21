@@ -12,7 +12,6 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public interface GameActions {
-
     // --- LOBBY ---
     void addPlayer(Player player);
     void startGame();

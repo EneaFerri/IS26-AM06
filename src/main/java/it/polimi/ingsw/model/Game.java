@@ -18,6 +18,8 @@ public class Game implements GameActions {
     private final List<Player> players;
     private Player playerInTurn;
     private final TurnOrder turnOrder;
+    private List<Player> currentRoundOrder;
+
     private int numberOfPlayers;
 
     private GameState gameState;
@@ -127,24 +129,20 @@ public class Game implements GameActions {
                 .allMatch(p -> p.getTotem().getPosition() != null);
         if (allPlaced) {
             gameState = GameState.RESOLVING;
-            // il primo a risolvere è quello più a sinistra (lettera minore)
-            playerInTurn = gameBoard.getFreeBoardSpaces().isEmpty()
-                    ? turnOrder.getOrder().get(0)
-                    : findLeftmostPlayer();
+            currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
+            playerInTurn = currentRoundOrder.get(0);
         }
     }
 
-    private Player findLeftmostPlayer() {
-        // gli spazi sono ordinati per lettera nel tracciato offerte
-        for (BoardSpace space : gameBoard.getOfferField()) {
-            if (!space.isFree()) {
-                Totem t = space.getTotem();
-                for (Player p : players) {
-                    if (p.getTotem() == t) return p;
-                }
-            }
+    public void advanceNextPlayer() {
+        int currentPlayerIndex = currentRoundOrder.indexOf(playerInTurn);
+        if (currentPlayerIndex < currentRoundOrder.size() - 1) {
+            playerInTurn = currentRoundOrder.get(currentPlayerIndex + 1);
+        } else {
+            playerInTurn = null;
+            gameState = GameState.EVENTS;
         }
-        return players.get(0);
+
     }
 
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
@@ -158,6 +156,7 @@ public class Game implements GameActions {
         gameState = GameState.START;
     }
 
+    //TODO: gestire numero di carte pescabili dal giocatore in base al boardspace
     public void pickTribeCard(Player player, TribeCard card, boolean fromTopRow) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -210,13 +209,13 @@ public class Game implements GameActions {
         Objects.requireNonNull(player, "player cannot be null");
 
         turnOrder.placeTotemFirstFree(player);
-
+        /*
         // se tutti sono tornati sulla tessera ordine, avanza agli eventi
         boolean allReturned = players.stream()
                 .allMatch(p -> p.getTotem().getPosition() == null);
         if (allReturned) {
             gameState = GameState.EVENTS;
-        }
+        } */
     }
 
     public void resolveLowerEvents() {
@@ -230,10 +229,6 @@ public class Game implements GameActions {
 
     public void updateAge() {
         //TODO
-    }
-
-    public void TotemPositionEndRound() {
-        // TODO: salvare pos finale totem
     }
 
     public void nextTurn() {
