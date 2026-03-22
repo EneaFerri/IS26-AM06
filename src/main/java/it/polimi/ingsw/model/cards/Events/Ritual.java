@@ -32,6 +32,9 @@ public class Ritual extends EventCard {
 
         for (Player player : players) {
             int stars = player.getStarsFromShamans();
+
+            if(player.extraThreeStars) stars = stars + 3;
+
             if (stars > maxStars) {
                 maxStars = stars;
             }
@@ -41,11 +44,20 @@ public class Ritual extends EventCard {
         }
 
         for (Player player : players) {
-            if (player.getStarsFromShamans() == maxStars) player.addPrestige(maxBonus);
+            if (player.getStarsFromShamans() == maxStars) {
+                if(!player.doublePointForRituals){
+                    player.addPrestige(maxBonus);
+                }else{
+                    player.addPrestige(maxMalus*2);
+                }
+            }
         }
         for (Player player : players) {
-
-            if (player.getStarsFromShamans() == minStars) player.removePrestige(maxMalus);
+            if (player.getStarsFromShamans() == minStars) {
+                if(!player.noMalusForRituals){
+                    player.removePrestige(maxMalus);
+                } //altrimenti: cioè player ha la building con effetto nomalus da ritual, player non perde punti
+            }
         }
     }
 }

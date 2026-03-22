@@ -5,6 +5,8 @@ import it.polimi.ingsw.model.enums.CharacterType;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.cards.CharacterCard;
 
+
+
 public class BuildingEnd extends BuildingCard {
     private final CharacterType characterToConsider;
     private final int prestigeEndEffect;
@@ -27,6 +29,14 @@ public class BuildingEnd extends BuildingCard {
     // Raga occhio: questo metodo va chiamato SOLO alla fine della partita (GamePhase.END o simile)
     // altrimenti il giocatore si farma punti gratis a ogni turno
     public void applyEndEffect(Player player) {
+
+        //caso speciale building da 25 punti
+        if(characterToConsider == CharacterType.NONE){
+            player.pointsFromEndEffect += prestigeEndEffect; //cioè +25
+            return;
+        }
+
+
         int count = 0;
 
         // Conto quanti personaggi di quel tipo ha la tribù
@@ -38,7 +48,9 @@ public class BuildingEnd extends BuildingCard {
 
         int prestigeToAdd = count * this.prestigeEndEffect;
 
-        // TODO: se implementiamo un metodo addEndGamePoints nel Player è più pulito per l'information hiding
         player.pointsFromEndEffect += prestigeToAdd;
+
+
+        //TODO: manca gestione edificio "6 punti per set a fine partita", FORSE MEGLIO GESTIRE DIRETTAMENTE IN PLAYER???
     }
 }

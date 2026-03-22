@@ -1,0 +1,13 @@
+package it.polimi.ingsw.model.enums;
+
+public enum BuildingEachTurnType {
+    RITUAL_THREEEXTRASTARS,
+    RITUAL_NOMALUS,
+    RITUAL_DOUBLEPOINTS,
+    BUILDER_DOUBLEPOINTS,
+    EXTRAFOOD_SET,
+    EXTRAFOOD_INVENTORS,
+    EXTRAFOOD_TURNORDER,
+    EXTRACARD
+
+}

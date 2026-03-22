@@ -6,5 +6,6 @@ public enum CharacterType {
     INVENTOR,
     SHAMAN,
     COLLECTOR,
-    ARTIST
+    ARTIST,
+    NONE //caso speciale
 }
