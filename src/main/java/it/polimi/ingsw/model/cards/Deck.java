@@ -1,11 +1,8 @@
 package it.polimi.ingsw.model.cards;
 
-import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
 
 import java.util.*;
-
-
-import static java.util.Collection.*;
 
 public class Deck
 {

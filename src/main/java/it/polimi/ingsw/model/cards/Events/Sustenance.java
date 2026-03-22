@@ -1,6 +1,7 @@
 package it.polimi.ingsw.model.cards.Events;
 
-import it.polimi.ingsw.model.cards.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEvent;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
@@ -24,9 +25,15 @@ public class Sustenance extends EventCard {
     @Override
     public void resolve(List<Player> players) {
         for (Player player : players) {
+
+            // Attiviamo gli edifici (se ne hanno) che reagiscono a SUSTENANCE
             for(BuildingCard bCard : player.getBuildingCards()){
-                bCard.applyEventEffect(EventType.SUSTENANCE, player);
+                if (bCard instanceof BuildingEvent) {
+                    BuildingEvent bEvent = (BuildingEvent) bCard;
+                    bEvent.applyEventEffect(EventType.SUSTENANCE, player);
+                }
             }
+
             // mi calcolo il numero tot di carte per comodità
             int totalCharacters = player.getCharacterCards().size();
 
@@ -44,8 +51,8 @@ public class Sustenance extends EventCard {
                     player.removeFood(availableFood);
                 }
 
-                player.removePrestige(missingFood * prestigeMalus); /*quando finisci il cibo paghi tanti punti quanti
-                                                                    indicati sulla carta + il numero di cibi mancanti*/
+                player.removePrestige(missingFood * prestigeMalus);
+                //se finto il cibo paghi i punti sulla carta + il numero di cibi mancanti
             }
         }
     }

@@ -4,11 +4,12 @@ import it.polimi.ingsw.model.board.Board;
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.board.TurnOrder;
 import it.polimi.ingsw.model.cards.*;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEachTurn;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
-import it.polimi.ingsw.model.player.Totem;
 
 import java.util.*;
 
@@ -201,8 +202,11 @@ public class Game implements GameActions {
         gameBoard.removeCard(card);
         player.addBuildingCard(card);
 
-        // effetto immediato ON_ACQUIRE
-        card.applyEachTurnEffect();
+        // effetto immediato ON ACQUIRE solo se l'edificio appena comprato è effettivamente un edificio di tipo "Ogni Turno" (REFACTORING?)
+        if (card instanceof BuildingEachTurn) {
+            BuildingEachTurn bTurn = (BuildingEachTurn) card;
+            bTurn.applyEachTurnEffect(player);
+        }
     }
 
     public void returnTotemToTurnOrder(Player player) {

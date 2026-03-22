@@ -1,15 +1,9 @@
 package it.polimi.ingsw.model;
 
-import it.polimi.ingsw.model.board.Board;
 import it.polimi.ingsw.model.board.BoardSpace;
-import it.polimi.ingsw.model.cards.BuildingCard;
-import it.polimi.ingsw.model.cards.EventCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
 import it.polimi.ingsw.model.cards.TribeCard;
-import it.polimi.ingsw.model.enums.Age;
-import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
-
-import java.util.List;
 
 public interface GameActions {
     // --- LOBBY ---

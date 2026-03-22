@@ -1,6 +1,7 @@
 package it.polimi.ingsw.model.cards.Events;
 
-import it.polimi.ingsw.model.cards.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEvent;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
@@ -32,8 +33,12 @@ public class Hunt extends EventCard {
         for (Player player : players) {
             int hunters = 0;
 
+            // attivazione gli edifici, se ne hanno, che reagiscono a HUNT
             for(BuildingCard bCard : player.getBuildingCards()){
-                bCard.applyEventEffect(EventType.HUNT, player);
+                if (bCard instanceof BuildingEvent) {
+                    BuildingEvent bEvent = (BuildingEvent) bCard;
+                    bEvent.applyEventEffect(EventType.HUNT, player);
+                }
             }
 
             for (CharacterCard card : player.getCharacterCards()) {

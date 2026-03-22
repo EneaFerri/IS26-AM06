@@ -1,10 +1,10 @@
 package it.polimi.ingsw.model.player;
 
-import it.polimi.ingsw.model.cards.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEnd;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.Characters.Shaman;
 import it.polimi.ingsw.model.enums.CharacterType;
-import it.polimi.ingsw.model.enums.EventType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -158,11 +158,20 @@ public class Player {
         return total;
     }
 
-    public int pointsFromEndEffect=0;
+    public int pointsFromEndEffect = 0;
+
     public int getPointsFromEndEffect() {
+        // azzera il contatore all'inizio, xche se chiami questo metodo due volte
+        // per sbaglio, il giocatore fa il doppio dei punti
+        this.pointsFromEndEffect = 0;
 
         for (BuildingCard bCard : myBuildingCards) {
-            bCard.applyEndEffect(this);
+            // verifica edificio d fine partita
+            if (bCard instanceof BuildingEnd) {
+                //downcast se è di fine partita
+                BuildingEnd bEnd = (BuildingEnd) bCard;
+                bEnd.applyEndEffect(this);
+            }
         }
         return pointsFromEndEffect;
     }
