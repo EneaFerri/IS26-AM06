@@ -1,7 +1,5 @@
 package it.polimi.ingsw.model.cards;
 
-import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
-
 import java.util.*;
 
 public class Deck
@@ -21,6 +19,7 @@ public class Deck
         tribeCards.add(c);
     }
 
+    //TODO: SERVE? 0 USAGE
     public Card draw(){
         if(tribeCards.isEmpty())
             return null;
@@ -35,9 +34,9 @@ public class Deck
         return drawn;
     }
 
+    //TODO: SERVE? 0 USAGE
     public void randomize (){
         Collections.shuffle(tribeCards);
-
     }
 
     public boolean isEmpty(){

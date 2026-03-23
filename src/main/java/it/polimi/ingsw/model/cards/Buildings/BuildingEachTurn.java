@@ -1,8 +1,8 @@
 package it.polimi.ingsw.model.cards.Buildings;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.BuildingEachTurnType;
-import it.polimi.ingsw.model.player.Player;
 
 public class BuildingEachTurn extends BuildingCard {
 
@@ -18,13 +18,6 @@ public class BuildingEachTurn extends BuildingCard {
 
     //NO, in reatà si tratta di quelle bulding che dal momento della pescata, "attivano" degli effetti da controlare sempre
     //eachtTurn è simbolico e indica che valgono tutti i turni fino alla fine. poi in base al tipo di effetto si attiverà in un determianto momento
-    public void applyEachTurnEffect(Player player) {
-
-        // Qui andrà la logica tipo: player.addFood(1) se l'edificio produce cibo
-
-        //HO PENSATO CHE INVECE DI USARE QUESTO METODO, PER QUESTI TIPI DI BUILDING CONVIENE USARE ATTRIBUTI E METODI DIRETTAMENTE IN PLAYER
-        //USANDO GETTYPE() e agendo di conseguenza al caso specifico (nell'apposito spazio)
-    }
 
     public  BuildingEachTurnType getBType() {
         return bType;

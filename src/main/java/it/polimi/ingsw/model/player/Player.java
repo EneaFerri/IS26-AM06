@@ -1,6 +1,6 @@
 package it.polimi.ingsw.model.player;
 
-import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Buildings.BuildingEachTurn;
 import it.polimi.ingsw.model.cards.Buildings.BuildingEnd;
 import it.polimi.ingsw.model.cards.CharacterCard;
@@ -42,7 +42,6 @@ public class Player {
     private int setNumberForExtraFood = 0;
 
     private boolean inventorsToCheck = false;
-    private int numOfSameInventors = 0;
 
     private int foodDiscountFromBuildings; //variabile comoda per tenere sconti di cibo dalle building: si ma usiamo
                                            // private e metodo
@@ -217,8 +216,8 @@ public class Player {
         return foodDiscountFromBuildings;
     }
 
-    public void addBuildingFoodDiscount(int discount) {
-        foodDiscountFromBuildings += discount;
+    public void addBuildingFoodDiscount(int morediscount) {
+        foodDiscountFromBuildings += morediscount;
     }
 
     public void resetBuildingFoodDiscount() {
@@ -285,7 +284,7 @@ public class Player {
 
 
     //punti totali pre effetti finali delle buildings
-    public int getTotalPointsPre() {
+    public int getTotalPointsPreEffect() {
         int currPre = prestige;
 
         //TODO: calcolo punti in base ai personaggi (n invenzioni per inventori, coppie di artisti=+10, costruttori)
@@ -339,7 +338,7 @@ public class Player {
     }
 
     public int getTotalPoints() {
-        return getTotalPointsPre() +  getPointsFromEndEffect();
+        return getTotalPointsPreEffect() +  getPointsFromEndEffect();
     }
 
 

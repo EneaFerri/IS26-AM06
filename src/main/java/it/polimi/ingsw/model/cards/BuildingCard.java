@@ -1,6 +1,5 @@
-package it.polimi.ingsw.model.cards.Buildings;
+package it.polimi.ingsw.model.cards;
 
-import it.polimi.ingsw.model.cards.Card;
 import it.polimi.ingsw.model.enums.Age;
 // import it.polimi.ingsw.model.enums.*; non più necessaria
 

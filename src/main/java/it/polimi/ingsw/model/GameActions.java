@@ -1,7 +1,7 @@
 package it.polimi.ingsw.model;
 
 import it.polimi.ingsw.model.board.BoardSpace;
-import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Card;
 import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.player.Player;

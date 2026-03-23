@@ -1,7 +1,7 @@
 package it.polimi.ingsw.model.board;
 
 import it.polimi.ingsw.model.cards.*;
-import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
