@@ -5,6 +5,7 @@ import it.polimi.ingsw.model.cards.Buildings.BuildingEachTurn;
 import it.polimi.ingsw.model.cards.Buildings.BuildingEnd;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.Characters.Builder;
+import it.polimi.ingsw.model.cards.Characters.Hunter;
 import it.polimi.ingsw.model.cards.Characters.Inventor;
 import it.polimi.ingsw.model.cards.Characters.Shaman;
 import it.polimi.ingsw.model.enums.BuildingEachTurnType;
@@ -43,7 +44,8 @@ public class Player {
     private boolean inventorsToCheck = false;
     private int numOfSameInventors = 0;
 
-    public int foodDiscountFromBuildings = 0; //variabile comoda per tenere sconti di cibo dalle building
+    private int foodDiscountFromBuildings; //variabile comoda per tenere sconti di cibo dalle building: si ma usiamo
+                                           // private e metodo
 
     public Player(String nickname, Totem myTotem) {
         this.nickname = nickname;
@@ -53,6 +55,7 @@ public class Player {
         this.inTurn = false;
         this.myCharacterCards = new ArrayList<>();
         this.myBuildingCards = new ArrayList<>();
+        this.myInventions = new ArrayList<>();
     }
 
     public String getNickname() {
@@ -98,6 +101,14 @@ public class Player {
     public void addCharacterCard(CharacterCard card) {
         myCharacterCards.add(card);
         card.markAsDrawed();
+
+        if (card instanceof Hunter) { //Ho aggiunto questo perchè teoricamente non veniva gestito il caso di un hunter con l'icona
+            Hunter newHunter = (Hunter) card;
+            if (newHunter.getNuggets() > 0) { // ha l'icona
+                int totalHunters = getNumHunters();
+                this.addFood(totalHunters); // 1 cibo per ogni cacciatore incluso il nuovo
+            }
+        }
 
         //gestione aggiunta invenzioni per inventori
         if(card instanceof Inventor) {
@@ -148,7 +159,7 @@ public class Player {
         //in poche parole controllo se è gia presente un inventore con la stessa invenzione di quello nuobo in myCharacterCards
         //se si, allora ho un doppione  e aggiungo +3 di cibo
          for(CharacterCard card : myCharacterCards) {
-             if(card instanceof Inventor) {
+             if(card instanceof Inventor && card != newInventor) { //ho aggiunto l'&& perchè altrimenti si trovava sempre una corrispondenza
                  Inventor myInventor = (Inventor) card;
                  if(myInventor.getInvention().equals(newInventor.getInvention())) {
                      this.addFood(3);
@@ -182,8 +193,6 @@ public class Player {
         }
     }
 
-
-
     public List<CharacterCard> getCharacterCards() {
         return Collections.unmodifiableList(myCharacterCards);
     }
@@ -204,14 +213,25 @@ public class Player {
         return numcollectors*3;
     }
 
+    public int getBuildingFoodDiscount() {
+        return foodDiscountFromBuildings;
+    }
+
+    public void addBuildingFoodDiscount(int discount) {
+        foodDiscountFromBuildings += discount;
+    }
+
+    public void resetBuildingFoodDiscount() {
+        this.foodDiscountFromBuildings = 0;
+    }
+
     //funzione d'appoggio per maggiore chiarimento di come calcolare sconto totale
     public int getTotalFoodDiscount() {
         int fromCollectors = getCollectorsFoodDiscount();
-        int fromBuildings = foodDiscountFromBuildings;
+        int fromBuildings = getBuildingFoodDiscount();
 
         return fromCollectors+fromBuildings;
     }
-
 
 
     public int getNumArtists() {
@@ -286,7 +306,7 @@ public class Player {
 
         //ARTISTI
         int nArtistCouple = getNumArtists()/2;
-        sum = sum + nArtistCouple*2;
+        sum = sum + nArtistCouple*10;
 
         //INVENTORI
         int fromInventors = getNumInventors() * getNumInventions();

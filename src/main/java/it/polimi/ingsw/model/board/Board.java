@@ -134,12 +134,25 @@ public class Board {
         return availableBuildBo;
     }
 
-    public void removeCard(Card card){
-        //TODO
+    public void removeCard(Card card) {
+        if (topTribeCards.remove(card)) return;
+        if (bottomTribeCards.remove(card)) return;
+        if (topBuildingCards.remove(card)) return;
+        bottomBuildingCards.remove(card);
     }
-    public void shiftRows(){
-        //TODO
+
+    public void shiftRows() {
+        // scarta tutti i TribeCard dalla fila inferiore (le BuildingCard rimangono)
+        bottomTribeCards.clear();
+
+        // sposta TribeCard dalla fila superiore alla fila inferiore
+        bottomTribeCards.addAll(topTribeCards);
+        topTribeCards.clear();
+
+        // le BuildingCard in fila superiore rimangono in fila superiore
+        // le BuildingCard in fila inferiore rimangono in fila inferiore
     }
+
     public void clearBoardSpaces(){
         for (BoardSpace space : offerField) {
             space.removeTotem();

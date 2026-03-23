@@ -33,6 +33,9 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
+    private int remainingTopPicks = 0;
+    private int remainingBottomPicks = 0;
+
     public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, Deck deck1, Deck deck2, Deck deck3) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
@@ -109,7 +112,27 @@ public class Game implements GameActions {
     }
 
     public void setUpFirstRound() {
-        //TODO
+        List<Player> shuffled = new ArrayList<>(players);
+        Collections.shuffle(shuffled);
+
+        currentRoundOrder = shuffled;
+
+        for (Player player : shuffled) {
+            turnOrder.placeTotemFirstFree(player);
+        }
+
+        for (int i = 0; i < shuffled.size(); i++) {
+            int food = switch (i) {
+                case 0 -> 2;
+                case 1, 2 -> 3;
+                default -> 4;
+            };
+            shuffled.get(i).addFood(food);
+        }
+
+        gameState = GameState.OFFER_SPACE_CHOOSE;
+        playerInTurn = currentRoundOrder.get(0);
+
     }
 
     public void placeTotemOnOfferSpace(Player player, BoardSpace boardSpace) {
@@ -136,14 +159,22 @@ public class Game implements GameActions {
     }
 
     public void advanceNextPlayer() {
+        remainingTopPicks = 0;
+        remainingBottomPicks = 0;
+
         int currentPlayerIndex = currentRoundOrder.indexOf(playerInTurn);
+
+        if (playerInTurn != null) {
+            playerInTurn.setInTurn(false);
+        }
+
         if (currentPlayerIndex < currentRoundOrder.size() - 1) {
             playerInTurn = currentRoundOrder.get(currentPlayerIndex + 1);
+            playerInTurn.setInTurn(true);
         } else {
             playerInTurn = null;
             gameState = GameState.EVENTS;
         }
-
     }
 
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
@@ -154,11 +185,58 @@ public class Game implements GameActions {
         gameState = GameState.START;
         currentAge = Age.Era_I;
         setUpFirstRound();
-        gameState = GameState.START;
     }
 
-    //TODO: gestire numero di carte pescabili dal giocatore in base al boardspace
-    public void pickTribeCard(Player player, TribeCard card, boolean fromTopRow) {
+    //HO PROVATO A FARLA MA LASCIO UN PICCLO TODO PERCHÉ NON É SEMPLICISSIMA ANCHE SE PENSO DI ESSERCI
+    public int getRemainingTopPicks(Player player) {
+        BoardSpace space = player.getTotem().getPosition();
+        return space.getTopCardsNumber() - remainingTopPicks;
+    }
+
+    public int getRemainingBottomPicks(Player player) {
+        BoardSpace space = player.getTotem().getPosition();
+        return space.getBottomCardsNumber() - remainingBottomPicks;
+    }
+
+    public void pickCard(Player player, Card card) {
+        Objects.requireNonNull(player, "player cannot be null");
+        Objects.requireNonNull(card, "card cannot be null");
+
+        BoardSpace boardSpace = player.getTotem().getPosition();
+        // gestione spazio A (solo partite a 5 giocatori)
+        if (numberOfPlayers == 5 && boardSpace.getLetter() == 'A') {
+            player.addFood(3);
+            returnTotemToTurnOrder(player);
+            advanceNextPlayer();
+            return;
+        }
+
+        boolean fromTopRow = gameBoard.getAvailableUpperTribeCards().contains(card) ||
+                gameBoard.getAvailableUpperBuildingCards().contains(card);
+
+        if (fromTopRow && getRemainingTopPicks(player) <= 0) {
+            throw new IllegalStateException("No more top row picks allowed");
+        }
+        if (!fromTopRow && getRemainingBottomPicks(player) <= 0) {
+            throw new IllegalStateException("No more bottom row picks allowed");
+        }
+
+        if (card instanceof BuildingCard) {
+            pickBuildingCard(player, (BuildingCard) card);
+        } else if (card instanceof CharacterCard) {
+            pickTribeCard(player, (TribeCard) card);
+        }
+
+        if (fromTopRow) remainingTopPicks++;
+        else remainingBottomPicks++;
+
+        if (getRemainingTopPicks(player) == 0 && getRemainingBottomPicks(player) == 0) {
+            returnTotemToTurnOrder(player);
+            advanceNextPlayer();
+        }
+    }
+
+    public void pickTribeCard(Player player, TribeCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
@@ -166,36 +244,18 @@ public class Game implements GameActions {
             throw new IllegalArgumentException("Event cards cannot be picked by players");
         }
 
-        // verifica che la carta sia disponibile nella riga richiesta
-        List<TribeCard> available = fromTopRow
-                ? gameBoard.getAvailableUpperTribeCards()
-                : gameBoard.getAvailableBottomTribeCards();
-
-        if (!available.contains(card)) {
-            throw new IllegalArgumentException("Card not available in the specified row");
-        }
-
         gameBoard.removeCard(card);
         player.addCharacterCard((CharacterCard) card);
     }
 
-    public void pickBuildingCard(Player player, BuildingCard card, boolean fromTopRow) {
+    public void pickBuildingCard(Player player, BuildingCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
-        int actualCost = Math.max(0, card.getFoodCost() - player.getTotalFoodDiscount());
+        int actualCost = Math.max(0, card.getFoodCost() - player.getBuildingFoodDiscount());
 
         if (player.getFood() < actualCost) {
             throw new IllegalStateException("Not enough food to pick building card");
-        }
-
-        // verifica che la carta sia disponibile nella riga richiesta
-        List<BuildingCard> available = fromTopRow
-                ? gameBoard.getAvailableUpperBuildingCards()
-                : gameBoard.getAvailableBottomBuildingCards();
-
-        if (!available.contains(card)) {
-            throw new IllegalArgumentException("Building card not available in the specified row");
         }
 
         player.removeFood(actualCost);
@@ -235,11 +295,12 @@ public class Game implements GameActions {
         //TODO
     }
 
-    public void nextTurn() {
+    public void nextRound() {
+        remainingTopPicks = 0;
+        remainingBottomPicks = 0;
         // refresh tabellone
         gameBoard.shiftRows();
         gameBoard.clearBoardSpaces();
-        turnOrder.clearAll();
 
         // controlla cambio era
         updateAge();

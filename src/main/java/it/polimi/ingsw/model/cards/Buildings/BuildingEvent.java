@@ -28,8 +28,8 @@ public class BuildingEvent extends BuildingCard {
                     moreDiscount++;
                 }
             }
-            // TODO: In futuro, usate un metodo player.addFoodDiscount(moreDiscount) per l'incapsulamento!
-            player.foodDiscountFromBuildings += moreDiscount;
+            //In futuro, usate un metodo player.addFoodDiscount(moreDiscount) per l'incapsulamento! FATTO!!
+            player.addBuildingFoodDiscount(moreDiscount);
         }
 
         if (event == EventType.PICTURES) {

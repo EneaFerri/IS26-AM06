@@ -2,6 +2,7 @@ package it.polimi.ingsw.model;
 
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.Card;
 import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.player.Player;
 
@@ -19,8 +20,9 @@ public interface GameActions {
 
     // --- FASE 2: selezione carte (era CardSelectionPhase — troppo vago) ---
     // il controller invoca questi quando il giocatore sceglie
-    void pickTribeCard(Player player, TribeCard card, boolean fromTopRow);
-    void pickBuildingCard(Player player, BuildingCard card, boolean fromTopRow);
+    void pickCard(Player player, Card card);
+    void pickTribeCard(Player player, TribeCard card);
+    void pickBuildingCard(Player player, BuildingCard card);
 
     // --- FINE TURNO GIOCATORE: ritorno totem (era TotemPositionEndRound) ---
     // aggiunto position perché ha effetti immediati (cibo/penalità)
@@ -29,7 +31,7 @@ public interface GameActions {
     // --- FINE ROUND ---
     void resolveLowerEvents();
     void updateAge();
-    void nextTurn();
+    void nextRound();
 
     // --- FINE PARTITA ---
     void endGame();

@@ -39,7 +39,7 @@ public class Sustenance extends EventCard {
 
             int totalCost = Math.max(0, (FOOD_PRICE * totalCharacters) - player.getTotalFoodDiscount());
 
-            player.foodDiscountFromBuildings = 0; //riazzeramento per futuri eventi
+            player.resetBuildingFoodDiscount(); //riazzeramento per futuri eventi
 
             if (player.getFood() >= totalCost) {
                 player.removeFood(totalCost); //il giocatore è ricco di SCIBO, tipo il coppe

@@ -13,8 +13,6 @@ import it.polimi.ingsw.model.enums.CharacterType;
 import java.util.List;
 
 public class Hunt extends EventCard {
-// RAGASSUOLI QUI HO CAMBIATO NOMI PERCHÉ NOI AVEVAMO MESSO TUTTO CON IL NOME "PRICE" MA IN REALTA
-    // NON SI PAGA NIENTE DURANTE L'EVENTO DI CACCIA, QUINDI HO MESSO BONUS (sbaglio?)
     private static final int FOOD_BONUS = 1;
     private final int prestigeBonus;
 
