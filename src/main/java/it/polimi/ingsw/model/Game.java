@@ -27,16 +27,19 @@ public class Game implements GameActions {
 
     private final Deck mainDeck;
 
-    private final List<Card> deck1;
-    private final List<Card> deck2;
-    private final List<Card> deck3;
+    private List<TribeCard> deck_ERA_I ;
+    private List<TribeCard> deck_ERA_II;
+    private List<TribeCard> deck_ERA_III;
+    private List<EventCard> finalEvents;
+
+    private List<BuildingCard> buldingsInGame;
 
     private final Board gameBoard;
 
     private int topPicks = 0;
     private int bottomPicks = 0;
 
-    public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, List<Card> deck1, List<Card> deck2, List<Card> deck3) {
+    public Game(int gameID, Board gameBoard, TurnOrder turn) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
         this.playerInTurn = null;
@@ -45,10 +48,14 @@ public class Game implements GameActions {
         this.currentAge = null;
         this.gameBoard = gameBoard;
         this.turnOrder = turn;
-        this.mainDeck = mainDeck;
-        this.deck1 = deck1;
-        this.deck2 = deck2;
-        this.deck3 = deck3;
+
+        this.mainDeck = new Deck();
+
+        this.deck_ERA_I = new ArrayList<>();
+        this.deck_ERA_II = new ArrayList<>();
+        this.deck_ERA_III = new ArrayList<>();
+
+        this.buldingsInGame = new ArrayList<>();
     }
 
     public int getGameID() {
@@ -87,16 +94,16 @@ public class Game implements GameActions {
         return mainDeck;
     }
 
-    public List<Card> getDeck1() {
-        return deck1;
+    public List<TribeCard> getDeck1() {
+        return deck_ERA_I;
     }
 
-    public List<Card> getDeck2() {
-        return deck2;
+    public List<TribeCard> getDeck2() {
+        return deck_ERA_II;
     }
 
-    public List<Card> getDeck3() {
-        return deck3;
+    public List<TribeCard> getDeck3() {
+        return deck_ERA_III;
     }
 
 
@@ -135,6 +142,20 @@ public class Game implements GameActions {
             };
             shuffled.get(i).addFood(food);
         }
+
+
+        //setup buildings
+        buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
+        gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
+        //TODO: LOGICA DI UPDATE ERA E SOPSOTAMENTO shiftbuilding
+
+        //setup tribeCard
+        deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
+        deck_ERA_II = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
+        deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
+
+        //setup board first turn
+        //TODO
 
 
         gameState = GameState.OFFER_SPACE_CHOOSE;
@@ -310,12 +331,19 @@ public class Game implements GameActions {
         gameBoard.shiftRows();
         gameBoard.clearBoardSpaces();
 
-        // controlla cambio era
-        updateAge();
 
+        //TODO: CON NUOVO DECK
+
+        /*
         // ripesca (numPlayers + 4) carte per la nuova fila superiore
         List<TribeCard> newTopRow = mainDeck.draw(numberOfPlayers + 4);
         gameBoard.setTopTribeCards(newTopRow);
+
+        // controlla cambio era
+        updateAge();
+        */
+
+
 
         // aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
