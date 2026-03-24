@@ -1,6 +1,6 @@
 package it.polimi.ingsw.model.cards.Events;
 
-import it.polimi.ingsw.model.cards.Buildings.BuildingCard;
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Buildings.BuildingEvent;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.enums.Age;

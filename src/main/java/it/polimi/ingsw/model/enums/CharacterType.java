@@ -7,5 +7,5 @@ public enum CharacterType {
     SHAMAN,
     COLLECTOR,
     ARTIST,
-    NONE //caso speciale
+    NONE //caso speciale per building 25 punti, rivedendola ora mi sembra una cagata.... probabilmente da modificare
 }

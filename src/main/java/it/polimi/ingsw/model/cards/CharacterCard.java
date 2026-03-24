@@ -3,7 +3,7 @@ package it.polimi.ingsw.model.cards;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
 
-public class CharacterCard extends TribeCard {
+public abstract class CharacterCard extends TribeCard {
     private final int tag; //indica il numerino, default 2 gg, altrimenti +3,+4,5
 
     private final CharacterType characterType;
@@ -14,9 +14,12 @@ public class CharacterCard extends TribeCard {
         this.characterType = characterType;
     }
 
+    //TODO: IL TAG DOVREBBE SERVIRE IN FASE DI SET UP DEL GAME
+    // IN BASE AL NUMERO DI GIOCATORI "DOVREMMO SCARTARE" LE CARTE CON TAG > A NUMPLAYER
     public int getTag() {
         return tag;
     }
+
     public CharacterType getCharacterType() {
         return characterType;
     }

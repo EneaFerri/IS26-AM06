@@ -1,5 +1,6 @@
 package it.polimi.ingsw.model.cards.Buildings;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.CharacterType;
