@@ -5,7 +5,7 @@ public enum GameState {
     START,
     BOARD_PREPARATION,
     OFFER_SPACE_CHOOSE,
-    RESOLVING,
+    PICKING_CARD,
     EVENTS,
     END
 }

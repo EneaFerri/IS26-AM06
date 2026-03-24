@@ -155,7 +155,36 @@ public class Game implements GameActions {
         deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
 
         //setup board first turn
-        //TODO
+        //TODO: CHECK
+
+        //bottomCards
+        int nBottomCards = numberOfPlayers +1;
+        TribeCard temp = null;
+        while (nBottomCards >0) {
+            int i=1;
+            for (i=1; i <= deck_ERA_I.size(); i++) {
+                if (deck_ERA_I.get(deck_ERA_I.size() - i) instanceof EventCard) {
+
+                } else if(deck_ERA_I.get(deck_ERA_I.size()-i) instanceof CharacterCard) {
+                    temp = deck_ERA_I.get(deck_ERA_I.size() - i);
+                    break;
+                }
+            }
+            deck_ERA_I.remove(deck_ERA_I.size() - i);
+            gameBoard.addBottomTribeCardsFirstTurn(temp);
+            nBottomCards--;
+        }
+
+        //topcards
+        int nTopCards = numberOfPlayers + 4;
+        TribeCard temptop = null;
+        while (nTopCards >0) {
+            temptop = deck_ERA_I.get(deck_ERA_I.size() - 1);
+            gameBoard.addTopTribeCards(temptop);
+            deck_ERA_I.remove(deck_ERA_I.size() - 1);
+            nTopCards--;
+        }
+
 
 
         gameState = GameState.OFFER_SPACE_CHOOSE;
@@ -180,7 +209,7 @@ public class Game implements GameActions {
         boolean allPlaced = players.stream()
                 .allMatch(p -> p.getTotem().getPosition() != null);
         if (allPlaced) {
-            gameState = GameState.RESOLVING;
+            gameState = GameState.PICKING_CARD;
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
         }
@@ -230,6 +259,11 @@ public class Game implements GameActions {
     }
 
     public void pickCard(Player player, Card card) {
+
+        if(gameState != GameState.PICKING_CARD) {
+            throw new IllegalStateException("Cannot pick card after PICKING_CARD has started");
+        }
+
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
@@ -312,12 +346,18 @@ public class Game implements GameActions {
     }
 
     public void resolveLowerEvents() {
+
+        if (gameState != GameState.EVENTS) {
+            throw new IllegalStateException("Cannot resolve lower events after EVENTS has started");
+        }
         // TODO: completare però potrebbe essere un buon inizio
         List<EventCard> events = gameBoard.getLowRowEvents();
 
         for (EventCard event : events) {
             event.resolve(players);
         }
+
+        //eventi risolti ok e come passo a "next round"?
     }
 
     public void updateAge() {
@@ -334,7 +374,14 @@ public class Game implements GameActions {
 
         //TODO: CON NUOVO DECK
 
-        /*
+        //pseudo:
+        //pescare carte da lista dell'era corrente (deck_ERA_I, ecc...) e metterle in topTribe del board
+        //se la lista dell'era corrente finisce chiamare update era (da implementare)
+        //continuare eventuale pescaggio da successivo deck
+        //se finito anche deck_ERA_III allora pescare le 2 carte evento finale (dopo aver risolto quel turno mettere gamestate in END)
+        //
+
+        /* old version: (con draw)
         // ripesca (numPlayers + 4) carte per la nuova fila superiore
         List<TribeCard> newTopRow = mainDeck.draw(numberOfPlayers + 4);
         gameBoard.setTopTribeCards(newTopRow);
@@ -351,7 +398,11 @@ public class Game implements GameActions {
     }
 
     public void endGame() {
-        gameState = GameState.END;
+
+        if (gameState != GameState.END) {
+            throw new IllegalStateException("Cannot end game after END has started");
+        }
+
 
         // nell'ultimo round si risolvono anche gli eventi in fila superiore
         List<EventCard> finalEvents = new ArrayList<>(gameBoard.getLowRowEvents());

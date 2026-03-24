@@ -58,11 +58,11 @@ public class Board {
         totem.place(space);
     }
 
-    public void setBottomTribeCardsFirstTurn(List<TribeCard> cards) {
-        this.bottomTribeCards = cards;
+    public void addBottomTribeCardsFirstTurn(TribeCard card) {
+        this.bottomTribeCards.add(card);
     }
-    public void setTopTribeCards(List<TribeCard> cards) {
-        this.topTribeCards = cards;
+    public void addTopTribeCards(TribeCard card) {
+        this.topTribeCards.add(card);
     }
 
     public void setTopBuildingCards(List<BuildingCard> cards, Age ERA) {
@@ -71,7 +71,6 @@ public class Board {
                 this.topBuildingCards = cards;
             }
         }
-
     }
 
     public BoardSpace getBoardSpace(char letter){
