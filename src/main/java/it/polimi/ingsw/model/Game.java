@@ -26,16 +26,17 @@ public class Game implements GameActions {
     private Age currentAge;
 
     private final Deck mainDeck;
-    private final Deck deck1;
-    private final Deck deck2;
-    private final Deck deck3;
+
+    private final List<Card> deck1;
+    private final List<Card> deck2;
+    private final List<Card> deck3;
 
     private final Board gameBoard;
 
     private int topPicks = 0;
     private int bottomPicks = 0;
 
-    public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, Deck deck1, Deck deck2, Deck deck3) {
+    public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, List<Card> deck1, List<Card> deck2, List<Card> deck3) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
         this.playerInTurn = null;
@@ -86,15 +87,15 @@ public class Game implements GameActions {
         return mainDeck;
     }
 
-    public Deck getDeck1() {
+    public List<Card> getDeck1() {
         return deck1;
     }
 
-    public Deck getDeck2() {
+    public List<Card> getDeck2() {
         return deck2;
     }
 
-    public Deck getDeck3() {
+    public List<Card> getDeck3() {
         return deck3;
     }
 
@@ -111,6 +112,12 @@ public class Game implements GameActions {
     }
 
     public void setUpFirstRound() {
+        if (gameState != GameState.START) {
+            throw new IllegalStateException("Cannot set up first round after game has started");
+        }
+
+
+
         List<Player> shuffled = new ArrayList<>(players);
         Collections.shuffle(shuffled);
 
@@ -128,6 +135,7 @@ public class Game implements GameActions {
             };
             shuffled.get(i).addFood(food);
         }
+
 
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = currentRoundOrder.get(0);
@@ -177,6 +185,9 @@ public class Game implements GameActions {
     }
 
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
+        if (gameState != GameState.LOGIN) {
+            throw new IllegalStateException("Cannot start game after game has started");
+        }
         if (players.isEmpty()) {
             throw new IllegalStateException("Cannot start a game without players");
         }

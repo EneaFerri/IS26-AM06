@@ -15,15 +15,12 @@ public class Deck
 
     }
 
-    public void addCard(TribeCard c){
-        tribeCards.add(c);
-    }
-
-    //TODO: SERVE? 0 USAGE
-    public Card draw(){
-        if(tribeCards.isEmpty())
-            return null;
-        return tribeCards.remove(0);
+    public void addCard(Card c){
+        if (c instanceof TribeCard ) {
+            tribeCards.add((TribeCard) c);
+        } else {
+            buildingCards.add((BuildingCard) c);
+        }
     }
 
     public List<TribeCard> draw(int n) {
@@ -34,7 +31,6 @@ public class Deck
         return drawn;
     }
 
-    //TODO: SERVE? 0 USAGE
     public void randomize (){
         Collections.shuffle(tribeCards);
     }
@@ -47,5 +43,5 @@ public class Deck
         return tribeCards.size();
     }
 
-    //TODO: metodo create deck per age?
+
 }
