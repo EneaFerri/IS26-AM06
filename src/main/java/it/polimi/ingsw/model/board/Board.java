@@ -2,6 +2,7 @@ package it.polimi.ingsw.model.board;
 
 import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.cards.BuildingCard;
+import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
@@ -57,8 +58,20 @@ public class Board {
         totem.place(space);
     }
 
+    public void setBottomTribeCardsFirstTurn(List<TribeCard> cards) {
+        this.bottomTribeCards = cards;
+    }
     public void setTopTribeCards(List<TribeCard> cards) {
         this.topTribeCards = cards;
+    }
+
+    public void setTopBuildingCards(List<BuildingCard> cards, Age ERA) {
+        for (BuildingCard card : cards) {
+            if(card.getAge() == ERA){
+                this.topBuildingCards = cards;
+            }
+        }
+
     }
 
     public BoardSpace getBoardSpace(char letter){
@@ -69,6 +82,7 @@ public class Board {
         }
         return null;
     }
+
     public List<BoardSpace> getFreeBoardSpaces(){
         List<BoardSpace> freeSpaces = new ArrayList<>();
         for (BoardSpace space : offerField) {
