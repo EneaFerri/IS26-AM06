@@ -33,8 +33,8 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
-    private int remainingTopPicks = 0;
-    private int remainingBottomPicks = 0;
+    private int topPicks = 0;
+    private int bottomPicks = 0;
 
     public Game(int gameID, Board gameBoard, TurnOrder turn, Deck mainDeck, Deck deck1, Deck deck2, Deck deck3) {
         this.gameID = gameID;
@@ -159,8 +159,8 @@ public class Game implements GameActions {
     }
 
     public void advanceNextPlayer() {
-        remainingTopPicks = 0;
-        remainingBottomPicks = 0;
+        topPicks = 0;
+        bottomPicks = 0;
 
         int currentPlayerIndex = currentRoundOrder.indexOf(playerInTurn);
 
@@ -190,12 +190,12 @@ public class Game implements GameActions {
     //HO PROVATO A FARLA MA LASCIO UN PICCLO TODO PERCHÉ NON É SEMPLICISSIMA ANCHE SE PENSO DI ESSERCI
     public int getRemainingTopPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
-        return space.getTopCardsNumber() - remainingTopPicks;
+        return space.getTopCardsNumber() - topPicks;
     }
 
     public int getRemainingBottomPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
-        return space.getBottomCardsNumber() - remainingBottomPicks;
+        return space.getBottomCardsNumber() - bottomPicks;
     }
 
     public void pickCard(Player player, Card card) {
@@ -214,10 +214,13 @@ public class Game implements GameActions {
         boolean fromTopRow = gameBoard.getAvailableUpperTribeCards().contains(card) ||
                 gameBoard.getAvailableUpperBuildingCards().contains(card);
 
-        if (fromTopRow && getRemainingTopPicks(player) <= 0) {
+        boolean fromBottomRow = gameBoard.getAvailableBottomTribeCards().contains(card) ||
+                gameBoard.getAvailableBottomBuildingCards().contains(card);
+
+        if (!fromTopRow || getRemainingTopPicks(player) <= 0) {
             throw new IllegalStateException("No more top row picks allowed");
         }
-        if (!fromTopRow && getRemainingBottomPicks(player) <= 0) {
+        if (!fromBottomRow || getRemainingBottomPicks(player) <= 0) {
             throw new IllegalStateException("No more bottom row picks allowed");
         }
 
@@ -227,8 +230,8 @@ public class Game implements GameActions {
             pickTribeCard(player, (TribeCard) card);
         }
 
-        if (fromTopRow) remainingTopPicks++;
-        else remainingBottomPicks++;
+        if (fromTopRow) topPicks++;
+        else bottomPicks++;
 
         if (getRemainingTopPicks(player) == 0 && getRemainingBottomPicks(player) == 0) {
             returnTotemToTurnOrder(player);
@@ -244,8 +247,8 @@ public class Game implements GameActions {
             throw new IllegalArgumentException("Event cards cannot be picked by players");
         }
 
-        gameBoard.removeCard(card);
         player.addCharacterCard((CharacterCard) card);
+        gameBoard.removeCard(card);
     }
 
     public void pickBuildingCard(Player player, BuildingCard card) {
@@ -296,8 +299,8 @@ public class Game implements GameActions {
     }
 
     public void nextRound() {
-        remainingTopPicks = 0;
-        remainingBottomPicks = 0;
+        topPicks = 0;
+        bottomPicks = 0;
         // refresh tabellone
         gameBoard.shiftRows();
         gameBoard.clearBoardSpaces();
