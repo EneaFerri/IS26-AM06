@@ -11,12 +11,14 @@ import it.polimi.ingsw.model.cards.CharacterCard;
 public class BuildingEnd extends BuildingCard {
     private final CharacterType characterToConsider;
     private final int prestigeEndEffect;
+    private final boolean bonusOnCompleteSet;
 
     public BuildingEnd(int cardID, Age cardAge, int foodCost, int prestigePoint,
-                       CharacterType characterToConsider, int prestigeEndEffect) {
+                       CharacterType characterToConsider, int prestigeEndEffect, boolean bonusOnCompleteSet) {
         super(cardID, cardAge, foodCost, prestigePoint);
         this.characterToConsider = characterToConsider;
         this.prestigeEndEffect = prestigeEndEffect;
+        this.bonusOnCompleteSet = bonusOnCompleteSet;
     }
 
     public CharacterType getCharacterToConsider() {
@@ -37,6 +39,14 @@ public class BuildingEnd extends BuildingCard {
             return;
         }
 
+        // Per la carta che da 6 punti se hai tutti i 6 tipi di personaggi
+        // la logica di controllo della condizione è dentro player
+        if (bonusOnCompleteSet) {
+            int nSets = player.countCompleteCharacterSets();
+            player.pointsFromEndEffect += nSets * prestigeEndEffect; // se prestigeEndEffect=6 => +6 per ogni set
+
+            return;
+        }
 
         int count = 0;
 
@@ -51,7 +61,5 @@ public class BuildingEnd extends BuildingCard {
 
         player.pointsFromEndEffect += prestigeToAdd;
 
-
-        //TODO: manca gestione edificio "6 punti per set a fine partita", FORSE MEGLIO GESTIRE DIRETTAMENTE IN PLAYER???
     }
 }

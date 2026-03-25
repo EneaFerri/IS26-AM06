@@ -154,6 +154,53 @@ public class Player {
 
     }
 
+    // countCharactersOfType e hasCompleteCharacterSet aggiunte per effetti building
+    public int countCharactersOfType(CharacterType type) {
+        int count = 0;
+        for (CharacterCard card : myCharacterCards) {
+            if (card.getCharacterType() == type) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // non quanti set completi ma verifica se il giocatore ha almeno 1 per ogni tipo di personaggio
+    // mi sono accorto ora leggendo le regole che l'effetto è diverso, non basta 1 per ogni ma ogni 6 personaggi diversi da 6 punti
+    public boolean hasCompleteCharacterSet() {
+        CharacterType[] required = {
+                CharacterType.BUILDER,
+                CharacterType.HUNTER,
+                CharacterType.INVENTOR,
+                CharacterType.SHAMAN,
+                CharacterType.COLLECTOR,
+                CharacterType.ARTIST
+        };
+
+        for (CharacterType t : required) {
+            if (countCharactersOfType(t) == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Conta quanti set completi da 6 tipi diversi ho a fine partita.
+    public int countCompleteCharacterSets() {
+        int builders = countCharactersOfType(CharacterType.BUILDER);
+        int hunters = countCharactersOfType(CharacterType.HUNTER);
+        int inventors = countCharactersOfType(CharacterType.INVENTOR);
+        int shamans = countCharactersOfType(CharacterType.SHAMAN);
+        int collectors = countCharactersOfType(CharacterType.COLLECTOR);
+        int artists = countCharactersOfType(CharacterType.ARTIST);
+
+        return Math.min(
+                Math.min(Math.min(builders, hunters), Math.min(inventors, shamans)),
+                Math.min(collectors, artists)
+        );
+    }
+
+
     private void inventorsCountAndCheck(Inventor newInventor) {
         //in poche parole controllo se è gia presente un inventore con la stessa invenzione di quello nuobo in myCharacterCards
         //se si, allora ho un doppione  e aggiungo +3 di cibo
