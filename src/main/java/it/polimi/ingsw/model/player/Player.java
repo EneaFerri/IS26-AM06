@@ -37,6 +37,9 @@ public class Player {
     public boolean doublePointForRituals = false; //gestione building che raddoppia punti per evento rituale
     public boolean noMalusForRituals = false; // gestione building che rimuove malus per evento rituale
     public boolean extraThreeStars = false; //gestione building che aggiunge 3 stelle
+    public boolean extraFoodOnTurnOrder = false;   // per il building che permette di ottenere scibo in piu rispetto alla posizione del totem (lo metto in turnOrder)
+    public boolean extraCard = false; // building che permette di pescare una carta in più dalla riga sopra ma solo prima della fine del turno, prima che
+                                        // in game->advanceNextPlayer si passi al game state di risoluzione eventi
 
     private boolean setToCheck = false; // gestione building con extrafood per ogni set
     private int setNumberForExtraFood = 0;
@@ -44,7 +47,7 @@ public class Player {
     private boolean inventorsToCheck = false;
 
     private int foodDiscountFromBuildings; //variabile comoda per tenere sconti di cibo dalle building: si ma usiamo
-                                           // private e metodo
+    // private e metodo
 
     public Player(String nickname, Totem myTotem) {
         this.nickname = nickname;
@@ -233,10 +236,17 @@ public class Player {
                setToCheck = true;
            } else if (building.getBType() == BuildingEachTurnType.EXTRAFOOD_INVENTORS) {
                inventorsToCheck = true;
+               //TODO: mancano casi EXTRACARD, EXTRAFOOD_TURNORDER
+               //eccoli
+           }else if (building.getBType() == BuildingEachTurnType.EXTRAFOOD_TURNORDER) {
+               extraFoodOnTurnOrder = true;
+           } else if (building.getBType() == BuildingEachTurnType.EXTRACARD) {
+               extraCard = true;
            }
-            //TODO: mancano casi EXTRACARD, EXTRAFOOD_TURNORDER
+        
 
-        }
+
+    }
     }
 
     public List<CharacterCard> getCharacterCards() {
@@ -246,6 +256,12 @@ public class Player {
     public List<BuildingCard> getBuildingCards() {
         return Collections.unmodifiableList(myBuildingCards);
     }
+
+    public boolean hasExtraFoodOnTurnOrder() { //getters per extraFoodOnTurnOrder e extraCard
+        return extraFoodOnTurnOrder;}
+
+    public boolean hasExtraCard() {
+        return extraCard; }
 
     // L'ho aggiunto per calcolare los conto totale di cibo durante il gioco in base al numero di raccoglitori che si hanno
     public int getCollectorsFoodDiscount() {
