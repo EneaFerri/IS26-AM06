@@ -45,7 +45,7 @@ public class Game implements GameActions {
         this.playerInTurn = null;
         this.numberOfPlayers = 0;
         this.gameState = GameState.LOGIN;
-        this.currentAge = null;
+        this.currentAge = Age.Era_I;
         this.gameBoard = gameBoard;
         this.turnOrder = turn;
 
@@ -118,13 +118,19 @@ public class Game implements GameActions {
         numberOfPlayers++;
     }
 
-    public void setUpFirstRound() {
-        if (gameState != GameState.START) {
-            throw new IllegalStateException("Cannot set up first round after game has started");
+    public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
+        if (gameState != GameState.LOGIN) {
+            throw new IllegalStateException("Cannot start game after game has started");
+        }
+        if (players.isEmpty()) {
+            throw new IllegalStateException("Cannot start a game without players");
         }
 
+        setUpFirstRound(); //per comodità set up first round in altro metodo, privato tanto viene chiamato solo qua
+    }
 
-
+    private void setUpFirstRound() {
+        //random order for the first round
         List<Player> shuffled = new ArrayList<>(players);
         Collections.shuffle(shuffled);
 
@@ -134,6 +140,7 @@ public class Game implements GameActions {
             turnOrder.placeTotemFirstFree(player);
         }
 
+        //starting food based on the order
         for (int i = 0; i < shuffled.size(); i++) {
             int food = switch (i) {
                 case 0 -> 2;
@@ -163,9 +170,7 @@ public class Game implements GameActions {
         while (nBottomCards >0) {
             int i=1;
             for (i=1; i <= deck_ERA_I.size(); i++) {
-                if (deck_ERA_I.get(deck_ERA_I.size() - i) instanceof EventCard) {
-
-                } else if(deck_ERA_I.get(deck_ERA_I.size()-i) instanceof CharacterCard) {
+                if(deck_ERA_I.get(deck_ERA_I.size()-i) instanceof CharacterCard) {
                     temp = deck_ERA_I.get(deck_ERA_I.size() - i);
                     break;
                 }
@@ -186,7 +191,6 @@ public class Game implements GameActions {
         }
 
 
-
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = currentRoundOrder.get(0);
 
@@ -203,6 +207,8 @@ public class Game implements GameActions {
             throw new IllegalStateException("BoardSpace " + boardSpace.getLetter() + " is already occupied");
         }
 
+        //NON ANDREBBE CONTROLLATO L'ORDINE DALLA TESSERE TURN ORDER?
+        //CIOE SE EFFETTIVAMENTE TOCCAVA A player del metodo a piazzare il totem?
         gameBoard.placeTotem(player.getTotem(), boardSpace);
 
         // se tutti i giocatori hanno piazzato, avanza alla risoluzione
@@ -215,37 +221,6 @@ public class Game implements GameActions {
         }
     }
 
-    public void advanceNextPlayer() {
-        topPicks = 0;
-        bottomPicks = 0;
-
-        int currentPlayerIndex = currentRoundOrder.indexOf(playerInTurn);
-
-        if (playerInTurn != null) {
-            playerInTurn.setInTurn(false);
-        }
-
-        if (currentPlayerIndex < currentRoundOrder.size() - 1) {
-            playerInTurn = currentRoundOrder.get(currentPlayerIndex + 1);
-            playerInTurn.setInTurn(true);
-        } else {
-            playerInTurn = null;
-            gameState = GameState.EVENTS;
-        }
-    }
-
-    public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
-        if (gameState != GameState.LOGIN) {
-            throw new IllegalStateException("Cannot start game after game has started");
-        }
-        if (players.isEmpty()) {
-            throw new IllegalStateException("Cannot start a game without players");
-        }
-
-        gameState = GameState.START;
-        currentAge = Age.Era_I;
-        setUpFirstRound();
-    }
 
     //HO PROVATO A FARLA MA LASCIO UN PICCLO TODO PERCHÉ NON É SEMPLICISSIMA ANCHE SE PENSO DI ESSERCI
     public int getRemainingTopPicks(Player player) {
@@ -336,14 +311,28 @@ public class Game implements GameActions {
         Objects.requireNonNull(player, "player cannot be null");
 
         turnOrder.placeTotemFirstFree(player);
-        /*
-        // se tutti sono tornati sulla tessera ordine, avanza agli eventi
-        boolean allReturned = players.stream()
-                .allMatch(p -> p.getTotem().getPosition() == null);
-        if (allReturned) {
-            gameState = GameState.EVENTS;
-        } */
+
     }
+
+    public void advanceNextPlayer() {
+        topPicks = 0;
+        bottomPicks = 0;
+
+        int currentPlayerIndex = currentRoundOrder.indexOf(playerInTurn);
+
+        if (playerInTurn != null) {
+            playerInTurn.setInTurn(false);
+        }
+
+        if (currentPlayerIndex < currentRoundOrder.size() - 1) {
+            playerInTurn = currentRoundOrder.get(currentPlayerIndex + 1);
+            playerInTurn.setInTurn(true);
+        } else {
+            playerInTurn = null;
+            gameState = GameState.EVENTS;
+        }
+    }
+
 
     public void resolveLowerEvents() {
 

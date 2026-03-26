@@ -9,10 +9,11 @@ import it.polimi.ingsw.model.player.Player;
 public interface GameActions {
     // --- LOBBY ---
     void addPlayer(Player player);
-    void startGame();
+
 
     // --- SETUP ---
-    void setUpFirstRound();
+    void startGame();
+
 
     // --- FASE 1: piazzamento totem (era TotemPositionStartRound) ---
     // rinominato per chiarezza, aggiunto boardSpace come parametro esplicito
