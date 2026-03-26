@@ -34,6 +34,9 @@ public class Game implements GameActions {
 
     private List<BuildingCard> buldingsInGame;
 
+    private List<Player> extraCardPlayers; // per tenere traccia giocatore (possibili altri giocatori con espansioni di carte) con carta building extra card
+    private int extraCardPlayerIndex;
+
     private final Board gameBoard;
 
     private int topPicks = 0;
@@ -54,6 +57,10 @@ public class Game implements GameActions {
         this.deck_ERA_I = new ArrayList<>();
         this.deck_ERA_II = new ArrayList<>();
         this.deck_ERA_III = new ArrayList<>();
+
+        this.extraCardPlayers = new ArrayList<>();
+        this.extraCardPlayerIndex = 0;
+
 
         this.buldingsInGame = new ArrayList<>();
     }
@@ -229,10 +236,34 @@ public class Game implements GameActions {
             playerInTurn = currentRoundOrder.get(currentPlayerIndex + 1);
             playerInTurn.setInTurn(true);
         } else {
-            playerInTurn = null;
-            gameState = GameState.EVENTS;
+            extraCardPlayers = getPlayersWithExtraCard(); // controllo per possessore building extra card
+            extraCardPlayerIndex = 0;
+
+            if (!extraCardPlayers.isEmpty()) {
+                gameState = GameState.EXTRA_CARD;
+                playerInTurn = extraCardPlayers.get(0);
+                playerInTurn.setInTurn(true);
+            } else {
+                playerInTurn = null;
+                gameState = GameState.EVENTS;
+            }
         }
     }
+
+    public List<Player> getPlayersWithExtraCard() {
+        List<Player> playersWithExtraCard = new ArrayList<>();
+
+        // uso l'ordine di turno, perché la carta si attiva quando tutti
+        // i totem sono tornati sulla tessera ordine di turno
+        for (Player player : turnOrder.getOrder()) {
+            if (player.hasExtraCard()) {
+                playersWithExtraCard.add(player);
+            }
+        }
+
+        return playersWithExtraCard;
+    }
+
 
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
         if (gameState != GameState.LOGIN) {
@@ -331,6 +362,54 @@ public class Game implements GameActions {
         player.addBuildingCard(card);
 
     }
+
+    public void pickExtraCard(Player player, Card card) {
+        Objects.requireNonNull(player, "player cannot be null");
+        Objects.requireNonNull(card, "card cannot be null");
+
+        if (gameState != GameState.EXTRA_CARD) { // inizia solo dopo che in advanceNextPlayer tutti hanno fnito di pescare
+                                                 // ed i totem tornano nella tabella posizioni
+            throw new IllegalStateException("Cannot pick extra card outside EXTRA_CARD phase");
+        }
+
+        if (player != playerInTurn) {
+            throw new IllegalStateException("It is not this player's extra-card turn");
+        }
+
+        boolean fromTopRow = gameBoard.getAvailableUpperTribeCards().contains(card) ||
+                gameBoard.getAvailableUpperBuildingCards().contains(card);
+
+        if (!fromTopRow) {
+            throw new IllegalArgumentException("Extra card can be picked only from top row");
+        }
+
+        if (card instanceof BuildingCard) {
+            pickBuildingCard(player, (BuildingCard) card);
+        } else if (card instanceof CharacterCard) {
+            pickTribeCard(player, (TribeCard) card);
+        } else {
+            throw new IllegalArgumentException("Event cards cannot be picked");
+        }
+
+        advanceExtraCardPlayer();
+    }
+
+    private void advanceExtraCardPlayer() { // passo all'ipotetico altro possessore della building di questo tipo
+        if (playerInTurn != null) {
+            playerInTurn.setInTurn(false);
+        }
+
+        extraCardPlayerIndex++;
+
+        if (extraCardPlayerIndex < extraCardPlayers.size()) {
+            playerInTurn = extraCardPlayers.get(extraCardPlayerIndex);
+            playerInTurn.setInTurn(true);
+        } else {
+            playerInTurn = null;
+            gameState = GameState.EVENTS;
+        }
+    }
+
 
     public void returnTotemToTurnOrder(Player player) {
         Objects.requireNonNull(player, "player cannot be null");
