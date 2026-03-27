@@ -154,7 +154,7 @@ public class Game implements GameActions {
         //setup buildings
         buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
         gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
-        //TODO: LOGICA DI UPDATE ERA E SOPSOTAMENTO shiftbuilding
+
 
         //setup tribeCard
         deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
@@ -162,7 +162,7 @@ public class Game implements GameActions {
         deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
 
         //setup board first turn
-        //TODO: CHECK
+
 
         //bottomCards
         int nBottomCards = numberOfPlayers +1;
@@ -221,8 +221,6 @@ public class Game implements GameActions {
         }
     }
 
-
-    //HO PROVATO A FARLA MA LASCIO UN PICCLO TODO PERCHÉ NON É SEMPLICISSIMA ANCHE SE PENSO DI ESSERCI
     public int getRemainingTopPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
         return space.getTopCardsNumber() - topPicks;
@@ -441,6 +439,10 @@ public class Game implements GameActions {
 
         }
 
+        if(cardNumberToDraw > 0){
+            throw new IllegalStateException("Error, not enough cards to draw");
+        }
+
         // aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = turnOrder.getOrder().get(0);
@@ -465,6 +467,7 @@ public class Game implements GameActions {
         for (Player p : players) {
             p.getTotalPoints();
         }
+
     }
 
     public List<Player> getWinners() {
