@@ -5,6 +5,7 @@ public enum GameState {
 
     OFFER_SPACE_CHOOSE,
     PICKING_CARD,
+    EXTRA_CARD, // per la building extra card
     EVENTS,
     END
 }

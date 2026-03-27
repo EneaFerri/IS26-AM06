@@ -1,0 +1,114 @@
+{
+  "artists": [
+    {
+      "cardID": 1,
+      "cardAge": "Era_I",
+      "tag": 2
+    }
+  ],
+  "builders": [
+    {
+      "cardID": 10,
+      "cardAge": "Era_I",
+      "tag": 3,
+      "points": 1,
+      "discount": 1
+    }
+  ],
+  "buildingEachTurns": [
+    {
+      "cardID": 107,
+      "cardAge": "Era_II",
+      "cost": 4,
+      "points": 0,
+      "effectDescription": "Gain 3 food when..."
+    }
+  ],
+  "buildingEnds": [
+    {
+      "cardID": 202,
+      "cardAge": "Era_III",
+      "cost": 8,
+      "points": 8
+    }
+  ],
+  "buildingEvents": [
+    {
+      "cardID": 127,
+      "cardAge": "Era_II",
+      "cost": 5,
+      "points": 2,
+      "eventType": "Sustenance",
+      "discount": 1
+    }
+  ],
+  "collectors": [
+    {
+      "cardID": 20,
+      "cardAge": "Era_I",
+      "tag": 2,
+      "discount": 3
+    }
+  ],
+  "hunters": [
+    {
+      "cardID": 30,
+      "cardAge": "Era_I",
+      "tag": 4,
+      "hasIcon": true
+    },
+    {
+      "cardID": 31,
+      "cardAge": "Era_I",
+      "tag": 2,
+      "hasIcon": false
+    }
+  ],
+  "hunts": [
+    {
+      "cardID": 101,
+      "cardAge": "Era_I",
+      "pointsPerHunter": 2
+    }
+  ],
+  "inventors": [
+    {
+      "cardID": 40,
+      "cardAge": "Era_I",
+      "tag": 3,
+      "inventionType": "Fire"
+    }
+  ],
+  "pictures": [
+    {
+      "cardID": 102,
+      "cardAge": "Era_I",
+      "minArtists": 2,
+      "pointsPerArtist": 2,
+      "penalty": 3
+    }
+  ],
+  "rituals": [
+    {
+      "cardID": 103,
+      "cardAge": "Era_I",
+      "winPoints": 10,
+      "losePoints": 5
+    }
+  ],
+  "shamans": [
+    {
+      "cardID": 50,
+      "cardAge": "Era_I",
+      "tag": 5,
+      "icons": 2
+    }
+  ],
+  "sustenances": [
+    {
+      "cardID": 104,
+      "cardAge": "Era_I",
+      "penalty": 2
+    }
+  ]
+}
