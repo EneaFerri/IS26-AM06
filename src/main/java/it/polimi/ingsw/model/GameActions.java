@@ -30,8 +30,7 @@ public interface GameActions {
     void returnTotemToTurnOrder(Player player);
 
     // --- FINE ROUND ---
-    void resolveLowerEvents();
-    void updateAge();
+    void resolveEvents();
     void nextRound();
 
     // --- FINE PARTITA ---

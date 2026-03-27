@@ -39,17 +39,6 @@ public class Deck
         }
     }
 
-    public void addCard(Card c){
-        cards.add(c);
-    }
-
-    public boolean isEmpty(){
-        return cards.isEmpty();
-    }
-
-    public int size(){
-        return cards.size();
-    }
 
     public List<BuildingCard> takeBuldingInGame(int numberOfPlayers){
 

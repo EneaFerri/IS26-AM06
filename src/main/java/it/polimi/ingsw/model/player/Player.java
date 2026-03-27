@@ -37,8 +37,9 @@ public class Player {
     public boolean doublePointForRituals = false; //gestione building che raddoppia punti per evento rituale
     public boolean noMalusForRituals = false; // gestione building che rimuove malus per evento rituale
     public boolean extraThreeStars = false; //gestione building che aggiunge 3 stelle
-    public boolean extraFoodOnTurnOrder = false;   // per il building che permette di ottenere scibo in piu rispetto alla posizione del totem (lo metto in turnOrder)
-    public boolean extraCard = false; // building che permette di pescare una carta in più dalla riga sopra ma solo prima della fine del turno, prima che
+
+    private boolean extraFoodOnTurnOrder = false;   // per il building che permette di ottenere scibo in piu rispetto alla posizione del totem (lo metto in turnOrder)
+    private boolean extraCard = false; // building che permette di pescare una carta in più dalla riga sopra ma solo prima della fine del turno, prima che
                                         // in game->advanceNextPlayer si passi al game state di risoluzione eventi
 
     private boolean setToCheck = false; // gestione building con extrafood per ogni set
@@ -104,8 +105,7 @@ public class Player {
         myCharacterCards.add(card);
         card.markAsDrawed();
 
-        if (card instanceof Hunter) { //Ho aggiunto questo perchè teoricamente non veniva gestito il caso di un hunter con l'icona
-            Hunter newHunter = (Hunter) card;
+        if (card instanceof Hunter newHunter) { //Ho aggiunto questo perchè teoricamente non veniva gestito il caso di un hunter con l'icona
             if (newHunter.getNuggets() > 0) { // ha l'icona
                 int totalHunters = getNumHunters();
                 this.addFood(totalHunters); // 1 cibo per ogni cacciatore incluso il nuovo
@@ -113,8 +113,7 @@ public class Player {
         }
 
         //gestione aggiunta invenzioni per inventori
-        if(card instanceof Inventor) {
-            Inventor newInventor = (Inventor) card;
+        if(card instanceof Inventor newInventor) {
             InventionType type = newInventor.getInvention();
 
             if (!myInventions.contains(type)) {
@@ -161,8 +160,7 @@ public class Player {
         //in poche parole controllo se è gia presente un inventore con la stessa invenzione di quello nuobo in myCharacterCards
         //se si, allora ho un doppione  e aggiungo +3 di cibo
          for(CharacterCard card : myCharacterCards) {
-             if(card instanceof Inventor && card != newInventor) { //ho aggiunto l'&& perchè altrimenti si trovava sempre una corrispondenza
-                 Inventor myInventor = (Inventor) card;
+             if(card instanceof Inventor myInventor && card != newInventor) { //ho aggiunto l'&& perchè altrimenti si trovava sempre una corrispondenza
                  if(myInventor.getInvention().equals(newInventor.getInvention())) {
                      this.addFood(3);
                  }
@@ -303,7 +301,6 @@ public class Player {
     public int getTotalPointsPreEffect() {
         int currPre = prestige;
 
-        //TODO: calcolo punti in base ai personaggi (n invenzioni per inventori, coppie di artisti=+10, costruttori)
         int sum = 0;
 
         for (CharacterCard card : myCharacterCards) {
@@ -353,8 +350,8 @@ public class Player {
         return pointsFromEndEffect;
     }
 
-    public int getTotalPoints() {
-        return getTotalPointsPreEffect() +  getPointsFromEndEffect();
+    public void getTotalPoints() {
+        prestige =  getTotalPointsPreEffect() +  getPointsFromEndEffect();
     }
 
 

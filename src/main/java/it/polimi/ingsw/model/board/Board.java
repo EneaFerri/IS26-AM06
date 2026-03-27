@@ -166,14 +166,23 @@ public class Board {
         // le BuildingCard in fila inferiore rimangono in fila inferiore
     }
 
+    public void shiftRowsBuildings() {
+
+        bottomBuildingCards.clear();
+
+        bottomBuildingCards.addAll(topBuildingCards);
+        topBuildingCards.clear();
+
+    }
+
     public void clearBoardSpaces(){
         for (BoardSpace space : offerField) {
             space.removeTotem();
         }
     }
 
-    public List<EventCard> getLowRowEvents() { // l'ho messo anche nell'interfaccia di game...ovviamente
-        //TODO
+    public List<EventCard> getLowRowEvents() {
+
         List<EventCard> lowRowEvents = new ArrayList<>();
 
         for (TribeCard card : bottomTribeCards) { //così salviamo anche l'ordine
@@ -183,6 +192,19 @@ public class Board {
         }
 
         return lowRowEvents;
+    }
+
+    public List<EventCard> getUpRowEvents() {
+
+        List<EventCard> upRowEvents = new ArrayList<>();
+
+        for (TribeCard card : topTribeCards) {
+            if (card instanceof EventCard) {
+                upRowEvents.add((EventCard) card);
+            }
+        }
+
+        return upRowEvents;
     }
 
 

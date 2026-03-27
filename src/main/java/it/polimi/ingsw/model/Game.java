@@ -334,23 +334,31 @@ public class Game implements GameActions {
     }
 
 
-    public void resolveLowerEvents() {
+    public void resolveEvents() {
 
         if (gameState != GameState.EVENTS) {
             throw new IllegalStateException("Cannot resolve lower events after EVENTS has started");
         }
-        // TODO: completare però potrebbe essere un buon inizio
+
         List<EventCard> events = gameBoard.getLowRowEvents();
 
         for (EventCard event : events) {
             event.resolve(players);
         }
 
-        //eventi risolti ok e come passo a "next round"?
-    }
+        if(currentAge != Age.Last_Round) {
+            nextRound();
+        }else {
+            List<EventCard> LastEvents = gameBoard.getUpRowEvents();
 
-    public void updateAge() {
-        //TODO
+            for (EventCard event : LastEvents) {
+                event.resolve(players);
+            }
+
+            gameState = GameState.END;
+            //TODO DECISIONALE : oppure direttamnte chiama EndGame() ?????
+        }
+
     }
 
     public void nextRound() {
@@ -361,7 +369,6 @@ public class Game implements GameActions {
         gameBoard.clearBoardSpaces();
 
 
-        //TODO: CON NUOVO DECK
 
         //pseudo:
         //pescare carte da lista dell'era corrente (deck_ERA_I, ecc...) e metterle in topTribe del board
@@ -370,21 +377,82 @@ public class Game implements GameActions {
         //se finito anche deck_ERA_III allora pescare le 2 carte evento finale (dopo aver risolto quel turno mettere gamestate in END)
         //
 
-        /* old version: (con draw)
-        // ripesca (numPlayers + 4) carte per la nuova fila superiore
-        List<TribeCard> newTopRow = mainDeck.draw(numberOfPlayers + 4);
-        gameBoard.setTopTribeCards(newTopRow);
+        int cardNumberToDraw = numberOfPlayers + 4;
+        TribeCard tempCard = null;
 
-        // controlla cambio era
-        updateAge();
-        */
+        if(currentAge == Age.Era_I) {
+            while(cardNumberToDraw > 0){
 
+                if(deck_ERA_I.isEmpty()){
+                    currentAge = Age.Era_II;
+                    updatedAge();
+                    break;
+                }
 
+                tempCard = deck_ERA_I.get(deck_ERA_I.size() - 1);
+                gameBoard.addTopTribeCards(tempCard);
+                deck_ERA_I.remove(deck_ERA_I.size() - 1);
+                cardNumberToDraw--;
+
+            }
+        }
+
+        if(currentAge == Age.Era_II) {
+            while(cardNumberToDraw > 0){
+
+                if(deck_ERA_II.isEmpty()){
+                    currentAge = Age.Era_III;
+                    updatedAge();
+                    break;
+                }
+
+                tempCard = deck_ERA_II.get(deck_ERA_II.size() - 1);
+                gameBoard.addTopTribeCards(tempCard);
+                deck_ERA_II.remove(deck_ERA_II.size() - 1);
+                cardNumberToDraw--;
+
+            }
+        }
+
+        if(currentAge == Age.Era_III) {
+            while(cardNumberToDraw > 0){
+
+                if(deck_ERA_III.isEmpty()){
+                    currentAge = Age.Last_Round;
+                    break;
+                }
+
+                tempCard = deck_ERA_III.get(deck_ERA_III.size() - 1);
+                gameBoard.addTopTribeCards(tempCard);
+                deck_ERA_III.remove(deck_ERA_III.size() - 1);
+                cardNumberToDraw--;
+            }
+        }
+
+        if(currentAge == Age.Last_Round) {
+             //TODO: aggiungi i 2 eventi finali nella TopTribe
+
+            //poi si fa il check (nel metodo ResolveLowerEvents) dopo aver risolto gli eventi se si è raggiunta l'era Last_Round
+            //in tal caso si risolvono anche gli eventi "sopra" (compresi i 2 finali) e si può andare in gamestate.END
+            //non verrà piu chiamato nextRound se l'era corrente è Last_Round...
+
+            // da decidere se il metodo EndGame() verrà chiamato dal controller (tipo bottone finisci partita oppure calcola punteggio finale cliccabile da ogni player)
+            //oppure se chiamare EndGame() "internamente" dando a tutti player i risultati finali
+
+        }
 
         // aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = turnOrder.getOrder().get(0);
     }
+
+    public void updatedAge() {
+
+        gameBoard.shiftRowsBuildings(); //toglie eventuali buildings sotto, e sposta da sopra a sotto quelle sopra
+
+        gameBoard.setTopBuildingCards(buldingsInGame, currentAge); //aggiunge sopra le building dell'era nuova (currentAge già aggiornata)
+    }
+
 
     public void endGame() {
 
@@ -392,22 +460,6 @@ public class Game implements GameActions {
             throw new IllegalStateException("Cannot end game after END has started");
         }
 
-
-        // nell'ultimo round si risolvono anche gli eventi in fila superiore
-        List<EventCard> finalEvents = new ArrayList<>(gameBoard.getLowRowEvents());
-        for (TribeCard card : gameBoard.getTopRowTribe()) {
-            if (card instanceof EventCard) {
-                finalEvents.add((EventCard) card);
-            }
-        }
-
-        // Sostentamento sempre per ultimo
-        finalEvents.sort(Comparator.comparingInt(e ->
-                e.getType() == EventType.SUSTENANCE ? 1 : 0));
-
-        for (EventCard event : finalEvents) {
-            event.resolve(players);
-        }
 
         // punteggi finali
         for (Player p : players) {
