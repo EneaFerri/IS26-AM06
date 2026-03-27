@@ -1,19 +1,43 @@
 package it.polimi.ingsw.model.cards;
 
 import it.polimi.ingsw.model.enums.Age;
-
-import java.util.*;
+import com.google.gson.Gson;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class Deck
 {
     private List<Card> cards = new ArrayList<>();
 
     public Deck() {
+        Gson gson = new Gson();
+        try (Reader reader = new InputStreamReader(
+                getClass().getClassLoader().getResourceAsStream("cards.json"))) {
 
-        //l'idea qui è mettere per ogni carta da una cartella "risorse" agigungi carta al mazzo
-        //cosi aggiungo tutte le carte presenti del gioco nel deck principale
+
+            DeckConfiguration config = gson.fromJson(reader, DeckConfiguration.class);
+
+            if (config.hunters != null) cards.addAll(config.hunters);
+            if (config.builders != null) cards.addAll(config.builders);
+            if (config.collectors != null) cards.addAll(config.collectors);
+            if (config.artists != null) cards.addAll(config.artists);
+            if (config.inventors != null) cards.addAll(config.inventors);
+            if (config.shamans != null) cards.addAll(config.shamans);
+            if (config.hunts != null) cards.addAll(config.hunts);
+            if (config.pictures != null) cards.addAll(config.pictures);
+            if (config.rituals != null) cards.addAll(config.rituals);
+            if (config.sustenances != null) cards.addAll(config.sustenances);
+            if (config.buildingEnds != null) cards.addAll(config.buildingEnds);
+            if (config.buildingEachTurns != null) cards.addAll(config.buildingEachTurns);
+            if (config.buildingEvents != null) cards.addAll(config.buildingEvents);
+
+        } catch (Exception e) {
+            System.err.println("Errore durante la lettura del mazzo: " + e.getMessage());
+        }
     }
-
 
     public void addCard(Card c){
         cards.add(c);
