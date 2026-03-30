@@ -3,6 +3,7 @@ package it.polimi.ingsw.model;
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Card;
+import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.player.Player;
 
@@ -22,7 +23,7 @@ public interface GameActions {
     // --- FASE 2: selezione carte (era CardSelectionPhase — troppo vago) ---
     // il controller invoca questi quando il giocatore sceglie
     void pickCard(Player player, Card card);
-    void pickTribeCard(Player player, TribeCard card);
+    void pickCharacterCard(Player player, CharacterCard card);
     void pickBuildingCard(Player player, BuildingCard card);
 
     // --- FINE TURNO GIOCATORE: ritorno totem (era TotemPositionEndRound) ---

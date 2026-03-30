@@ -17,7 +17,6 @@ public class Deck
         try (Reader reader = new InputStreamReader(
                 getClass().getClassLoader().getResourceAsStream("cards.json"))) {
 
-
             DeckConfiguration config = gson.fromJson(reader, DeckConfiguration.class);
 
             if (config.hunters != null) cards.addAll(config.hunters);
@@ -45,7 +44,7 @@ public class Deck
         List<BuildingCard> buildingCards = new ArrayList<>();
 
         for(Card card : cards){
-            if(card instanceof BuildingCard){
+            if(card.isBuilding()){
                 buildingCards.add((BuildingCard) card);
             }
         }
@@ -54,7 +53,6 @@ public class Deck
 
         if(numberOfPlayers<2 || numberOfPlayers>5){
             throw new IllegalArgumentException("Number of players must be between 2 and 5");
-
         }
 
         if(numberOfPlayers==2){
@@ -78,7 +76,6 @@ public class Deck
             from_ERA_III = 5;
 
         }
-
 
         return buildingsOrderedWithERA(buildingCards, from_ERA_I, from_ERA_II, from_ERA_III) ;
     }
@@ -133,23 +130,18 @@ public class Deck
 
     public List<TribeCard> prepareTribeCards(int numberOfPlayers, Age ERA){
         List<TribeCard> tribeCards = new ArrayList<>();
-        if(numberOfPlayers<2 || numberOfPlayers>5){
+
+        if(numberOfPlayers < 2 || numberOfPlayers > 5){
             throw new IllegalArgumentException("Number of players must be between 2 and 5");
         }
 
         for(Card card : cards){
-            if(card instanceof TribeCard tribeCard){
-                if(tribeCard.getAge() == ERA){
-                    tribeCards.add(tribeCard);
-                }
-            }
-        }
+            if(card.isTribe()){
+                TribeCard tribeCard = (TribeCard) card;
 
-        for(TribeCard tribeCard : tribeCards){
-            if(tribeCard instanceof CharacterCard characterCard){
-                if(characterCard.getTag() > numberOfPlayers ){
-                    tribeCards.remove(characterCard);
-                }
+                if(tribeCard.getAge() == ERA && tribeCard.isAvailableForPlayers(numberOfPlayers)){
+                    tribeCards.add(tribeCard);
+                } //HO TOLTO IL REMOVE PERCHÉ ERA PERICOLOSO FARE IL REMOVE SU UN'ITERAZIONE: così è più pulito
             }
         }
 

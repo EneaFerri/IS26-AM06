@@ -1,6 +1,8 @@
 package it.polimi.ingsw.model.cards;
 
+import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.player.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,8 +14,12 @@ class CardTest {
 
     @BeforeEach
     void setUp() {
-
-        testCard = new Card(101, Age.Era_I) {};
+        testCard = new Card(101, Age.Era_I) {
+            @Override
+            public void pick(Player player, Game game) {
+                // non serve fare nulla
+            }
+        };
     }
 
     @Test

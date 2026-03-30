@@ -28,10 +28,7 @@ public class Sustenance extends EventCard {
 
             // Attiviamo gli edifici (se ne hanno) che reagiscono a SUSTENANCE
             for(BuildingCard bCard : player.getBuildingCards()){
-                if (bCard instanceof BuildingEvent) {
-                    BuildingEvent bEvent = (BuildingEvent) bCard;
-                    bEvent.applyEventEffect(EventType.SUSTENANCE, player);
-                }
+                bCard.applyEventEffect(EventType.SUSTENANCE, player);
             }
 
             // mi calcolo il numero tot di carte per comodità

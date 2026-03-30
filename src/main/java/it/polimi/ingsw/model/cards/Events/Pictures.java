@@ -39,10 +39,7 @@ public class Pictures extends EventCard {
 
             // Attiviamo gli edifici (se ne hanno) che reagiscono a PICTURES
             for (BuildingCard bCard : player.getBuildingCards()) {
-                if (bCard instanceof BuildingEvent) {
-                    BuildingEvent bEvent = (BuildingEvent) bCard;
-                    bEvent.applyEventEffect(EventType.PICTURES, player);
-                }
+                bCard.applyEventEffect(EventType.PICTURES, player);
             }
 
             // 2 EFFETTO CARTA: Risolviamo l'evento Pictures per giocatore

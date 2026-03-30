@@ -10,5 +10,27 @@ public abstract class TribeCard extends Card {
         super(cardID, cardAge);
     }
 
+    public boolean isCharacter(){
+        return false;
+    }
+
+    public boolean isEvent(){
+        return false;
+    }
+
+    public boolean isAvailableForPlayers(int numberOfPlayers) {
+        return true;
+    }
+
+    @Override
+    public boolean isBuilding() {
+        return false;
+    }
+
+    @Override
+    public boolean isTribe() {
+        return true;
+    }
+
 
 }

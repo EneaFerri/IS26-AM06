@@ -194,10 +194,8 @@ public class Player {
            } else if (building.getBType() == BuildingEachTurnType.EXTRACARD) {
                extraCard = true;
            }
-        
 
-
-    }
+        }
     }
 
     public List<CharacterCard> getCharacterCards() {

@@ -1,7 +1,9 @@
 package it.polimi.ingsw.model.cards;
 
+import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.player.Player;
 
 public abstract class CharacterCard extends TribeCard {
     private final int tag; //indica il numerino, default 2 gg, altrimenti +3,+4,5
@@ -22,5 +24,20 @@ public abstract class CharacterCard extends TribeCard {
 
     public CharacterType getCharacterType() {
         return characterType;
+    }
+
+    @Override
+    public void pick(Player player, Game game) {
+        game.pickCharacterCard(player, this);
+    }
+
+    @Override
+    public boolean isCharacter(){
+        return true;
+    }
+
+    @Override
+    public boolean isAvailableForPlayers(int numberOfPlayers) {
+        return getTag() <= numberOfPlayers;
     }
 }

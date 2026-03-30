@@ -186,7 +186,7 @@ public class Board {
         List<EventCard> lowRowEvents = new ArrayList<>();
 
         for (TribeCard card : bottomTribeCards) { //così salviamo anche l'ordine
-            if (card instanceof EventCard) {
+            if (card.isEvent()) {
                 lowRowEvents.add((EventCard) card);
             }
         }
@@ -199,7 +199,7 @@ public class Board {
         List<EventCard> upRowEvents = new ArrayList<>();
 
         for (TribeCard card : topTribeCards) {
-            if (card instanceof EventCard) {
+            if (card.isEvent()) {
                 upRowEvents.add((EventCard) card);
             }
         }

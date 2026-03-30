@@ -33,10 +33,8 @@ public class Hunt extends EventCard {
 
             // attivazione gli edifici, se ne hanno, che reagiscono a HUNT
             for(BuildingCard bCard : player.getBuildingCards()){
-                if (bCard instanceof BuildingEvent) {
-                    BuildingEvent bEvent = (BuildingEvent) bCard;
-                    bEvent.applyEventEffect(EventType.HUNT, player);
-                }
+                bCard.applyEventEffect(EventType.HUNT, player);
+                //con OVERRIDE INSERITO IN BUILDINCARD E BUILDINGEVENT, SE NON É UN EVENTO, NON FA NULLA IL METODO
             }
 
             for (CharacterCard card : player.getCharacterCards()) {

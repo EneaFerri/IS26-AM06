@@ -18,6 +18,7 @@ public class BuildingEvent extends BuildingCard {
         this.characterToConsider = characterToConsider;
     }
 
+    @Override
     public void applyEventEffect(EventType event, Player player) {
         // Se l'evento in corso non è quello a cui questo edificio risponde, ci fermiamo subito
         if (this.eventToRespond == null || this.eventToRespond != event) return;

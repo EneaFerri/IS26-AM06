@@ -170,7 +170,7 @@ public class Game implements GameActions {
         while (nBottomCards >0) {
             int i=1;
             for (i=1; i <= deck_ERA_I.size(); i++) {
-                if(deck_ERA_I.get(deck_ERA_I.size()-i) instanceof CharacterCard) {
+                if(deck_ERA_I.get(deck_ERA_I.size()-i).isCharacter()) {
                     temp = deck_ERA_I.get(deck_ERA_I.size() - i);
                     break;
                 }
@@ -262,11 +262,7 @@ public class Game implements GameActions {
             throw new IllegalStateException("No more bottom row picks allowed");
         }
 
-        if (card instanceof BuildingCard) {
-            pickBuildingCard(player, (BuildingCard) card);
-        } else if (card instanceof CharacterCard) {
-            pickTribeCard(player, (TribeCard) card);
-        }
+        card.pick(player, this);
 
         if (fromTopRow) topPicks++;
         else bottomPicks++;
@@ -277,13 +273,9 @@ public class Game implements GameActions {
         }
     }
 
-    public void pickTribeCard(Player player, TribeCard card) {
+    public void pickCharacterCard(Player player, CharacterCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
-
-        if (card instanceof EventCard) {
-            throw new IllegalArgumentException("Event cards cannot be picked by players");
-        }
 
         player.addCharacterCard((CharacterCard) card);
         gameBoard.removeCard(card);
