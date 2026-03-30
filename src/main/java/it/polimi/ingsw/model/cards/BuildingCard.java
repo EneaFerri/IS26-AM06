@@ -28,6 +28,14 @@ public abstract class BuildingCard extends Card {
         //non fa nulla qui dentro, serve solo per override
     }
 
+    public void onAddedToPlayer(Player player) {
+        // default: NON FA NIENTE
+    }
+
+    public int getEndEffectPoints(Player player) {
+        return 0;
+    }
+
     @Override
     public void pick(Player player, Game game) {
         game.pickBuildingCard(player, this);

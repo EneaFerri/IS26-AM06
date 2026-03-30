@@ -66,11 +66,14 @@ public class Board {
     }
 
     public void setTopBuildingCards(List<BuildingCard> cards, Age ERA) {
+        List<BuildingCard> filtered = new ArrayList<>();
         for (BuildingCard card : cards) {
-            if(card.getAge() == ERA){
-                this.topBuildingCards = cards;
+            if (card.getAge() == ERA) {
+                filtered.add(card);
             }
         }
+        this.topBuildingCards = filtered; //l'ho modificato perchè quello di prima assegnava tutta la lista con una sola
+                                         // corrispondenza hahaha
     }
 
     public BoardSpace getBoardSpace(char letter){

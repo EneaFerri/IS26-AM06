@@ -4,6 +4,7 @@ import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
 import it.polimi.ingsw.model.enums.InventionType;
+import it.polimi.ingsw.model.player.Player;
 
 public class Inventor extends CharacterCard {
 
@@ -16,5 +17,15 @@ public class Inventor extends CharacterCard {
 
     public InventionType getInvention() {
         return invention;
+    }
+
+    @Override
+    public void onAddedToPlayer(Player player) {
+        player.inventorsCountAndCheck(this);
+    }
+
+    @Override
+    public boolean hasInvention(InventionType inventionType) {
+        return getInvention().equals(inventionType);
     }
 }

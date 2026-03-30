@@ -16,4 +16,9 @@ public class Shaman extends CharacterCard {
     public int getStars() {
         return stars;
     }
+
+    @Override
+    public int getShamanStars() {
+        return getStars();
+    }
 }

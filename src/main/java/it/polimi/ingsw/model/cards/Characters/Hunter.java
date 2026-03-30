@@ -3,6 +3,7 @@ package it.polimi.ingsw.model.cards.Characters;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.player.Player;
 
 public class Hunter extends CharacterCard {
 
@@ -15,5 +16,12 @@ public class Hunter extends CharacterCard {
 
     public int getNuggets() {
         return nuggets;
+    }
+
+    @Override //HUNTER CON ICONA DANNO UN CIBO PER OGNI HUNTER
+    public void onAddedToPlayer(Player player) {
+        if (getNuggets() > 0) {
+            player.addFood(player.getNumHunters());
+        }
     }
 }

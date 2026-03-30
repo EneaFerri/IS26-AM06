@@ -101,37 +101,47 @@ public class Player {
         this.prestige -= prestige;
     }
 
+    public void enableDoublePointForBuilder() {
+        doublePointForBuilder = true;
+    }
+
+    public void enableDoublePointForRituals() {
+        doublePointForRituals = true;
+    }
+
+    public void enableNoMalusForRituals() {
+        noMalusForRituals = true;
+    }
+
+    public void enableExtraThreeStars() {
+        extraThreeStars = true;
+    }
+
+    public void enableExtraFoodOnTurnOrder() {
+        extraFoodOnTurnOrder = true;
+    }
+
+    public void enableExtraCard() {
+        extraCard = true;
+    }
+
+    public void enableSetBonus() {
+        setToCheck = true;
+    }
+
+    public void enableInventorBonus() {
+        inventorsToCheck = true;
+    }
+
     public void addCharacterCard(CharacterCard card) {
         myCharacterCards.add(card);
         card.markAsDrawed();
 
-        if (card instanceof Hunter newHunter) { //Ho aggiunto questo perchè teoricamente non veniva gestito il caso di un hunter con l'icona
-            if (newHunter.getNuggets() > 0) { // ha l'icona
-                int totalHunters = getNumHunters();
-                this.addFood(totalHunters); // 1 cibo per ogni cacciatore incluso il nuovo
-            }
-        }
+        card.onAddedToPlayer(this);
 
-        //gestione aggiunta invenzioni per inventori
-        if(card instanceof Inventor newInventor) {
-            InventionType type = newInventor.getInvention();
-
-            if (!myInventions.contains(type)) {
-                myInventions.add(type);
-            }
-
-            //controllo inventori se presente building
-            if(inventorsToCheck) {
-                inventorsCountAndCheck(newInventor);
-            }
-        }
-
-        //controllo i set se presente building
         if(setToCheck) {
             setCountAndCheck();
         }
-
-
     }
 
     private void setCountAndCheck() {
@@ -156,46 +166,32 @@ public class Player {
 
     }
 
-    private void inventorsCountAndCheck(Inventor newInventor) {
+    public void inventorsCountAndCheck(Inventor newInventor) {
         //in poche parole controllo se è gia presente un inventore con la stessa invenzione di quello nuobo in myCharacterCards
         //se si, allora ho un doppione  e aggiungo +3 di cibo
-         for(CharacterCard card : myCharacterCards) {
-             if(card instanceof Inventor myInventor && card != newInventor) { //ho aggiunto l'&& perchè altrimenti si trovava sempre una corrispondenza
-                 if(myInventor.getInvention().equals(newInventor.getInvention())) {
-                     this.addFood(3);
-                 }
-             }
-         }
+        InventionType type = newInventor.getInvention();
+
+        if (!myInventions.contains(type)) {
+            myInventions.add(type);
+        }
+
+        if (inventorsToCheck) {
+            for (CharacterCard card : myCharacterCards) {
+                if (card != newInventor && card.hasInvention(type)) {
+                    this.addFood(3);
+                }
+            }
+        }
     }
 
     public void addBuildingCard(BuildingCard card) {
         myBuildingCards.add(card);
         card.markAsDrawed();
+        card.onAddedToPlayer(this);
+    }
 
-        if(card instanceof BuildingEachTurn) {
-           BuildingEachTurn building = (BuildingEachTurn) card;
-
-           if(building.getBType() == BuildingEachTurnType.BUILDER_DOUBLEPOINTS) {
-               doublePointForBuilder = true;
-           } else if (building.getBType() == BuildingEachTurnType.RITUAL_DOUBLEPOINTS) {
-               doublePointForRituals = true;
-           } else if (building.getBType() == BuildingEachTurnType.RITUAL_THREEEXTRASTARS) {
-               extraThreeStars = true;
-           } else if (building.getBType() == BuildingEachTurnType.RITUAL_NOMALUS) {
-               noMalusForRituals = true;
-           } else if (building.getBType() == BuildingEachTurnType.EXTRAFOOD_SET) {
-               setToCheck = true;
-           } else if (building.getBType() == BuildingEachTurnType.EXTRAFOOD_INVENTORS) {
-               inventorsToCheck = true;
-               //TODO: mancano casi EXTRACARD, EXTRAFOOD_TURNORDER
-               //eccoli
-           }else if (building.getBType() == BuildingEachTurnType.EXTRAFOOD_TURNORDER) {
-               extraFoodOnTurnOrder = true;
-           } else if (building.getBType() == BuildingEachTurnType.EXTRACARD) {
-               extraCard = true;
-           }
-
-        }
+    public boolean hasDoublePointForBuilder() {
+        return doublePointForBuilder;
     }
 
     public List<CharacterCard> getCharacterCards() {
@@ -244,7 +240,6 @@ public class Player {
         return fromCollectors+fromBuildings;
     }
 
-
     public int getNumArtists() {
         int counter = 0;
         for (CharacterCard card : myCharacterCards) {
@@ -286,14 +281,10 @@ public class Player {
     public int getStarsFromShamans() {
         int counter = 0;
         for (CharacterCard card : myCharacterCards) {
-            if (card.getCharacterType() == CharacterType.SHAMAN) {
-                counter += ((Shaman) card).getStars();
-            }
+            counter += card.getShamanStars();
         }
         return counter;
     }
-
-
 
     //punti totali pre effetti finali delle buildings
     public int getTotalPointsPreEffect() {
@@ -302,16 +293,7 @@ public class Player {
         int sum = 0;
 
         for (CharacterCard card : myCharacterCards) {
-
-            //FACCIO COSTRUTTORI
-            if (card instanceof Builder) {
-                Builder b = (Builder) card;
-                if (!doublePointForBuilder) {
-                    sum = sum + b.getPrestigeValue();
-                }else{
-                    sum = sum + 2*b.getPrestigeValue();
-                }
-            }
+            sum += card.getPrestigeContribution(this);
         }
 
         //ARTISTI
@@ -330,26 +312,23 @@ public class Player {
         return currPre + sum;
     }
 
-    public int pointsFromEndEffect = 0;
+   // public int pointsFromEndEffect = 0; NON SERVE secondo me
 
     public int getPointsFromEndEffect() {
         // azzera il contatore all'inizio, xche se chiami questo metodo due volte
         // per sbaglio, il giocatore fa il doppio dei punti
-        this.pointsFromEndEffect = 0;
+        int pointsFromEndEffect = 0;
 
         for (BuildingCard bCard : myBuildingCards) {
-            // verifica edificio d fine partita
-            if (bCard instanceof BuildingEnd) {
-                //downcast se è di fine partita
-                BuildingEnd bEnd = (BuildingEnd) bCard;
-                bEnd.applyEndEffect(this); //qui modifico pointsFromEndEffect
-            }
+            pointsFromEndEffect += bCard.getEndEffectPoints(this);
         }
+
         return pointsFromEndEffect;
     }
 
-    public void getTotalPoints() {
+    public int getTotalPoints() {
         prestige =  getTotalPointsPreEffect() +  getPointsFromEndEffect();
+        return prestige;
     }
 
 

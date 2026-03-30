@@ -159,7 +159,7 @@ public class Game implements GameActions {
         //setup tribeCard
         deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
         deck_ERA_II = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
-        deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
+        deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_III);
 
         //setup board first turn
 
@@ -255,10 +255,10 @@ public class Game implements GameActions {
         boolean fromBottomRow = gameBoard.getAvailableBottomTribeCards().contains(card) ||
                 gameBoard.getAvailableBottomBuildingCards().contains(card);
 
-        if (!fromTopRow || getRemainingTopPicks(player) <= 0) {
+        if (fromTopRow && getRemainingTopPicks(player) <= 0) {
             throw new IllegalStateException("No more top row picks allowed");
         }
-        if (!fromBottomRow || getRemainingBottomPicks(player) <= 0) {
+        if (fromBottomRow && getRemainingBottomPicks(player) <= 0) {
             throw new IllegalStateException("No more bottom row picks allowed");
         }
 

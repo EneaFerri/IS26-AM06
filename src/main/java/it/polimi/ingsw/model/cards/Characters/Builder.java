@@ -3,6 +3,7 @@ package it.polimi.ingsw.model.cards.Characters;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.player.Player;
 
 public class Builder extends CharacterCard {
 
@@ -21,5 +22,13 @@ public class Builder extends CharacterCard {
 
     public int getBuildDiscount() {
         return buildDiscount;
+    }
+
+    @Override
+    public int getPrestigeContribution(Player player) {
+        if (player.hasDoublePointForBuilder()) {
+            return 2 * prestigeValue;
+        }
+        return prestigeValue;
     }
 }

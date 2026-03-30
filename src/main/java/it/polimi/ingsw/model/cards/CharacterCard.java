@@ -3,6 +3,7 @@ package it.polimi.ingsw.model.cards;
 import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.enums.InventionType;
 import it.polimi.ingsw.model.player.Player;
 
 public abstract class CharacterCard extends TribeCard {
@@ -16,14 +17,28 @@ public abstract class CharacterCard extends TribeCard {
         this.characterType = characterType;
     }
 
-    //TODO: IL TAG DOVREBBE SERVIRE IN FASE DI SET UP DEL GAME
-    // IN BASE AL NUMERO DI GIOCATORI "DOVREMMO SCARTARE" LE CARTE CON TAG > A NUMPLAYER
     public int getTag() {
         return tag;
     }
 
     public CharacterType getCharacterType() {
         return characterType;
+    }
+
+    public void onAddedToPlayer(Player player) {
+        // default: non fa UN CAZZO come ha detto il nostro broder
+    }
+
+    public int getShamanStars() {
+        return 0;
+    }
+
+    public int getPrestigeContribution(Player player) {
+        return 0;
+    }
+
+    public boolean hasInvention(InventionType inventionType) {
+        return false;
     }
 
     @Override
