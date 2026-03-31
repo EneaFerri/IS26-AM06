@@ -10,7 +10,22 @@ import java.util.List;
 
 public class Deck
 {
-    private List<Card> cards = new ArrayList<>();
+    private List<CharacterCard> characterCards = new ArrayList<>();
+    private List<BuildingCard> buildingCards = new ArrayList<>();
+    private List<EventCard> eventCards = new ArrayList<>();
+
+
+    private List<Card> cards;
+
+    public List<Card> getAllCards()
+    {
+        cards = new ArrayList<>();
+        cards.addAll(characterCards);
+        cards.addAll(buildingCards);
+        cards.addAll(eventCards);
+
+        return cards;
+    }
 
     public Deck() {
         Gson gson = new Gson();
@@ -148,4 +163,18 @@ public class Deck
         return tribeCards;
     }
 
+    public List<EventCard> getFinalsEvents() {
+        List<EventCard> finalEvents = new ArrayList<>();
+
+        for(Card card : cards){
+            if(card.isTribe()){
+                EventCard eCard = (EventCard) card;
+                if(eCard.getAge() == Age.Last_Event){
+                    finalEvents.add(eCard);
+                }
+            }
+        }
+
+        return finalEvents; //in teoria cosi ritorna i 2 eventi, che dobbiamo setuppare con era Last_Event
+    }
 }

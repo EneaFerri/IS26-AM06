@@ -30,7 +30,6 @@ public class BuildingEvent extends BuildingCard {
                     moreDiscount++;
                 }
             }
-            //In futuro, usate un metodo player.addFoodDiscount(moreDiscount) per l'incapsulamento! FATTO!!
             player.addBuildingFoodDiscount(moreDiscount);
         }
 
@@ -45,7 +44,7 @@ public class BuildingEvent extends BuildingCard {
             player.addPrestige(n);
         }
 
-        // RITUAL da implementare come da vostro TODO
+
     }
 }
 

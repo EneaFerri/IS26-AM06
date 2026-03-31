@@ -56,6 +56,8 @@ public class Game implements GameActions {
         this.deck_ERA_III = new ArrayList<>();
 
         this.buldingsInGame = new ArrayList<>();
+
+        this.finalEvents = mainDeck.getFinalsEvents();
     }
 
     public int getGameID() {
@@ -336,7 +338,7 @@ public class Game implements GameActions {
             event.resolve(players);
         }
 
-        if(currentAge != Age.Last_Round) {
+        if(currentAge != Age.Last_Event) {
             nextRound();
         }else {
             List<EventCard> LastEvents = gameBoard.getUpRowEvents();
@@ -408,7 +410,7 @@ public class Game implements GameActions {
             while(cardNumberToDraw > 0){
 
                 if(deck_ERA_III.isEmpty()){
-                    currentAge = Age.Last_Round;
+                    currentAge = Age.Last_Event;
                     break;
                 }
 
@@ -419,15 +421,23 @@ public class Game implements GameActions {
             }
         }
 
-        if(currentAge == Age.Last_Round) {
+        if(currentAge == Age.Last_Event) {
              //TODO: aggiungi i 2 eventi finali nella TopTribe
 
-            //poi si fa il check (nel metodo ResolveLowerEvents) dopo aver risolto gli eventi se si è raggiunta l'era Last_Round
+            //poi si fa il check (nel metodo ResolveLowerEvents) dopo aver risolto gli eventi se si è raggiunta l'era Last_Event
             //in tal caso si risolvono anche gli eventi "sopra" (compresi i 2 finali) e si può andare in gamestate.END
             //non verrà piu chiamato nextRound se l'era corrente è Last_Round...
 
             // da decidere se il metodo EndGame() verrà chiamato dal controller (tipo bottone finisci partita oppure calcola punteggio finale cliccabile da ogni player)
             //oppure se chiamare EndGame() "internamente" dando a tutti player i risultati finali
+
+            while(cardNumberToDraw > 0){
+
+                tempCard = finalEvents.get(finalEvents.size() - 1);
+                gameBoard.addTopTribeCards(tempCard);
+                finalEvents.remove(finalEvents.size() - 1);
+                cardNumberToDraw--;
+            }
 
         }
 

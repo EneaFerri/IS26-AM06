@@ -45,32 +45,4 @@ public class BuildingEnd extends BuildingCard {
 
         return count * this.prestigeEndEffect;
     }
-
-    /*
-    // Raga occhio: questo metodo va chiamato SOLO alla fine della partita (GamePhase.END o simile)
-    // altrimenti il giocatore si farma punti gratis a ogni turno
-    public void applyEndEffect(Player player) {
-
-        //caso speciale building da 25 punti
-        if(characterToConsider == CharacterType.NONE){
-            player.pointsFromEndEffect += prestigeEndEffect; //cioè +25
-            return;
-        }
-
-        int count = 0;
-
-        // Conto quanti personaggi di quel tipo ha la tribù
-        for (CharacterCard c : player.getCharacterCards()) {
-            if (c.getCharacterType() == this.characterToConsider) {
-                count++;
-            }
-        }
-
-        int prestigeToAdd = count * this.prestigeEndEffect;
-
-        player.pointsFromEndEffect += prestigeToAdd;
-
-        //TODO: manca gestione edificio "6 punti per set a fine partita", FORSE MEGLIO GESTIRE DIRETTAMENTE IN PLAYER???
-    }
-    */
 }

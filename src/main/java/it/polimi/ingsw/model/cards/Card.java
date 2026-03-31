@@ -44,7 +44,4 @@ public abstract class Card {
     }
 
 
-    // Metodo per permettere di applicare effetto delle specifica sottoclasse
-    // public abstract void applyEffect();
-    // MEGLIO NON METTERE IL METODO EFFECT QUI abbiamo deciso
 }

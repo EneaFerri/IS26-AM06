@@ -35,11 +35,6 @@ public class BuildingEachTurn extends BuildingCard {
         }
     }
 
-    // TODO: da capire bene con il prof in quale momento esatto del turno si attiva
-    // (all'inizio quando si pescano le carte o alla fine prima di passare il turno?)
-
-    //NO, in reatà si tratta di quelle bulding che dal momento della pescata, "attivano" degli effetti da controlare sempre
-    //eachtTurn è simbolico e indica che valgono tutti i turni fino alla fine. poi in base al tipo di effetto si attiverà in un determianto momento
 
     public  BuildingEachTurnType getBType() {
         return bType;
