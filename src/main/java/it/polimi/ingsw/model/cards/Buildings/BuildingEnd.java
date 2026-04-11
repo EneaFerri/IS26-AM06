@@ -29,9 +29,11 @@ public class BuildingEnd extends BuildingCard {
 
     @Override
     public int getEndEffectPoints(Player player) {
-        // caso speciale: edificio che dà un bonus fisso finale (es. +25)
-        if (characterToConsider == CharacterType.NONE) {
-            return prestigeEndEffect;
+
+        //caso speciale per la building con i set
+        if(characterToConsider == CharacterType.SET_OF_CHAR) {
+            int n = player.countSet();
+            return prestigeEndEffect * n;
         }
 
         int count = 0;

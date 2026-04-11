@@ -19,7 +19,7 @@ class BuilderTest {
     @Test
     void constructorShouldInitializeFieldsAndPassValuesToSuper() {
         assertEquals(3, testBuilder.getPrestigeValue(), "Il valore di prestigio non è stato inizializzato correttamente.");
-        assertEquals(1, testBuilder.getBuildDiscount(), "Lo sconto di costruzione non è stato inizializzato correttamente.");
+        assertEquals(1, testBuilder.getDiscountForBuildings(), "Lo sconto di costruzione non è stato inizializzato correttamente.");
 
         assertEquals(602, testBuilder.getID(), "L'ID non è stato inizializzato correttamente.");
         assertEquals(Age.Era_I, testBuilder.getAge(), "L'Age non è stata inizializzata correttamente.");

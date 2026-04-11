@@ -1,12 +1,16 @@
 package it.polimi.ingsw.model.cards;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import it.polimi.ingsw.model.enums.Age;
 import com.google.gson.Gson;
+
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class Deck
 {
@@ -14,9 +18,9 @@ public class Deck
     private List<BuildingCard> buildingCards = new ArrayList<>();
     private List<EventCard> eventCards = new ArrayList<>();
 
-
     private List<Card> cards;
 
+    //se servisse risalire all'intero mazzo di carte
     public List<Card> getAllCards()
     {
         cards = new ArrayList<>();
@@ -28,41 +32,47 @@ public class Deck
     }
 
     public Deck() {
-        Gson gson = new Gson();
-        try (Reader reader = new InputStreamReader(
-                getClass().getClassLoader().getResourceAsStream("cards.json"))) {
+        ObjectMapper mapper = new ObjectMapper();
 
-            DeckConfiguration config = gson.fromJson(reader, DeckConfiguration.class);
+        try{
+            loadCharacters(mapper);
+            loadBuildings(mapper);
+            loadEvents(mapper);
+        }catch(IOException e){
+            throw new RuntimeException("errore caricamento da JSON", e);
+        }
+    }
 
-            if (config.hunters != null) cards.addAll(config.hunters);
-            if (config.builders != null) cards.addAll(config.builders);
-            if (config.collectors != null) cards.addAll(config.collectors);
-            if (config.artists != null) cards.addAll(config.artists);
-            if (config.inventors != null) cards.addAll(config.inventors);
-            if (config.shamans != null) cards.addAll(config.shamans);
-            if (config.hunts != null) cards.addAll(config.hunts);
-            if (config.pictures != null) cards.addAll(config.pictures);
-            if (config.rituals != null) cards.addAll(config.rituals);
-            if (config.sustenances != null) cards.addAll(config.sustenances);
-            if (config.buildingEnds != null) cards.addAll(config.buildingEnds);
-            if (config.buildingEachTurns != null) cards.addAll(config.buildingEachTurns);
-            if (config.buildingEvents != null) cards.addAll(config.buildingEvents);
+    private void loadCharacters(ObjectMapper mapper) throws IOException {
+        JsonNode root = mapper.readTree(
+                getClass().getResourceAsStream("/characters.json")
+        );
+        for (JsonNode node : root) {
+            characterCards.add(DeckConfiguration.createCharacterCard(node));
+        }
+    }
 
-        } catch (Exception e) {
-            System.err.println("Errore durante la lettura del mazzo: " + e.getMessage());
+    private void loadBuildings(ObjectMapper mapper) throws IOException {
+        JsonNode root = mapper.readTree(
+                getClass().getResourceAsStream("/buildings.json")
+        );
+        for (JsonNode node : root) {
+            buildingCards.add(DeckConfiguration.createBuildingCard(node));
+        }
+    }
+
+    private void loadEvents(ObjectMapper mapper) throws IOException {
+        JsonNode root = mapper.readTree(
+                getClass().getResourceAsStream("/events.json")
+        );
+        for (JsonNode node : root) {
+            eventCards.add(DeckConfiguration.createEventCard(node));
         }
     }
 
 
+    //da aggiornare post JSON
     public List<BuildingCard> takeBuldingInGame(int numberOfPlayers){
-
-        List<BuildingCard> buildingCards = new ArrayList<>();
-
-        for(Card card : cards){
-            if(card.isBuilding()){
-                buildingCards.add((BuildingCard) card);
-            }
-        }
 
         int from_ERA_I = 0, from_ERA_II = 0, from_ERA_III = 0;
 
@@ -144,21 +154,25 @@ public class Deck
     }
 
     public List<TribeCard> prepareTribeCards(int numberOfPlayers, Age ERA){
-        List<TribeCard> tribeCards = new ArrayList<>();
-
         if(numberOfPlayers < 2 || numberOfPlayers > 5){
             throw new IllegalArgumentException("Number of players must be between 2 and 5");
         }
 
-        for(Card card : cards){
-            if(card.isTribe()){
-                TribeCard tribeCard = (TribeCard) card;
+        List<TribeCard> tribeCards = new ArrayList<>();
 
-                if(tribeCard.getAge() == ERA && tribeCard.isAvailableForPlayers(numberOfPlayers)){
-                    tribeCards.add(tribeCard);
-                } //HO TOLTO IL REMOVE PERCHÉ ERA PERICOLOSO FARE IL REMOVE SU UN'ITERAZIONE: così è più pulito
+        for(CharacterCard card : characterCards){
+            if(card.getAge() == ERA && card.isAvailableForPlayers(numberOfPlayers)){
+                tribeCards.add(card);
             }
         }
+
+        for(EventCard card : eventCards){
+            if(card.getAge() == ERA){
+                tribeCards.add(card);
+            }
+        }
+
+        Collections.shuffle(tribeCards);
 
         return tribeCards;
     }
@@ -166,15 +180,11 @@ public class Deck
     public List<EventCard> getFinalsEvents() {
         List<EventCard> finalEvents = new ArrayList<>();
 
-        for(Card card : cards){
-            if(card.isTribe()){
-                EventCard eCard = (EventCard) card;
-                if(eCard.getAge() == Age.Last_Event){
-                    finalEvents.add(eCard);
-                }
+        for(EventCard card : eventCards){
+            if(card.getAge() == Age.Last_Event){
+                finalEvents.add(card);
             }
         }
-
-        return finalEvents; //in teoria cosi ritorna i 2 eventi, che dobbiamo setuppare con era Last_Event
+        return finalEvents;
     }
 }

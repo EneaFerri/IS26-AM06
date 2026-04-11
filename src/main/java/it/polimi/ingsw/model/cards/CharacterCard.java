@@ -55,4 +55,6 @@ public abstract class CharacterCard extends TribeCard {
     public boolean isAvailableForPlayers(int numberOfPlayers) {
         return getTag() <= numberOfPlayers;
     }
+
+    public int getDiscountForBuildings(){return 0;}
 }

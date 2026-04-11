@@ -190,6 +190,14 @@ public class Player {
         card.onAddedToPlayer(this);
     }
 
+    public int foodDiscountToBuyBuildings(){
+        int discount = 0;
+        for(CharacterCard card : myCharacterCards) {
+            discount = discount + card.getDiscountForBuildings();
+        }
+        return discount;
+    }
+
     public boolean hasDoublePointForBuilder() {
         return doublePointForBuilder;
     }
@@ -313,6 +321,11 @@ public class Player {
     }
 
    // public int pointsFromEndEffect = 0; NON SERVE secondo me
+
+    public int countSet() {
+        //TODO
+        return 0;
+    }
 
     public int getPointsFromEndEffect() {
         // azzera il contatore all'inizio, xche se chiami questo metodo due volte

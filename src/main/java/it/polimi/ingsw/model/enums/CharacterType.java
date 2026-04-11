@@ -7,5 +7,5 @@ public enum CharacterType {
     SHAMAN,
     COLLECTOR,
     ARTIST,
-    NONE //caso speciale per building 25 punti, rivedendola ora mi sembra una cagata.... probabilmente da modificare
+    SET_OF_CHAR //caso sspeciale per building che da prestigio in base a quanti set, si puo modificare?
 }

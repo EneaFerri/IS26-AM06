@@ -287,7 +287,7 @@ public class Game implements GameActions {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
-        int actualCost = Math.max(0, card.getFoodCost() - player.getBuildingFoodDiscount());
+        int actualCost = Math.max(0, card.getFoodCost() - player.foodDiscountToBuyBuildings());
 
         if (player.getFood() < actualCost) {
             throw new IllegalStateException("Not enough food to pick building card");

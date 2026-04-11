@@ -7,7 +7,7 @@ import it.polimi.ingsw.model.player.Player;
 
 public class Hunter extends CharacterCard {
 
-    private final int nuggets;
+    private final int nuggets; //0 = no icona, 1 = icona
 
     public Hunter(int cardID, Age cardAge, int tag, int nuggets) {
         super(cardID, cardAge, tag, CharacterType.HUNTER);

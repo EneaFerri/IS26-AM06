@@ -48,7 +48,7 @@ public class Ritual extends EventCard {
                 if(!player.doublePointForRituals){
                     player.addPrestige(maxBonus);
                 }else{
-                    player.addPrestige(maxMalus*2);
+                    player.addPrestige(maxBonus*2);
                 }
             }
         }

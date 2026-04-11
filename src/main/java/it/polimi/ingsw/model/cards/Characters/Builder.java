@@ -20,7 +20,7 @@ public class Builder extends CharacterCard {
         return prestigeValue;
     }
 
-    public int getBuildDiscount() {
+    public int getDiscountForBuildings() {
         return buildDiscount;
     }
 
@@ -31,4 +31,6 @@ public class Builder extends CharacterCard {
         }
         return prestigeValue;
     }
+
+
 }
