@@ -100,7 +100,7 @@ public class Board {
         for (BoardSpace space : offerField) {
             if (!space.isFree()) {
                 for (Player player : players) {
-                    if (player.getTotem().equals(space.getTotem())) {
+                    if (player.getTotem() == space.getTotem()) {
                         ordered.add(player);
                         break;
                     }

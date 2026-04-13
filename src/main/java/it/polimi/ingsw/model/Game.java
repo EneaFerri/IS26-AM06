@@ -334,6 +334,10 @@ public class Game implements GameActions {
 
         List<EventCard> events = gameBoard.getLowRowEvents();
 
+        // Sustenance sempre per ultimo — regola esplicita
+        events.sort(Comparator.comparingInt(e ->
+                e.getType() == EventType.SUSTENANCE ? 1 : 0));
+
         for (EventCard event : events) {
             event.resolve(players);
         }
@@ -447,7 +451,7 @@ public class Game implements GameActions {
 
         // aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
-        playerInTurn = turnOrder.getOrder().get(0);
+        playerInTurn = turnOrder.getOrder(players).get(0);
     }
 
     public void updatedAge() {

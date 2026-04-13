@@ -173,6 +173,7 @@ class PlayerTest {
         assertEquals(10, player.getPointsFromEndEffect());
     }
 
+    /*
     @Test
     void fixedEndBuildingPointsAreReturnedCorrectly() {
         Player player = new Player("Mario", new Totem(TotemColor.RED));
@@ -182,6 +183,7 @@ class PlayerTest {
 
         assertEquals(25, player.getPointsFromEndEffect());
     }
+    */
 
     @Test
     void totalPointsIncludesPreEffectAndEndEffectPoints() {

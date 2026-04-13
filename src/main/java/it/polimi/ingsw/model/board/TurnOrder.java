@@ -21,14 +21,18 @@ public class TurnOrder {
         return tag;
     }
 
-    public List<Player> getOrder() {
+    public List<Player> getOrder(List<Player> allPlayers) {
         List<Player> playersOrder = new ArrayList<>();
         for (OrderBlock block : orderBlocks) {
-            if (!block.isFree() && block.getTotemOn() != null) {
-                // TODO: ho buttato giù una bozza ma ho sonno ora
+            if (!block.isFree()) {
+                for (Player player : allPlayers) {
+                    if (player.getTotem() == block.getTotemOn()) {
+                        playersOrder.add(player);
+                        break;
+                    }
+                }
             }
         }
-
         return playersOrder;
     }
 

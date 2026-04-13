@@ -1,79 +1,79 @@
 [
   {
     "id": 0,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 1,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 2,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 3,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 3,
     "type": "ARTIST"
   },
   {
     "id": 4,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 4,
     "type": "ARTIST"
   },
   {
     "id": 5,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 6,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 7,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 8,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 3,
     "type": "ARTIST"
   },
   {
     "id": 9,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 10,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 11,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "ARTIST"
   },
   {
     "id": 12,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 5,
     "type": "ARTIST"
   },
@@ -81,7 +81,7 @@
 
   {
     "id": 13,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 2,
@@ -89,7 +89,7 @@
   },
   {
     "id": 14,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 3,
@@ -97,7 +97,7 @@
   },
   {
     "id": 15,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 0,
@@ -105,7 +105,7 @@
   },
   {
     "id": 16,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 5,
     "type": "BUILDER",
     "prestigeValue": 1,
@@ -113,7 +113,7 @@
   },
   {
     "id": 17,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 1,
@@ -121,7 +121,7 @@
   },
   {
     "id": 18,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 3,
@@ -129,7 +129,7 @@
   },
   {
     "id": 19,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 4,
@@ -137,7 +137,7 @@
   },
   {
     "id": 20,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 3,
     "type": "BUILDER",
     "prestigeValue": 2,
@@ -145,7 +145,7 @@
   },
   {
     "id": 21,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 3,
@@ -153,7 +153,7 @@
   },
   {
     "id": 22,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 5,
@@ -161,7 +161,7 @@
   },
   {
     "id": 23,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "BUILDER",
     "prestigeValue": 2,
@@ -169,7 +169,7 @@
   },
   {
     "id": 24,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 5,
     "type": "BUILDER",
     "prestigeValue": 4,
@@ -179,67 +179,67 @@
 
   {
     "id": 25,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "COLLECTOR"
   },
   {
     "id": 26,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "COLLECTOR"
   },
   {
     "id": 27,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 3,
     "type": "COLLECTOR"
   },
   {
     "id": 28,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 5,
     "type": "COLLECTOR"
   },
   {
     "id": 29,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "COLLECTOR"
   },
   {
     "id": 30,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 3,
     "type": "COLLECTOR"
   },
   {
     "id": 31,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 4,
     "type": "COLLECTOR"
   },
   {
     "id": 32,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 5,
     "type": "COLLECTOR"
   },
   {
     "id": 33,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "COLLECTOR"
   },
   {
     "id": 34,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 4,
     "type": "COLLECTOR"
   },
   {
     "id": 35,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 5,
     "type": "COLLECTOR"
   },
@@ -247,105 +247,105 @@
 
   {
     "id": 36,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 37,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 38,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 39,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 3,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 40,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 3,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 41,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 42,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 43,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 44,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 3,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 45,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 4,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 46,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 5,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 47,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 48,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 0
   },
   {
     "id": 49,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "HUNTER",
     "nugget": 1
   },
   {
     "id": 50,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 5,
     "type": "HUNTER",
     "nugget": 1
@@ -354,140 +354,140 @@
 
   {
     "id": 51,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "BOAT"
   },
   {
     "id": 52,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "LEATHER"
   },
   {
     "id": 53,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "BREAD"
   },
   {
     "id": 54,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "ARROW"
   },
   {
     "id": 55,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 4,
     "type": "INVENTOR",
     "inventionType": "FLUTE"
   },
   {
     "id": 56,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 4,
     "type": "INVENTOR",
     "inventionType": "CUP"
   },
   {
     "id": 57,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 4,
     "type": "INVENTOR",
     "inventionType": "ROPE"
   },
   {
     "id": 58,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "CUP"
   },
   {
     "id": 59,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "LEATHER"
   },
   {
     "id": 60,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "FLUTE"
   },
   {
     "id": 61,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "VOODOO"
   },
   {
     "id": 62,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "ROPE"
   },
   {
     "id": 63,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 4,
     "type": "INVENTOR",
     "inventionType": "HOOK"
   },
   {
     "id": 64,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "HOOK"
   },
   {
     "id": 65,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "BREAD"
   },
   {
     "id": 66,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "VOODOO"
   },
   {
     "id": 67,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "INVENTOR",
     "inventionType": "NECKLACE"
   },
   {
     "id": 68,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 3,
     "type": "INVENTOR",
     "inventionType": "ARROW"
   },
   {
     "id": 69,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 3,
     "type": "INVENTOR",
     "inventionType": "BOAT"
   },
   {
     "id": 70,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 4,
     "type": "INVENTOR",
     "inventionType": "NECKLACE"
@@ -496,91 +496,91 @@
 
   {
     "id": 71,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 72,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 1
   },
   {
     "id": 73,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 4,
     "type": "SHAMAN",
     "stars": 1
   },
   {
     "id": 74,
-    "era": "ERA_I",
+    "era": "Era_I",
     "tag": 5,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 75,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 76,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 77,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 5,
     "type": "SHAMAN",
     "stars": 1
   },
   {
     "id": 78,
-    "era": "ERA_II",
+    "era": "Era_II",
     "tag": 5,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 79,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 3
   },
   {
     "id": 80,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 3
   },
   {
     "id": 81,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 2,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 82,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 3,
     "type": "SHAMAN",
     "stars": 2
   },
   {
     "id": 83,
-    "era": "ERA_III",
+    "era": "Era_III",
     "tag": 4,
     "type": "SHAMAN",
     "stars": 2

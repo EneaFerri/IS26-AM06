@@ -340,8 +340,8 @@ public class Player {
     }
 
     public int getTotalPoints() {
-        prestige =  getTotalPointsPreEffect() +  getPointsFromEndEffect();
-        return prestige;
+        // NON sovrascrivere prestige — restituisce solo il calcolo
+        return getTotalPointsPreEffect() + getPointsFromEndEffect();
     }
 
 

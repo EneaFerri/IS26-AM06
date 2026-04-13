@@ -1,7 +1,7 @@
 [
   {
     "id": 100,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 5,
     "prestigePoints": 3,
 
@@ -11,7 +11,7 @@
   },
   {
     "id": 101,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 4,
     "prestigePoints": 4,
 
@@ -21,7 +21,7 @@
   },
   {
     "id": 102,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 3,
     "prestigePoints": 3,
 
@@ -30,7 +30,7 @@
   },
   {
     "id": 103,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 4,
     "prestigePoints": 3,
 
@@ -39,7 +39,7 @@
   },
   {
     "id": 104,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 5,
     "prestigePoints": 2,
 
@@ -48,7 +48,7 @@
   },
   {
     "id": 105,
-    "era": "ERA_I",
+    "era": "Era_I",
     "foodCost": 3,
     "prestigePoints": 4,
 
@@ -59,7 +59,7 @@
 
   {
     "id": 106,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 7,
     "prestigePoints": 4,
 
@@ -69,7 +69,7 @@
   },
   {
     "id": 107,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 5,
     "prestigePoints": 6,
 
@@ -79,7 +79,7 @@
   },
   {
   "id": 108,
-  "era": "ERA_II",
+  "era": "Era_II",
   "foodCost": 7,
   "prestigePoints": 2,
 
@@ -89,7 +89,7 @@
   },
   {
     "id": 109,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 5,
     "prestigePoints": 6,
 
@@ -99,7 +99,7 @@
   },
   {
     "id": 110,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 6,
     "prestigePoints": 4,
 
@@ -108,7 +108,7 @@
   },
   {
     "id": 111,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 6,
     "prestigePoints": 4,
 
@@ -117,7 +117,7 @@
   },
   {
     "id": 112,
-    "era": "ERA_II",
+    "era": "Era_II",
     "foodCost": 7,
     "prestigePoints": 0,
 
@@ -128,7 +128,7 @@
 
   {
     "id": 113,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 7,
     "prestigePoints": 4,
 
@@ -138,7 +138,7 @@
   },
   {
     "id": 114,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 6,
     "prestigePoints": 3,
 
@@ -148,7 +148,7 @@
   },
   {
     "id": 115,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 7,
     "prestigePoints": 6,
 
@@ -158,7 +158,7 @@
   },
   {
     "id": 116,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 8,
     "prestigePoints": 8,
 
@@ -168,7 +168,7 @@
   },
   {
     "id": 117,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 6,
     "prestigePoints": 6,
 
@@ -178,7 +178,7 @@
   },
   {
     "id": 118,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 7,
     "prestigePoints": 4,
 
@@ -188,7 +188,7 @@
   },
   {
     "id": 119,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 10,
     "prestigePoints": 25,
 
@@ -198,7 +198,7 @@
   },
   {
     "id": 120,
-    "era": "ERA_III",
+    "era": "Era_III",
     "foodCost": 9,
     "prestigePoints": 3,
 
