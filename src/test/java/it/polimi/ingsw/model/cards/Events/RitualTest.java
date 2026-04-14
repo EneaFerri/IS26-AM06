@@ -110,4 +110,11 @@ class RitualTest {
         // quindi il player riceve sia bonus che malus.
         assertEquals(prestigeBefore + 2, player.getPrestige());
     }
+    @Test
+    void gettersShouldReturnCorrectValues() {
+        Ritual ritual = new Ritual(202, Age.Era_I, 5, 3);
+        assertEquals(5, ritual.getMaxBonus());
+        assertEquals(3, ritual.getMaxMalus());
+    }
+
 }

@@ -28,4 +28,14 @@ class CardTest {
         testCard.markAsDrawed();
         assertTrue(testCard.isDrawed(), "Il metodo markAsDrawed dovrebbe impostare lo stato 'drawed' a true.");
     }
+
+    @Test
+    void isBuildingShouldReturnFalseByDefault() {
+        assertFalse(testCard.isBuilding(), "Il metodo isBuilding dovrebbe ritornare false di default nella classe base Card.");
+    }
+
+    @Test
+    void isTribeShouldReturnFalseByDefault() {
+        assertFalse(testCard.isTribe(), "Il metodo isTribe dovrebbe ritornare false di default nella classe base Card.");
+    }
 }

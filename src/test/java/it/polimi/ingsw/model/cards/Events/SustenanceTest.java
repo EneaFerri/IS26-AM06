@@ -1,8 +1,10 @@
 package it.polimi.ingsw.model.cards.Events;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Characters.Artist;
 import it.polimi.ingsw.model.cards.Characters.Collector;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
@@ -72,5 +74,33 @@ class SustenanceTest {
 
         // nessuna penalità
         assertEquals(0, player.getPrestige());
+    }
+
+    @Test
+    void gettersShouldReturnCorrectValues() {
+        Sustenance sustenance = new Sustenance(203, Age.Era_I, 2);
+        assertEquals(2, sustenance.getPrestigeMalus());
+    }
+
+    @Test
+    void resolveShouldTriggerBuildingEffects() {
+        Player player = new Player("Mario", new Totem(TotemColor.RED));
+        final boolean[] effectTriggered = {false};
+
+        BuildingCard fakeBuilding = new BuildingCard(100, Age.Era_I, 0, 0) {
+            @Override
+            public void applyEventEffect(EventType eventType, Player p) {
+                if(eventType == EventType.SUSTENANCE) {
+                    effectTriggered[0] = true;
+                }
+            }
+        };
+
+        player.addBuildingCard(fakeBuilding);
+
+        Sustenance sustenance = new Sustenance(203, Age.Era_I, 2);
+        sustenance.resolve(List.of(player));
+
+        assertTrue(effectTriggered[0], "L'evento SUSTENANCE dovrebbe innescare applyEventEffect sugli edifici del giocatore.");
     }
 }
