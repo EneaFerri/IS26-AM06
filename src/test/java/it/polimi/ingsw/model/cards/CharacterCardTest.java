@@ -51,7 +51,7 @@ class CharacterCardTest {
 
         final boolean[] methodCalled = {false};
 
-        Game fakeGame = new Game(1, null, null) {
+        Game fakeGame = new Game(1) {
             @Override
             public void pickCharacterCard(Player player, CharacterCard card) {
 

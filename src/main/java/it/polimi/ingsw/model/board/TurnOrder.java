@@ -1,7 +1,11 @@
 package it.polimi.ingsw.model.board;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import it.polimi.ingsw.model.cards.DeckConfiguration;
 import it.polimi.ingsw.model.player.Player;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,10 +14,37 @@ public class TurnOrder {
     private int tag;
     private List<OrderBlock> orderBlocks;
 
-    //costruttore
+    //costruttore senza tag
+    public TurnOrder() {
+        this.orderBlocks = new ArrayList<>();
+    }
+
+    //costruttore con tag
     public TurnOrder(int tag) {
         this.tag = tag;
-        this.orderBlocks = new ArrayList<>();
+        configureOrderBlocks(tag);
+    }
+
+    private void configureOrderBlocks(int tag) {
+
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            JsonNode root = mapper.readTree(
+                    getClass().getResourceAsStream("/turnOrder.json")
+            );
+
+
+            JsonNode blockNode = root.get("block" + tag); //qui controllo il blocco corretto
+            if (blockNode == null || !blockNode.isArray()) {
+                throw new RuntimeException("Blocco non valido: block" + tag);
+            }
+
+            orderBlocks = BoardConfiguration.createTurnOrder(blockNode); //crea solo blocco in base a numero player
+
+
+        }catch(IOException e){
+            throw new RuntimeException("errore caricamento da JSON", e);
+        }
     }
 
     // getters

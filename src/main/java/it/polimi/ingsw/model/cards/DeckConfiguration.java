@@ -11,7 +11,7 @@ import java.util.Collection;
 import java.util.List;
 
 public class DeckConfiguration {
-    //collegamento JSON FILES <--> CLASSE DECK
+    //collegamento JSON FILES: buildings, characters, events <--> CLASSE DECK
 
     public static CharacterCard createCharacterCard(JsonNode node){
 

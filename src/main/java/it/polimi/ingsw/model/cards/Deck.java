@@ -71,7 +71,6 @@ public class Deck
     }
 
 
-    //da aggiornare post JSON
     public List<BuildingCard> takeBuldingInGame(int numberOfPlayers){
 
         int from_ERA_I = 0, from_ERA_II = 0, from_ERA_III = 0;

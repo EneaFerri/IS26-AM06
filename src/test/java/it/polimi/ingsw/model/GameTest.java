@@ -68,12 +68,11 @@ class GameTest {
         offerField.add(new BoardSpace('C', 0, 1, 0));
 
         return new Board(
-                null, // deck non serve nel board per questi test
+
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new ArrayList<>(),
-                new ArrayList<>(),
-                offerField
+                new ArrayList<>()
         );
     }
 
@@ -84,7 +83,7 @@ class GameTest {
     private Game createGameInLoginState() {
         Board board = createEmptyBoard();
         TurnOrder turnOrder = createTurnOrderWithBlocks(2);
-        return new Game(1, board, turnOrder);
+        return new Game(1);
     }
 
     /**
@@ -94,7 +93,7 @@ class GameTest {
     private Game createGameReadyToPlay(Player p1, Player p2) {
         Board board = createEmptyBoard();
         TurnOrder turnOrder = createTurnOrderWithBlocks(2);
-        Game game = new Game(1, board, turnOrder);
+        Game game = new Game(1);
 
         // aggiungi giocatori manualmente
         try {

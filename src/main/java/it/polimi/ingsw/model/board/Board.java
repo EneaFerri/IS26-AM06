@@ -1,17 +1,20 @@
 package it.polimi.ingsw.model.board;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Board {
 
-    private Deck currentDeck;
+
 
     private List<TribeCard> topTribeCards;
     private List<TribeCard> bottomTribeCards;
@@ -21,16 +24,71 @@ public class Board {
 
     private List<BoardSpace> offerField;
 
-    public Board(Deck deck, List<TribeCard> topTribeCards, List<TribeCard> bottomTribeCards,
-                 List<BuildingCard> topBuildingCards, List<BuildingCard> bottomBuildingCards,
-                 List<BoardSpace> offerField) {
 
-        this.currentDeck = deck;
+    public Board() {
+        topTribeCards = new ArrayList<>();
+        bottomTribeCards = new ArrayList<>();
+        topBuildingCards = new ArrayList<>();
+        bottomBuildingCards = new ArrayList<>();
+
+        offerField = new ArrayList<>();
+        configureOfferField();
+    }
+
+    public Board(List<TribeCard> topTribeCards, List<TribeCard> bottomTribeCards,
+                 List<BuildingCard> topBuildingCards, List<BuildingCard> bottomBuildingCards) {
+
+
         this.topTribeCards = topTribeCards;
         this.bottomTribeCards = bottomTribeCards;
         this.topBuildingCards = topBuildingCards;
         this.bottomBuildingCards = bottomBuildingCards;
-        this.offerField = offerField;
+
+        this.offerField = null;
+        configureOfferField();
+    }
+
+    //aggiunge tutte le carte boardspace nella lista di offerfield prendendole direttamente da json file
+    private void configureOfferField() {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        try{
+            JsonNode root = mapper.readTree(
+                    getClass().getResourceAsStream("/boardSpaces.json")
+            );
+            for (JsonNode node : root) {
+                offerField.add(BoardConfiguration.createBoardSpace(node));
+            }
+        }catch(IOException e){
+            throw new RuntimeException("errore caricamento da JSON", e);
+        }
+    }
+
+    public void prepareGameBoardSpace(int numberOfPlayers) {
+        //rimuove le carte dalla lista offerfield se inutili in base al numero player
+
+        if (numberOfPlayers == 5) {
+            return;
+        }else if (numberOfPlayers == 4) {
+            //rimuovi lettera A
+            removeFromOfferField('A');
+        }else if (numberOfPlayers == 3) {
+            //rimuovi lettera G
+            removeFromOfferField('G');
+        }else if (numberOfPlayers == 2) {
+            //riumuovi lettera D
+            removeFromOfferField('D');
+        }
+
+    }
+
+    private void removeFromOfferField(char letter){
+        for(BoardSpace boardSpace : offerField){
+            if(boardSpace.getLetter() == letter){
+                offerField.remove(boardSpace);
+            }
+        }
     }
 
     public List<TribeCard> getTopRowTribe() {

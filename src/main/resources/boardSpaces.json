@@ -1,0 +1,51 @@
+[
+  {
+    "letter" : "A",
+    "numCardTop": 0,
+    "numCardDown": 0,
+    "nuggets": 3
+  },
+
+  {
+    "letter" : "B",
+    "numCardTop": 0,
+    "numCardDown": 1,
+    "nuggets": 0
+  },
+
+  {
+    "letter" : "C",
+    "numCardTop": 1,
+    "numCardDown": 0,
+    "nuggets": 0
+  },
+
+  {
+    "letter" : "D",
+    "numCardTop": 0,
+    "numCardDown": 2,
+    "nuggets": 0
+  },
+
+  {
+    "letter" : "E",
+    "numCardTop": 1,
+    "numCardDown": 1,
+    "nuggets": 0
+  },
+
+  {
+    "letter" : "F",
+    "numCardTop": 2,
+    "numCardDown": 0,
+    "nuggets": 0
+  },
+
+  {
+    "letter" : "G",
+    "numCardTop": 2,
+    "numCardDown": 1,
+    "nuggets": 0
+  }
+
+]

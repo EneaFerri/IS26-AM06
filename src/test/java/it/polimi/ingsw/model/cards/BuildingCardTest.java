@@ -42,7 +42,7 @@ class BuildingCardTest {
         final boolean[] methodCalled = {false};
 
         // 2. Creiamo un mock manuale di Game
-        Game fakeGame = new Game(1, null, null) {
+        Game fakeGame = new Game(1) {
             @Override
             public void pickBuildingCard(Player player, BuildingCard card) {
                 methodCalled[0] = true;

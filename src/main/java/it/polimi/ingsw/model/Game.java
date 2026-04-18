@@ -17,7 +17,7 @@ public class Game implements GameActions {
 
     private final List<Player> players;
     private Player playerInTurn;
-    private final TurnOrder turnOrder;
+    private TurnOrder turnOrder;
     private List<Player> currentRoundOrder;
 
     private int numberOfPlayers;
@@ -36,18 +36,20 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
+    //variabili d'appoggio per pescare carte
     private int topPicks = 0;
     private int bottomPicks = 0;
 
-    public Game(int gameID, Board gameBoard, TurnOrder turn) {
+    public Game(int gameID) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
         this.playerInTurn = null;
         this.numberOfPlayers = 0;
         this.gameState = GameState.LOGIN;
         this.currentAge = Age.Era_I;
-        this.gameBoard = gameBoard;
-        this.turnOrder = turn;
+
+        this.gameBoard = new Board();
+        this.turnOrder = null;
 
         this.mainDeck = new Deck();
 
@@ -96,18 +98,6 @@ public class Game implements GameActions {
         return mainDeck;
     }
 
-    public List<TribeCard> getDeck1() {
-        return deck_ERA_I;
-    }
-
-    public List<TribeCard> getDeck2() {
-        return deck_ERA_II;
-    }
-
-    public List<TribeCard> getDeck3() {
-        return deck_ERA_III;
-    }
-
 
     public void addPlayer(Player player) {
         if (gameState != GameState.LOGIN) {
@@ -124,14 +114,32 @@ public class Game implements GameActions {
         if (gameState != GameState.LOGIN) {
             throw new IllegalStateException("Cannot start game after game has started");
         }
-        if (players.isEmpty()) {
-            throw new IllegalStateException("Cannot start a game without players");
+        if (players.isEmpty() || players.size() < 2 || players.size() > 5) {
+            throw new IllegalStateException("Cannot start a game");
         }
 
-        setUpFirstRound(); //per comodità set up first round in altro metodo, privato tanto viene chiamato solo qua
+        setUpGameCards();
+        setUpFirstRound();
     }
 
+    private void setUpGameCards() {
+        //setup board & turnOrder card
+        gameBoard.prepareGameBoardSpace(numberOfPlayers); //qui vengono preparate le effettive board offer space --> CHIAMATA A VIEW PER VISUALIZZARE GAMEBOARD?
+        turnOrder = new TurnOrder(numberOfPlayers);  //qui viene preparata la carta dell'ordine di pozionamento carte --> CHIAMATA A VIEW PER VISUALIZZARE TURNORDER?
+
+        //setup buildings card
+        buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
+        gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
+
+        //setup tribeCard card
+        deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
+        deck_ERA_II = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
+        deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_III);
+    }
+
+
     private void setUpFirstRound() {
+
         //random order for the first round
         List<Player> shuffled = new ArrayList<>(players);
         Collections.shuffle(shuffled);
@@ -152,20 +160,7 @@ public class Game implements GameActions {
             shuffled.get(i).addFood(food);
         }
 
-
-        //setup buildings
-        buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
-        gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
-
-
-        //setup tribeCard
-        deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
-        deck_ERA_II = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
-        deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_III);
-
         //setup board first turn
-
-
         //bottomCards
         int nBottomCards = numberOfPlayers +1;
         TribeCard temp = null;
