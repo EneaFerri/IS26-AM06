@@ -14,18 +14,25 @@ class TribeCardTest {
 
     @BeforeEach
     void setUp() {
-        testTribeCard = new TribeCard(301, Age.Era_I) {
+        testTribeCard = new TribeCard(0, Age.Era_I) {
             @Override
-            public void pick(Player player, Game game) {
-                // nessuna logica necessaria per questo test
-            }
+            public void pick(Player player, Game game) {}
         };
     }
 
     @Test
     void constructorShouldPassValuesToSuperClass() {
 
-        assertEquals(301, testTribeCard.getID(), "L'ID della carta non è stato passato/inizializzato correttamente.");
+        assertEquals(0, testTribeCard.getID(), "L'ID della carta non è stato passato/inizializzato correttamente.");
         assertEquals(Age.Era_I, testTribeCard.getAge(), "L'Age della carta non è stata passata/inizializzata correttamente.");
+    }
+
+    @Test
+    void defaultBooleanMethodsShouldReturnCorrectValues() {
+        assertFalse(testTribeCard.isCharacter(), "isCharacter dovrebbe essere false di default in TribeCard");
+        assertFalse(testTribeCard.isEvent(), "isEvent dovrebbe essere false di default in TribeCard");
+        assertTrue(testTribeCard.isAvailableForPlayers(3), "isAvailableForPlayers dovrebbe essere true di default in TribeCard");
+        assertFalse(testTribeCard.isBuilding(), "isBuilding dovrebbe essere false (override da Card)");
+        assertTrue(testTribeCard.isTribe(), "isTribe dovrebbe essere true (override da Card)");
     }
 }

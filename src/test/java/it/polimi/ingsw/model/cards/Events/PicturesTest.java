@@ -1,7 +1,9 @@
 package it.polimi.ingsw.model.cards.Events;
 
+import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Characters.Artist;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
@@ -9,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PicturesTest {
 
@@ -56,5 +58,35 @@ class PicturesTest {
 
         assertEquals(4, p1.getPrestige());
         assertEquals(- 3, p2.getPrestige());
+    }
+
+    @Test
+    void gettersShouldReturnCorrectValues() {
+        Pictures pictures = new Pictures(201, Age.Era_I, 2, 3, 4);
+        assertEquals(2, pictures.getMinimumArtists());
+        assertEquals(3, pictures.getPrestigeMalus());
+        assertEquals(4, pictures.getPrestigeBonus());
+    }
+
+    @Test
+    void resolveShouldTriggerBuildingEffects() {
+        Player player = new Player("Mario", new Totem(TotemColor.RED));
+        final boolean[] effectTriggered = {false};
+
+        BuildingCard fakeBuilding = new BuildingCard(100, Age.Era_I, 0, 0) {
+            @Override
+            public void applyEventEffect(EventType eventType, Player p) {
+                if(eventType == EventType.PICTURES) {
+                    effectTriggered[0] = true;
+                }
+            }
+        };
+
+        player.addBuildingCard(fakeBuilding);
+
+        Pictures pictures = new Pictures(201, Age.Era_I, 2, 3, 4);
+        pictures.resolve(List.of(player));
+
+        assertTrue(effectTriggered[0], "L'evento PICTURES dovrebbe innescare applyEventEffect sugli edifici del giocatore.");
     }
 }
