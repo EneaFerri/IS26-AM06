@@ -221,7 +221,16 @@ public class Game implements GameActions {
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
 
-            //TODO: Qua il caso lettera
+            // gestione spazio A (solo partite a 5 giocatori)
+            if(numberOfPlayers == 5) {
+
+                BoardSpace firstBoardSpace = playerInTurn.getTotem().getPosition();
+                if (firstBoardSpace.getLetter() == 'A') {
+                    playerInTurn.addFood(3);
+                    returnTotemToTurnOrder(playerInTurn);
+                    advanceNextPlayer();
+                }
+            }
         }
     }
 
@@ -244,15 +253,6 @@ public class Game implements GameActions {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
-        BoardSpace boardSpace = player.getTotem().getPosition();
-        // gestione spazio A (solo partite a 5 giocatori)
-        //TODO: Da sistemare appositamente
-        if (numberOfPlayers == 5 && boardSpace.getLetter() == 'A') {
-            player.addFood(3);
-            returnTotemToTurnOrder(player);
-            advanceNextPlayer();
-            return;
-        }
 
         boolean fromTopRow = gameBoard.getAvailableUpperTribeCards().contains(card) ||
                 gameBoard.getAvailableUpperBuildingCards().contains(card);
