@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BoardConfiguration {
+public abstract class BoardConfiguration {
     //collegamento JSON FILES: boardSpaces, turnOrder <--> CLASSE BOARD E TURNORDER
 
     public static BoardSpace createBoardSpace(JsonNode node) {
@@ -18,12 +18,24 @@ public class BoardConfiguration {
     }
 
     public static List<OrderBlock> createTurnOrder(JsonNode blockNode) {
+        if (blockNode == null || !blockNode.isArray()) {
+            throw new IllegalArgumentException("Invalid turn order JSON: expected an array of order blocks");
+        }
 
         List<OrderBlock> orderBlocks = new ArrayList<>();
 
-        for(JsonNode elem : blockNode){
-            int nuggets = elem.get("nuggets").asInt();
-            int prestigeMalus = elem.get("prestigeMalus").asInt();
+        for (JsonNode elem : blockNode) {
+            JsonNode nuggetsNode = elem.get("nuggets");
+            JsonNode prestigeMalusNode = elem.get("prestigeMalus");
+
+            if (nuggetsNode == null || prestigeMalusNode == null) {
+                throw new IllegalArgumentException(
+                        "Invalid turn order JSON: each block must contain 'nuggets' and 'prestigeMalus'"
+                );
+            }
+
+            int nuggets = nuggetsNode.asInt();
+            int prestigeMalus = prestigeMalusNode.asInt();
             OrderBlock ob = new OrderBlock(nuggets, prestigeMalus);
             orderBlocks.add(ob);
         }

@@ -32,5 +32,9 @@ public class Builder extends CharacterCard {
         return prestigeValue;
     }
 
+    public String toString(){
+        return super.toString() + ", prestige value:" + prestigeValue + ", build discount " + buildDiscount + "} ";
+    }
+
 
 }

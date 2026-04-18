@@ -76,19 +76,18 @@ public class Board {
         }else if (numberOfPlayers == 3) {
             //rimuovi lettera G
             removeFromOfferField('G');
+            removeFromOfferField('A');
         }else if (numberOfPlayers == 2) {
             //riumuovi lettera D
             removeFromOfferField('D');
+            removeFromOfferField('G');
+            removeFromOfferField('A');
         }
 
     }
 
     private void removeFromOfferField(char letter){
-        for(BoardSpace boardSpace : offerField){
-            if(boardSpace.getLetter() == letter){
-                offerField.remove(boardSpace);
-            }
-        }
+        offerField.removeIf(boardSpace -> boardSpace.getLetter() == letter);
     }
 
     public List<TribeCard> getTopRowTribe() {
@@ -268,5 +267,18 @@ public class Board {
         return upRowEvents;
     }
 
+    public String toString(){
+        return "Top row: " + topTribeCards + ", Top row buildings: " + topBuildingCards +
+                "\n" +  "OfferSPace: " + printBoardSpaces() +
+                "\n" +  " Bottom row: " + bottomTribeCards + " Bottom row buildings: " + bottomBuildingCards;
+    }
+
+    private String printBoardSpaces(){
+        String boardSpaces = "";
+        for (BoardSpace space : offerField) {
+            boardSpaces += space.toString() + " ";
+        }
+        return boardSpaces;
+    }
 
 }

@@ -50,4 +50,7 @@ public class BoardSpace {
         this.totem = null;
     }
 
+    public String toString() {
+        return " {" + letter + ", " + "nTop: " + numCardsTop + " / " + "nDown: " + numCardsDown + ", nugget bonus: " + nuggets + "} ";
+    }
 }

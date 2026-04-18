@@ -24,4 +24,7 @@ public class Hunter extends CharacterCard {
             player.addFood(player.getNumHunters());
         }
     }
+    public String toString(){
+        return super.toString() + ", nuggets: " + nuggets + "} ";
+    }
 }

@@ -36,4 +36,8 @@ public abstract class EventCard extends TribeCard {
     public boolean isEvent() {
         return true;
     }
+
+    public String toString(){
+        return " {Event:" + eventType + ", " +super.toString();
+    }
 }

@@ -10,4 +10,7 @@ public class Artist extends CharacterCard {
         super(cardID, cardAge, tag, CharacterType.ARTIST);
     }
 
+    public String toString(){
+        return super.toString() + "} ";
+    }
 }

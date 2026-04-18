@@ -21,4 +21,8 @@ public class Shaman extends CharacterCard {
     public int getShamanStars() {
         return getStars();
     }
+
+    public String toString(){
+        return super.toString() + ", stars: " + stars + "} ";
+    }
 }

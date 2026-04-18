@@ -54,4 +54,8 @@ public class BuildingEnd extends BuildingCard {
 
         return count * this.prestigeEndEffect;
     }
+
+    public String toString(){
+        return " { BUILDING_END, " + super.toString() + ", character to consider: " + characterToConsider + ", prestige end effect: " + prestigeEndEffect +  "} ";
+    }
 }

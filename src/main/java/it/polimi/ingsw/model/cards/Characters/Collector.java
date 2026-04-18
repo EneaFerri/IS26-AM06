@@ -9,4 +9,8 @@ public class Collector extends CharacterCard {
     public Collector(int cardID, Age cardAge, int tag) {
         super(cardID, cardAge, tag, CharacterType.COLLECTOR);
     }
+
+    public String toString(){
+        return super.toString() + "} ";
+    }
 }

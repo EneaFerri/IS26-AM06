@@ -28,4 +28,8 @@ public class Inventor extends CharacterCard {
     public boolean hasInvention(InventionType inventionType) {
         return getInvention().equals(inventionType);
     }
+
+    public String toString(){
+        return super.toString() + "invention: " + invention + "} ";
+    }
 }

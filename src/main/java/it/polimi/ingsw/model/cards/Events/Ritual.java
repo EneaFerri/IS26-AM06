@@ -60,4 +60,8 @@ public class Ritual extends EventCard {
             }
         }
     }
+
+    public String toString(){
+        return super.toString() + "maxBonus" + maxBonus + "maxMalus" + maxMalus + "} ";
+    }
 }

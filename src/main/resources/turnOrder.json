@@ -1,28 +1,28 @@
 
   {
     "block1": [
-      {"nugget":  1, "prestigeMalus": 0},
-      {"nugget": -1, "prestigeMalus": -2}
+      {"nuggets":  1, "prestigeMalus": 0},
+      {"nuggets": -1, "prestigeMalus": -2}
     ],
 
     "block2" : [
-      {"nugget": 2, "prestigeMalus": 0},
-      {"nugget": 0, "prestigeMalus": 0},
-      {"nugget": -1, "prestigeMalus": -2}
+      {"nuggets": 2, "prestigeMalus": 0},
+      {"nuggets": 0, "prestigeMalus": 0},
+      {"nuggets": -1, "prestigeMalus": -2}
     ],
 
    "block3" : [
-      {"nugget": 2, "prestigeMalus": 0},
-      {"nugget": 1, "prestigeMalus": 0},
-      {"nugget": 0, "prestigeMalus": 0},
-      {"nugget": -1, "prestigeMalus": -2}
+      {"nuggets": 2, "prestigeMalus": 0},
+      {"nuggets": 1, "prestigeMalus": 0},
+      {"nuggets": 0, "prestigeMalus": 0},
+      {"nuggets": -1, "prestigeMalus": -2}
     ],
 
     "block4": [
-      {"nugget": 3, "prestigeMalus": 0},
-      {"nugget": 1, "prestigeMalus": 0},
-      {"nugget": 0, "prestigeMalus": 0},
-      {"nugget": 0, "prestigeMalus": 0},
-      {"nugget": -1, "prestigeMalus": -2}
+      {"nuggets": 3, "prestigeMalus": 0},
+      {"nuggets": 1, "prestigeMalus": 0},
+      {"nuggets": 0, "prestigeMalus": 0},
+      {"nuggets": 0, "prestigeMalus": 0},
+      {"nuggets": -1, "prestigeMalus": -2}
     ]
   }

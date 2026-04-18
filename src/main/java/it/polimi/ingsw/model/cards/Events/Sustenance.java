@@ -53,4 +53,8 @@ public class Sustenance extends EventCard {
             }
         }
     }
+
+    public String toString(){
+        return super.toString() + "food price" + FOOD_PRICE + "prestigeMalus" + prestigeMalus + "} ";
+    }
 }

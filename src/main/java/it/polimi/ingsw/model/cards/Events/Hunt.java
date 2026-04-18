@@ -47,4 +47,8 @@ public class Hunt extends EventCard {
             player.addPrestige(hunters * prestigeBonus);
         }
     }
+
+    public String toString(){
+        return super.toString() + "food bonus" + FOOD_BONUS + "prestige bonus" + prestigeBonus + "} ";
+    }
 }

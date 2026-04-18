@@ -32,5 +32,9 @@ public abstract class TribeCard extends Card {
         return true;
     }
 
+    public String toString(){
+        return super.toString();
+    }
+
 
 }

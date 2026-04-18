@@ -45,4 +45,8 @@ public abstract class BuildingCard extends Card {
     public boolean isBuilding() {
         return true;
     }
+
+    public String toString(){
+        return super.toString() + ", food cost: " + foodCost + ", prestige point: " + prestigePoint;
+    }
 }

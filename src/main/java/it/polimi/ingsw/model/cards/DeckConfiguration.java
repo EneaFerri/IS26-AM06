@@ -10,7 +10,7 @@ import jdk.jfr.Event;
 import java.util.Collection;
 import java.util.List;
 
-public class DeckConfiguration {
+public abstract class DeckConfiguration {
     //collegamento JSON FILES: buildings, characters, events <--> CLASSE DECK
 
     public static CharacterCard createCharacterCard(JsonNode node){

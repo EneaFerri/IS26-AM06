@@ -39,4 +39,8 @@ public class BuildingEachTurn extends BuildingCard {
     public  BuildingEachTurnType getBType() {
         return bType;
     }
+
+    public String toString() {
+        return " {BUILDING_" + bType + ", " +  super.toString()+  "} ";
+    }
 }

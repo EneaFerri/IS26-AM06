@@ -28,4 +28,8 @@ public class Totem {
     public void remove() {
         this.position = null;
     }
+
+    public String toString() {
+        return "Color: " + color;
+    }
 }

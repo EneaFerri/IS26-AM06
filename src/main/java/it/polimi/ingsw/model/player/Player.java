@@ -344,5 +344,16 @@ public class Player {
         return getTotalPointsPreEffect() + getPointsFromEndEffect();
     }
 
-
+    public String toString() {
+        return "Player{" +
+                "nickname='" + nickname + '\'' +
+                ", myTotem= " + myTotem.toString() +
+                ", nuggets=" + nuggets +
+                ", prestige=" + prestige +
+                ", inTurn=" + inTurn +
+                ", myCharacterCards=" + myCharacterCards +
+                ", myBuildingCards=" + myBuildingCards +
+                ", myInventions=" + myInventions +
+                '}';
+    }
 }

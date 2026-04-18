@@ -43,5 +43,9 @@ public abstract class Card {
         return false;
     }
 
+    public String toString(){
+        return "CardId: " + cardID + ", Age: " + cardAge;
+    }
+
 
 }

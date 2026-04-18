@@ -57,4 +57,8 @@ public abstract class CharacterCard extends TribeCard {
     }
 
     public int getDiscountForBuildings(){return 0;}
+
+    public String toString(){
+        return " {" + characterType + ", " + super.toString();
+    }
 }

@@ -53,4 +53,8 @@ public class Pictures extends EventCard {
 
         }
     }
+
+    public String toString(){
+        return super.toString() + "minimumArtists" + minimumArtists + "prestigeMalus" + prestigeMalus + "prestigeBonus" + prestigeBonus + "} ";
+    }
 }
