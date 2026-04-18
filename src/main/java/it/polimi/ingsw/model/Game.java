@@ -220,6 +220,8 @@ public class Game implements GameActions {
             gameState = GameState.PICKING_CARD;
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
+
+            //TODO: Qua il caso lettera
         }
     }
 
@@ -244,6 +246,7 @@ public class Game implements GameActions {
 
         BoardSpace boardSpace = player.getTotem().getPosition();
         // gestione spazio A (solo partite a 5 giocatori)
+        //TODO: Da sistemare appositamente
         if (numberOfPlayers == 5 && boardSpace.getLetter() == 'A') {
             player.addFood(3);
             returnTotemToTurnOrder(player);
@@ -307,6 +310,7 @@ public class Game implements GameActions {
     }
 
     public void advanceNextPlayer() {
+        //per ogni player si resetta
         topPicks = 0;
         bottomPicks = 0;
 
@@ -347,11 +351,15 @@ public class Game implements GameActions {
         }else {
             List<EventCard> LastEvents = gameBoard.getUpRowEvents();
 
+            LastEvents.sort(Comparator.comparingInt(e ->
+                    e.getType() == EventType.SUSTENANCE ? 1 : 0));
+
             for (EventCard event : LastEvents) {
                 event.resolve(players);
             }
 
             gameState = GameState.END;
+            this.endGame();
             //TODO DECISIONALE : oppure direttamnte chiama EndGame() ?????
         }
 
