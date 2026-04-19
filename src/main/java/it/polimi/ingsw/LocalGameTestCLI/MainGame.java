@@ -138,45 +138,6 @@ public class MainGame {
 
 
 
-
-
-
-        while (game.getStatus() == GameState.OFFER_SPACE_CHOOSE) { // piazzamento totem
-            Player currentPlayer = game.getCurrentPlayer(); // player in turn deciso dal model
-
-            System.out.println("\nTocca a: " + currentPlayer.getNickname());
-            System.out.println("Spazi liberi: " + game.getBoard().getFreeBoardSpaces()); // aggiornamento dinamico spezzi disponibili
-            System.out.println("Inserisci la lettera dello spazio offerta: ");
-
-            String chosenSpaceInput = input.nextLine().trim().toUpperCase();
-
-            if (chosenSpaceInput.isEmpty()){
-                 System.out.println("Input vuoto ,riprova.");
-                continue;
-            }
-
-            BoardSpace chosenSpace = game.getBoard().getBoardSpace(chosenSpaceInput.charAt(0)); // lettera inserta -> spazio board (verifica se eiste) nel caso reinserimento
-
-            if (chosenSpace == null) {
-                System.out.println("Spazio non valido, riprova .");
-                continue ;
-            }
-
-            try {
-                game.placeTotemOnOfferSpace(currentPlayer, chosenSpace); // chiamata al model e verifica correttezza, se ok avanzamento
-
-                System.out.println("\nBoard aggiornato:");
-                System.out.println(game.getBoard());
-                System.out.println("GAME STATUS: " + game.getStatus());
-
-            } catch (IllegalStateException e) { // messaggi personalizzati per tipologia di errore
-                System.out.println("Errore: " + e.getMessage());
-            }
-        }
-
-        System.out.println("\nFine test fase OFFER_SPACE_CHOOSE.");
-        System.out.println("GAME STATUS: " + game.getStatus());
-
     }
     private static TotemColor askTotemColor(Scanner input, Game game) { // colore x singolo giocatore protetto, visione colore altri, input anche in minuscolo o misto
         while (true) {
