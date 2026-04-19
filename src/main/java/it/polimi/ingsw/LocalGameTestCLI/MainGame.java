@@ -1,7 +1,10 @@
 package it.polimi.ingsw.LocalGameTestCLI;
 import it.polimi.ingsw.model.Game;
+import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.cards.BuildingCard;
+import it.polimi.ingsw.model.cards.Card;
 import it.polimi.ingsw.model.cards.CharacterCard;
+import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
@@ -43,16 +46,100 @@ public class MainGame {
 
         game.startGame();
 
-        System.out.println("\n--------------------------primo round-------------------------\n");
-        System.out.println("players info:");
-        for(Player player : game.getPlayers()){
-            System.out.println("\n" + player.toString());
+        //simulazione 3 round
+        for(int i = 0; i < 3; i++){
+            System.out.println("\n--------------------------round: " + i + "-------------------------\n");
+            System.out.println("players info:");
+            for(Player player : game.getPlayers()){
+                System.out.println("\n" + player.toString());
+            }
+
+            System.out.println("\ngame board info:");
+            System.out.println(game.getBoard().toString());
+
+            System.out.println("\nGAME STATUS: " + game.getStatus()); //gamestate = OFFER_SPACE_CHOOSE
+
+            while(game.getStatus() == GameState.OFFER_SPACE_CHOOSE){
+                System.out.println("\nPlayer " + game.getCurrentPlayer().getNickname() + " scegli il posto di offerte ");
+
+                System.out.println("Inserisci lettera del posto: ");
+                char letter = input.nextLine().charAt(0);
+
+                boolean found = false;
+                for(BoardSpace bs : game.getBoard().getFreeBoardSpaces()){
+                    if(bs.getLetter() == letter){
+                        game.placeTotemOnOfferSpace(game.getCurrentPlayer(), bs);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if(!found){
+                    System.out.println("Posto non disponibile");
+                }
+
+            }
+
+            System.out.println("\ngame board info:");
+            System.out.println(game.getBoard().toString());
+
+            System.out.println("\nGAME STATUS: " + game.getStatus()); //gamestate = PICKING_CARD
+
+            while(game.getStatus() == GameState.PICKING_CARD){
+                String playerNickname = game.getCurrentPlayer().getNickname();
+
+                System.out.println("\nPlayer " + playerNickname + " scegli carta (inserisci id):");
+                int idcardchoose = Integer.parseInt(input.nextLine());
+                for(TribeCard c: game.getBoard().getAvailableUpperTribeCards()){
+                    if(c.getID() == idcardchoose){
+                        game.pickCard(game.getCurrentPlayer(), c);
+                        System.out.println("carta selezionata");
+                    }
+                }
+
+                for(TribeCard c: game.getBoard().getAvailableBottomTribeCards()){
+                    if(c.getID() == idcardchoose){
+                        game.pickCard(game.getCurrentPlayer(), c);
+                        System.out.println("carta selezionata");
+                    }
+                }
+
+                for(BuildingCard c: game.getBoard().getAvailableUpperBuildingCards()){
+                    if(c.getID() == idcardchoose){
+                        game.pickCard(game.getCurrentPlayer(), c);
+                        System.out.println("carta selezionata");
+                    }
+                }
+
+                for(BuildingCard c: game.getBoard().getAvailableBottomBuildingCards()){
+                    if(c.getID() == idcardchoose){
+                        game.pickCard(game.getCurrentPlayer(), c);
+                        System.out.println("carta selezionata");
+                    }
+                }
+
+                System.out.println("prossima carta");
+
+
+            }
+
+            System.out.println("players info:");
+            for(Player player : game.getPlayers()){
+                System.out.println("\n" + player.toString());
+            }
+
+
+            System.out.println("\nGAME STATUS: " + game.getStatus()); //gamestate = EVENTS?
+
+            game.resolveEvents();
+            System.out.println("\nEVENTI RISOLTI");
+
         }
 
-        System.out.println("\ngame board info:");
-        System.out.println(game.getBoard().toString());
 
-        System.out.println("GAME STATUS: " + game.getStatus());
+
+
+
 
     }
 }

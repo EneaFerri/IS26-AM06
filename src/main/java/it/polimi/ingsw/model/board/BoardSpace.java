@@ -51,6 +51,11 @@ public class BoardSpace {
     }
 
     public String toString() {
-        return " {" + letter + ", " + "nTop: " + numCardsTop + " / " + "nDown: " + numCardsDown + ", nugget bonus: " + nuggets + "} ";
+        if (totem != null) {
+            return " {" + letter + ", " + "Totem: " + totem.getColor() + "nTop: " + numCardsTop + " / " + "nDown: " + numCardsDown + ", nugget bonus: " + nuggets + "} ";
+        }else{
+            return " {" + letter + ", no totem, " +  "nTop: " + numCardsTop + " / " + "nDown: " + numCardsDown + ", nugget bonus: " + nuggets + "} ";
+        }
+
     }
 }

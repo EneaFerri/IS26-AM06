@@ -207,6 +207,7 @@ public class Game implements GameActions {
         //NON ANDREBBE CONTROLLATO L'ORDINE DALLA TESSERE TURN ORDER?
         //CIOE SE EFFETTIVAMENTE TOCCAVA A player del metodo a piazzare il totem?
         gameBoard.placeTotem(player.getTotem(), boardSpace);
+        advanceNextPlayer();
 
         // se tutti i giocatori hanno piazzato, avanza alla risoluzione
         boolean allPlaced = players.stream()
@@ -215,6 +216,7 @@ public class Game implements GameActions {
             gameState = GameState.PICKING_CARD;
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
+
 
             // gestione spazio A (solo partite a 5 giocatori)
             if(numberOfPlayers == 5) {
