@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.polimi.ingsw.model.cards.DeckConfiguration;
 import it.polimi.ingsw.model.player.Player;
+import it.polimi.ingsw.model.player.Totem;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -106,6 +107,16 @@ public class TurnOrder {
                 block.removeTotem();
             }
         }
+    }
+
+    public void clearBlock(Totem t) {
+        for (OrderBlock block : orderBlocks) {
+            if (block.getTotemOn() == t) {
+                block.getTotemOn().remove();
+                block.removeTotem();
+            }
+        }
+
     }
 
 }

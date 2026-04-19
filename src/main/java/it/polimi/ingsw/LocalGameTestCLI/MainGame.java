@@ -5,6 +5,7 @@ import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Card;
 import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.TribeCard;
+import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
@@ -14,6 +15,8 @@ import it.polimi.ingsw.model.board.BoardSpace;
 
 
 public class MainGame {
+
+    //Classe per testare il gioco in locale da terminale!!!!!!!!!!!!!!!!!
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
 
@@ -46,9 +49,20 @@ public class MainGame {
 
         game.startGame();
 
-        //simulazione 3 round
-        for(int i = 0; i < 3; i++){
-            System.out.println("\n--------------------------round: " + i + "-------------------------\n");
+        //simulazione round
+        for(int i = 1; i < 20; i++){
+
+            if(game.getStatus()== GameState.END){
+                break;
+            }
+
+            if(game.getCurrentAge()== Age.Last_Event){
+                System.out.println("\n--------------------------ROUND FINALE-------------------------\n");
+            }else{
+                System.out.println("\n--------------------------round: " + i + "-------------------------\n");
+            }
+
+
             System.out.println("players info:");
             for(Player player : game.getPlayers()){
                 System.out.println("\n" + player.toString());
@@ -132,13 +146,30 @@ public class MainGame {
             System.out.println("\nGAME STATUS: " + game.getStatus()); //gamestate = EVENTS?
 
             game.resolveEvents();
+
             System.out.println("\nEVENTI RISOLTI");
 
         }
 
+        if(game.getStatus() == GameState.END){
+
+            System.out.println("\n\nPartita terminata, ecco i risultati:\n");
+
+            System.out.println("players info:");
+            for(Player player : game.getPlayers()){
+                System.out.println("\n" + player.toString());
+            }
+
+            System.out.println("\nWINNER: " + game.getWinners().get(0).getNickname() + ", con ben " + game.getWinners().get(0).getPrestige() + " punti");
+        }
 
 
     }
+
+
+
+
+
     private static TotemColor askTotemColor(Scanner input, Game game) { // colore x singolo giocatore protetto, visione colore altri, input anche in minuscolo o misto
         while (true) {
             System.out.println("Scegli colore totem");

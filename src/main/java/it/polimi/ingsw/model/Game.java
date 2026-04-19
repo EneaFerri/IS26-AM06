@@ -204,8 +204,8 @@ public class Game implements GameActions {
             throw new IllegalStateException("BoardSpace " + boardSpace.getLetter() + " is already occupied");
         }
 
-        //NON ANDREBBE CONTROLLATO L'ORDINE DALLA TESSERE TURN ORDER?
-        //CIOE SE EFFETTIVAMENTE TOCCAVA A player del metodo a piazzare il totem?
+        //CLEAN BLOCK ORDER --> PLACE TOTEM ON BOARDSPACE
+        turnOrder.clearBlock(player.getTotem());
         gameBoard.placeTotem(player.getTotem(), boardSpace);
         advanceNextPlayer();
 
@@ -213,6 +213,7 @@ public class Game implements GameActions {
         boolean allPlaced = players.stream()
                 .allMatch(p -> p.getTotem().getPosition() != null);
         if (allPlaced) {
+
             gameState = GameState.PICKING_CARD;
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
@@ -356,7 +357,6 @@ public class Game implements GameActions {
             }
 
             gameState = GameState.END;
-            this.endGame();
             //TODO DECISIONALE : oppure direttamnte chiama EndGame() ?????
         }
 
