@@ -35,6 +35,7 @@ public class Board {
         configureOfferField();
     }
 
+    /*
     public Board(List<TribeCard> topTribeCards, List<TribeCard> bottomTribeCards,
                  List<BuildingCard> topBuildingCards, List<BuildingCard> bottomBuildingCards) {
 
@@ -47,6 +48,7 @@ public class Board {
         this.offerField = null;
         configureOfferField();
     }
+    */
 
     //aggiunge tutte le carte boardspace nella lista di offerfield prendendole direttamente da json file
     private void configureOfferField() {

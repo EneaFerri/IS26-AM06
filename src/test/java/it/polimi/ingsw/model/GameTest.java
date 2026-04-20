@@ -63,17 +63,19 @@ class GameTest {
      * che piazzano totem — usiamo solo gli spazi necessari.
      */
     private Board createEmptyBoard() {
-        List<BoardSpace> offerField = new ArrayList<>();
-        offerField.add(new BoardSpace('B', 1, 0, 0));
-        offerField.add(new BoardSpace('C', 0, 1, 0));
-
-        return new Board(
-
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>(),
-                new ArrayList<>()
-        );
+        Board board = new Board();
+        // svuota l'offerField caricato da JSON e sostituiscilo con 2 spazi minimali
+        try {
+            Field offerField = Board.class.getDeclaredField("offerField");
+            offerField.setAccessible(true);
+            List<BoardSpace> spaces = new ArrayList<>();
+            spaces.add(new BoardSpace('B', 1, 0, 0));
+            spaces.add(new BoardSpace('C', 0, 1, 0));
+            offerField.set(board, spaces);
+        } catch (Exception e) {
+            fail("Impossibile configurare il Board minimale: " + e.getMessage());
+        }
+        return board;
     }
 
     /**
@@ -89,42 +91,66 @@ class GameTest {
     /**
      * Porta il Game direttamente in stato OFFER_SPACE_CHOOSE
      * bypassando setUpFirstRound (che carica JSON) via reflection.
+     *
+     * FIX: il turnOrder veniva lasciato null perché startGame() non viene
+     * chiamato. Lo iniettamo via reflection insieme agli altri campi,
+     * e posizioniamo i totem di p1 e p2 dentro i suoi blocchi così
+     * clearBlock(totem) in placeTotemOnOfferSpace trova il blocco corretto.
      */
     private Game createGameReadyToPlay(Player p1, Player p2) {
-        Board board = createEmptyBoard();
+        // turnOrder con 2 blocchi vuoti (nessun bonus/malus)
         TurnOrder turnOrder = createTurnOrderWithBlocks(2);
+
+        // posiziona i totem nei blocchi così clearBlock() li trova
+        turnOrder.placeTotemFirstFree(p1);
+        turnOrder.placeTotemFirstFree(p2);
+
         Game game = new Game(1);
 
-        // aggiungi giocatori manualmente
+        // Sovrascrive l'offerField del Board con 2 spazi controllati:
+        //   B = 1 top pick, 0 bottom pick  (assunto consistentemente in tutti i test)
+        //   C = 0 top pick, 1 bottom pick
+        // I valori nel JSON reale potrebbero differire: li fissiamo qui per
+        // rendere i test indipendenti dal contenuto del file boardSpaces.json.
         try {
+            Field offerFieldRef = Board.class.getDeclaredField("offerField");
+            offerFieldRef.setAccessible(true);
+            List<BoardSpace> spaces = new ArrayList<>();
+            spaces.add(new BoardSpace('B', 1, 0, 0));  // 1 top, 0 bottom
+            spaces.add(new BoardSpace('C', 0, 1, 0));  // 0 top, 1 bottom
+            offerFieldRef.set(game.getBoard(), spaces);
+
+            // players
             Field playersField = Game.class.getDeclaredField("players");
             playersField.setAccessible(true);
             List<Player> players = (List<Player>) playersField.get(game);
             players.add(p1);
             players.add(p2);
 
+            // numberOfPlayers
             Field numField = Game.class.getDeclaredField("numberOfPlayers");
             numField.setAccessible(true);
             numField.set(game, 2);
 
+            // turnOrder  ← questo era il campo mancante: rimaneva null
+            Field turnOrderField = Game.class.getDeclaredField("turnOrder");
+            turnOrderField.setAccessible(true);
+            turnOrderField.set(game, turnOrder);
+
+            // gameState
             Field stateField = Game.class.getDeclaredField("gameState");
             stateField.setAccessible(true);
             stateField.set(game, GameState.OFFER_SPACE_CHOOSE);
 
+            // currentRoundOrder
             Field orderField = Game.class.getDeclaredField("currentRoundOrder");
             orderField.setAccessible(true);
             orderField.set(game, new ArrayList<>(List.of(p1, p2)));
 
+            // playerInTurn
             Field playerInTurnField = Game.class.getDeclaredField("playerInTurn");
             playerInTurnField.setAccessible(true);
             playerInTurnField.set(game, p1);
-
-            // posiziona i totem sulla turnOrder
-            /*
-            turnOrder.placeTotemFirstFree(p1);
-            turnOrder.placeTotemFirstFree(p2);
-
-             */
 
         } catch (Exception e) {
             fail("Errore setup game: " + e.getMessage());
