@@ -29,7 +29,7 @@ public class Game implements GameActions {
 
     private final Deck mainDeck;
 
-    private List<TribeCard> deck_ERA_I ;
+    private List<TribeCard> deck_ERA_I;
     private List<TribeCard> deck_ERA_II;
     private List<TribeCard> deck_ERA_III;
     private List<EventCard> finalEvents;
@@ -38,7 +38,7 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
-    //variabili d'appoggio per pescare carte
+    // variabili d'appoggio per pescare carte
     private int topPicks = 0;
     private int bottomPicks = 0;
 
@@ -63,45 +63,24 @@ public class Game implements GameActions {
 
         this.finalEvents = mainDeck.getFinalsEvents();
     }
+
     public void addObserver(GameObserver observer) {
         this.observers.add(observer);
     }
 
-    public int getGameID() {
-        return gameID;
-    }
+    public int getGameID()             { return gameID; }
+    public List<Player> getPlayers()   { return players; }
+    public TurnOrder getTurnOrder()    { return turnOrder; }
+    public Player getCurrentPlayer()   { return playerInTurn; }
+    public int getNumberOfPlayers()    { return numberOfPlayers; }
+    public GameState getStatus()       { return gameState; }
+    public Age getCurrentAge()         { return currentAge; }
+    public Board getBoard()            { return gameBoard; }
+    public Deck getMainDeck()          { return mainDeck; }
 
-    public List<Player> getPlayers() {
-        return players;
-    }
-
-    public TurnOrder getTurnOrder() {
-        return turnOrder;
-    }
-
-    public Player getCurrentPlayer() {
-        return playerInTurn;
-    }
-
-    public int getNumberOfPlayers() {
-        return numberOfPlayers;
-    }
-
-    public GameState getStatus() {
-        return gameState;
-    }
-
-    public Age getCurrentAge() {
-        return currentAge;
-    }
-
-    public Board getBoard() {
-        return gameBoard;
-    }
-
-    public Deck getMainDeck() {
-        return mainDeck;
-    }
+    // ────────────────────────────────────────────────
+    //  LOBBY
+    // ────────────────────────────────────────────────
 
     @Override
     public void addPlayer(Player player) {
@@ -109,7 +88,6 @@ public class Game implements GameActions {
             throw new IllegalStateException("Cannot add players after game has started");
         }
         if (players.stream().anyMatch(p -> p.getNickname().equals(player.getNickname()))) {
-
             for (GameObserver obs : observers) {
                 obs.onPlayerError("Nickname already taken: " + player.getNickname());
             }
@@ -121,8 +99,13 @@ public class Game implements GameActions {
             obs.onPlayerJoined(player.getNickname());
         }
     }
+
+    // ────────────────────────────────────────────────
+    //  SETUP
+    // ────────────────────────────────────────────────
+
     @Override
-    public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
+    public void startGame() {
         if (gameState != GameState.LOGIN) {
             throw new IllegalStateException("Cannot start game after game has started");
         }
@@ -137,37 +120,32 @@ public class Game implements GameActions {
             obs.onGameStarted();
             obs.onBoardUpdated();
         }
+
+        // Notifica il primo giocatore di turno
+        notifyCurrentPlayerTurn();
     }
 
     private void setUpGameCards() {
-        //setup board & turnOrder card
-        gameBoard.prepareGameBoardSpace(numberOfPlayers); //qui vengono preparate le effettive board offer space --> CHIAMATA A VIEW PER VISUALIZZARE GAMEBOARD?
-        turnOrder = new TurnOrder(numberOfPlayers);  //qui viene preparata la carta dell'ordine di pozionamento carte --> CHIAMATA A VIEW PER VISUALIZZARE TURNORDER?
+        gameBoard.prepareGameBoardSpace(numberOfPlayers);
+        turnOrder = new TurnOrder(numberOfPlayers);
 
-        //setup buildings card
         buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
         gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
 
-        //setup tribeCard card
-        deck_ERA_I = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
-        deck_ERA_II = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
+        deck_ERA_I   = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_I);
+        deck_ERA_II  = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_II);
         deck_ERA_III = mainDeck.prepareTribeCards(numberOfPlayers, Age.Era_III);
     }
 
-
     private void setUpFirstRound() {
-
-        //random order for the first round
         List<Player> shuffled = new ArrayList<>(players);
         Collections.shuffle(shuffled);
-
         currentRoundOrder = shuffled;
 
         for (Player player : shuffled) {
             turnOrder.placeTotemFirstFree(player);
         }
 
-        //starting food based on the order
         for (int i = 0; i < shuffled.size(); i++) {
             int food = switch (i) {
                 case 0 -> 2;
@@ -177,14 +155,13 @@ public class Game implements GameActions {
             shuffled.get(i).addFood(food);
         }
 
-        //setup board first turn
-        //bottomCards
-        int nBottomCards = numberOfPlayers +1;
+        // bottom cards
+        int nBottomCards = numberOfPlayers + 1;
         TribeCard temp = null;
-        while (nBottomCards >0) {
-            int i=1;
-            for (i=1; i <= deck_ERA_I.size(); i++) {
-                if(deck_ERA_I.get(deck_ERA_I.size()-i).isCharacter()) {
+        while (nBottomCards > 0) {
+            int i = 1;
+            for (i = 1; i <= deck_ERA_I.size(); i++) {
+                if (deck_ERA_I.get(deck_ERA_I.size() - i).isCharacter()) {
                     temp = deck_ERA_I.get(deck_ERA_I.size() - i);
                     break;
                 }
@@ -194,21 +171,24 @@ public class Game implements GameActions {
             nBottomCards--;
         }
 
-        //topcards
+        // top cards
         int nTopCards = numberOfPlayers + 4;
-        TribeCard temptop = null;
-        while (nTopCards >0) {
-            temptop = deck_ERA_I.get(deck_ERA_I.size() - 1);
+        while (nTopCards > 0) {
+            TribeCard temptop = deck_ERA_I.get(deck_ERA_I.size() - 1);
             gameBoard.addTopTribeCards(temptop);
             deck_ERA_I.remove(deck_ERA_I.size() - 1);
             nTopCards--;
         }
 
-
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = currentRoundOrder.get(0);
-
+        playerInTurn.setInTurn(true);
     }
+
+    // ────────────────────────────────────────────────
+    //  FASE 1: PIAZZAMENTO TOTEM
+    // ────────────────────────────────────────────────
+
     @Override
     public void placeTotemOnOfferSpace(Player player, BoardSpace boardSpace) {
         Objects.requireNonNull(player, "player cannot be null");
@@ -224,7 +204,6 @@ public class Game implements GameActions {
             throw new IllegalStateException("BoardSpace " + boardSpace.getLetter() + " is already occupied");
         }
 
-        //CLEAN BLOCK ORDER --> PLACE TOTEM ON BOARDSPACE
         turnOrder.clearBlock(player.getTotem());
         gameBoard.placeTotem(player.getTotem(), boardSpace);
 
@@ -234,19 +213,17 @@ public class Game implements GameActions {
 
         advanceNextPlayer();
 
-        // se tutti i giocatori hanno piazzato, avanza alla risoluzione
         boolean allPlaced = players.stream()
                 .allMatch(p -> p.getTotem().getPosition() != null);
-        if (allPlaced) {
 
+        if (allPlaced) {
             gameState = GameState.PICKING_CARD;
             currentRoundOrder = gameBoard.getPlayerInOfferOrder(players);
             playerInTurn = currentRoundOrder.get(0);
-
+            playerInTurn.setInTurn(true);
 
             // gestione spazio A (solo partite a 5 giocatori)
-            if(numberOfPlayers == 5) {
-
+            if (numberOfPlayers == 5) {
                 BoardSpace firstBoardSpace = playerInTurn.getTotem().getPosition();
                 if (firstBoardSpace.getLetter() == 'A') {
                     playerInTurn.addFood(3);
@@ -256,7 +233,16 @@ public class Game implements GameActions {
                 }
             }
         }
+
+        // Notifica il prossimo giocatore (che sia ancora in OFFER_SPACE_CHOOSE o già in PICKING_CARD)
+        if (playerInTurn != null) {
+            notifyCurrentPlayerTurn();
+        }
     }
+
+    // ────────────────────────────────────────────────
+    //  FASE 2: SELEZIONE CARTE
+    // ────────────────────────────────────────────────
 
     public int getRemainingTopPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
@@ -269,25 +255,27 @@ public class Game implements GameActions {
     }
 
     public void pickCard(Player player, Card card) {
-
-        if(gameState != GameState.PICKING_CARD) {
-            throw new IllegalStateException("Cannot pick card after PICKING_CARD has started");
+        if (gameState != GameState.PICKING_CARD) {
+            throw new IllegalStateException("Cannot pick card: wrong game state");
         }
-
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
-
         boolean fromTopRow = gameBoard.getAvailableUpperTribeCards().contains(card) ||
                 gameBoard.getAvailableUpperBuildingCards().contains(card);
-
         boolean fromBottomRow = gameBoard.getAvailableBottomTribeCards().contains(card) ||
                 gameBoard.getAvailableBottomBuildingCards().contains(card);
 
         if (fromTopRow && getRemainingTopPicks(player) <= 0) {
+            for (GameObserver obs : observers) {
+                obs.onInvalidAction(player.getNickname(), "No more top row picks allowed");
+            }
             throw new IllegalStateException("No more top row picks allowed");
         }
         if (fromBottomRow && getRemainingBottomPicks(player) <= 0) {
+            for (GameObserver obs : observers) {
+                obs.onInvalidAction(player.getNickname(), "No more bottom row picks allowed");
+            }
             throw new IllegalStateException("No more bottom row picks allowed");
         }
 
@@ -296,9 +284,24 @@ public class Game implements GameActions {
         if (fromTopRow) topPicks++;
         else bottomPicks++;
 
+        // Se il giocatore ha esaurito tutte le pescate, passa al prossimo
         if (getRemainingTopPicks(player) == 0 && getRemainingBottomPicks(player) == 0) {
             returnTotemToTurnOrder(player);
             advanceNextPlayer();
+
+            // Se siamo passati a EVENTS, risolvi automaticamente
+            if (gameState == GameState.EVENTS) {
+                resolveEvents();
+                return;
+            }
+
+            // Altrimenti notifica il prossimo giocatore
+            if (playerInTurn != null) {
+                notifyCurrentPlayerTurn();
+            }
+        } else {
+            // Il giocatore ha ancora pescate da fare: ri-notificalo
+            notifyCurrentPlayerTurn();
         }
     }
 
@@ -306,7 +309,7 @@ public class Game implements GameActions {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
-        player.addCharacterCard((CharacterCard) card);
+        player.addCharacterCard(card);
         gameBoard.removeCard(card);
 
         for (GameObserver obs : observers) {
@@ -315,7 +318,6 @@ public class Game implements GameActions {
         }
     }
 
-
     public void pickBuildingCard(Player player, BuildingCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -323,6 +325,9 @@ public class Game implements GameActions {
         int actualCost = Math.max(0, card.getFoodCost() - player.foodDiscountToBuyBuildings());
 
         if (player.getFood() < actualCost) {
+            for (GameObserver obs : observers) {
+                obs.onInvalidAction(player.getNickname(), "Not enough food to buy building card");
+            }
             throw new IllegalStateException("Not enough food to pick building card");
         }
 
@@ -335,21 +340,26 @@ public class Game implements GameActions {
             obs.onPlayerUpdated(player.getNickname());
         }
     }
+
     @Override
     public void returnTotemToTurnOrder(Player player) {
         Objects.requireNonNull(player, "player cannot be null");
 
         turnOrder.placeTotemFirstFree(player);
 
-        List<String> orderedNicks = turnOrder.getOrder(players).stream().map(Player::getNickname).toList();
+        List<String> orderedNicks = turnOrder.getOrder(players).stream()
+                .map(Player::getNickname).toList();
         for (GameObserver obs : observers) {
             obs.onTurnOrderUpdated(orderedNicks);
-            obs.onPlayerUpdated(player.getNickname()); // Per bonus/malus cibo o PP
+            obs.onPlayerUpdated(player.getNickname());
         }
     }
 
+    // ────────────────────────────────────────────────
+    //  AVANZAMENTO TURNO (privato)
+    // ────────────────────────────────────────────────
+
     public void advanceNextPlayer() {
-        //per ogni player si resetta
         topPicks = 0;
         bottomPicks = 0;
 
@@ -368,11 +378,26 @@ public class Game implements GameActions {
         }
     }
 
+    /**
+     * Notifica via observer il giocatore di turno attuale,
+     * comunicando la fase corrente.
+     * Il GameController la tradurrà in onYourTurn sul client corretto.
+     */
+    private void notifyCurrentPlayerTurn() {
+        if (playerInTurn == null) return;
+        for (GameObserver obs : observers) {
+            obs.onTurnStarted(playerInTurn.getNickname(), gameState);
+        }
+    }
+
+    // ────────────────────────────────────────────────
+    //  FINE ROUND: EVENTI (chiamato automaticamente)
+    // ────────────────────────────────────────────────
+
     @Override
     public void resolveEvents() {
-
         if (gameState != GameState.EVENTS) {
-            throw new IllegalStateException("Cannot resolve lower events after EVENTS has started");
+            throw new IllegalStateException("Cannot resolve events: wrong game state");
         }
 
         List<EventCard> events = gameBoard.getLowRowEvents();
@@ -391,85 +416,75 @@ public class Game implements GameActions {
             for (GameObserver obs : observers) obs.onPlayerUpdated(p.getNickname());
         }
 
-        if(currentAge != Age.Last_Event) {
+        if (currentAge != Age.Last_Event) {
             nextRound();
-        }else {
-            List<EventCard> LastEvents = gameBoard.getUpRowEvents();
-
-            LastEvents.sort(Comparator.comparingInt(e ->
+        } else {
+            // Ultimo evento: risolvi anche la riga superiore (eventi finali)
+            List<EventCard> lastEvents = gameBoard.getUpRowEvents();
+            lastEvents.sort(Comparator.comparingInt(e ->
                     e.getType() == EventType.SUSTENANCE ? 1 : 0));
 
-            for (EventCard event : LastEvents) {
+            for (EventCard event : lastEvents) {
                 event.resolve(players);
+                for (GameObserver obs : observers) {
+                    obs.onEventResolved(event.getType().toString(), "FinalEvent");
+                }
             }
 
             gameState = GameState.END;
-            //TODO DECISIONALE : oppure direttamnte chiama EndGame() ?????
+            endGame();
         }
-
     }
+
+    // ────────────────────────────────────────────────
+    //  PROSSIMO ROUND (chiamato automaticamente da resolveEvents)
+    // ────────────────────────────────────────────────
+
     @Override
     public void nextRound() {
         topPicks = 0;
         bottomPicks = 0;
-        // refresh tabellone
+
         gameBoard.shiftRows();
         gameBoard.clearBoardSpaces();
 
-
-
-        //pseudo:
-        //pescare carte da lista dell'era corrente (deck_ERA_I, ecc...) e metterle in topTribe del board
-        //se la lista dell'era corrente finisce chiamare update era (da implementare)
-        //continuare eventuale pescaggio da successivo deck
-        //se finito anche deck_ERA_III allora pescare le 2 carte evento finale (dopo aver risolto quel turno mettere gamestate in END)
-        //
-
         int cardNumberToDraw = numberOfPlayers + 4;
-        TribeCard tempCard = null;
+        TribeCard tempCard;
 
-        if(currentAge == Age.Era_I) {
-            while(cardNumberToDraw > 0){
-
-                if(deck_ERA_I.isEmpty()){
+        if (currentAge == Age.Era_I) {
+            while (cardNumberToDraw > 0) {
+                if (deck_ERA_I.isEmpty()) {
                     currentAge = Age.Era_II;
                     updatedAge();
                     break;
                 }
-
                 tempCard = deck_ERA_I.get(deck_ERA_I.size() - 1);
                 gameBoard.addTopTribeCards(tempCard);
                 deck_ERA_I.remove(deck_ERA_I.size() - 1);
                 cardNumberToDraw--;
-
             }
         }
 
-        if(currentAge == Age.Era_II) {
-            while(cardNumberToDraw > 0){
-
-                if(deck_ERA_II.isEmpty()){
+        if (currentAge == Age.Era_II) {
+            while (cardNumberToDraw > 0) {
+                if (deck_ERA_II.isEmpty()) {
                     currentAge = Age.Era_III;
                     updatedAge();
                     break;
                 }
-
                 tempCard = deck_ERA_II.get(deck_ERA_II.size() - 1);
                 gameBoard.addTopTribeCards(tempCard);
                 deck_ERA_II.remove(deck_ERA_II.size() - 1);
                 cardNumberToDraw--;
-
             }
         }
 
-        if(currentAge == Age.Era_III) {
-            while(cardNumberToDraw > 0){
-
-                if(deck_ERA_III.isEmpty()){
+        if (currentAge == Age.Era_III) {
+            while (cardNumberToDraw > 0) {
+                if (deck_ERA_III.isEmpty()) {
                     currentAge = Age.Last_Event;
                     break;
                 }
-
                 tempCard = deck_ERA_III.get(deck_ERA_III.size() - 1);
                 gameBoard.addTopTribeCards(tempCard);
                 deck_ERA_III.remove(deck_ERA_III.size() - 1);
@@ -477,44 +492,37 @@ public class Game implements GameActions {
             }
         }
 
-        if(currentAge == Age.Last_Event) {
-             //TODO: aggiungi i 2 eventi finali nella TopTribe
-
-            //poi si fa il check (nel metodo ResolveLowerEvents) dopo aver risolto gli eventi se si è raggiunta l'era Last_Event
-            //in tal caso si risolvono anche gli eventi "sopra" (compresi i 2 finali) e si può andare in gamestate.END
-            //non verrà piu chiamato nextRound se l'era corrente è Last_Round...
-
-            // da decidere se il metodo EndGame() verrà chiamato dal controller (tipo bottone finisci partita oppure calcola punteggio finale cliccabile da ogni player)
-            //oppure se chiamare EndGame() "internamente" dando a tutti player i risultati finali
-
-            while(cardNumberToDraw > 0){
-
+        if (currentAge == Age.Last_Event) {
+            while (cardNumberToDraw > 0) {
+                if (finalEvents.isEmpty()) break;
                 tempCard = finalEvents.get(finalEvents.size() - 1);
                 gameBoard.addTopTribeCards(tempCard);
                 finalEvents.remove(finalEvents.size() - 1);
                 cardNumberToDraw--;
             }
-
         }
 
-        if(cardNumberToDraw > 0){
+        if (cardNumberToDraw > 0 && currentAge != Age.Last_Event) {
             throw new IllegalStateException("Error, not enough cards to draw");
         }
 
-        // aggiorna stato e ordine turno per il prossimo round
+        // Aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
-        playerInTurn = turnOrder.getOrder(players).get(0);
+        currentRoundOrder = new ArrayList<>(turnOrder.getOrder(players));
+        playerInTurn = currentRoundOrder.get(0);
+        playerInTurn.setInTurn(true);
 
         for (GameObserver obs : observers) {
             obs.onBoardUpdated();
         }
+
+        // Notifica il primo giocatore del nuovo round
+        notifyCurrentPlayerTurn();
     }
 
     public void updatedAge() {
-
-        gameBoard.shiftRowsBuildings(); //toglie eventuali buildings sotto, e sposta da sopra a sotto quelle sopra
-
-        gameBoard.setTopBuildingCards(buldingsInGame, currentAge); //aggiunge sopra le building dell'era nuova (currentAge già aggiornata)
+        gameBoard.shiftRowsBuildings();
+        gameBoard.setTopBuildingCards(buldingsInGame, currentAge);
 
         for (GameObserver obs : observers) {
             obs.onNewEraStarted(currentAge);
@@ -522,15 +530,16 @@ public class Game implements GameActions {
         }
     }
 
+    // ────────────────────────────────────────────────
+    //  FINE PARTITA (chiamato automaticamente da resolveEvents)
+    // ────────────────────────────────────────────────
+
     @Override
     public void endGame() {
-
         if (gameState != GameState.END) {
-            throw new IllegalStateException("Cannot end game after END has started");
+            throw new IllegalStateException("Cannot end game: wrong state");
         }
 
-
-        // punteggi finali
         for (Player p : players) {
             p.getTotalPoints();
         }
@@ -538,7 +547,6 @@ public class Game implements GameActions {
         for (GameObserver obs : observers) {
             obs.onGameOver();
         }
-
     }
 
     public List<Player> getWinners() {
@@ -551,7 +559,6 @@ public class Game implements GameActions {
                 .filter(p -> p.getPrestige() == maxScore)
                 .toList();
 
-        // tiebreaker: più cibo
         if (winners.size() > 1) {
             int maxFood = winners.stream()
                     .mapToInt(Player::getFood)
@@ -565,6 +572,3 @@ public class Game implements GameActions {
         return winners;
     }
 }
-
-
-

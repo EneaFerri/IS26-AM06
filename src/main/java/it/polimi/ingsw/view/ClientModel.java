@@ -1,6 +1,8 @@
 package it.polimi.ingsw.view;
 
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.GameState;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +44,12 @@ public class ClientModel {
 
     public void onError(String message) {
         observers.forEach(o -> o.onError(message));
+    }
+
+    // --- TURNO ---
+
+    public void onYourTurn(String nickname, GameState phase, String extraInfo) {
+        observers.forEach(o -> o.onYourTurn(nickname, phase, extraInfo));
     }
 
     // --- FASE 1: PIAZZAMENTO TOTEM ---
@@ -86,8 +94,8 @@ public class ClientModel {
 
     // --- FINE PARTITA ---
 
-    public void onGameOver() {
-        observers.forEach(o -> o.onGameOver());
+    public void onGameOver(String results) {
+        observers.forEach(o -> o.onGameOver(results));
     }
 
     // --- Getters ---
