@@ -15,6 +15,8 @@ import java.util.*;
 public class Game implements GameActions {
     private final int gameID;
 
+    private List<GameObserver> observers = new ArrayList<>();
+
     private final List<Player> players;
     private Player playerInTurn;
     private TurnOrder turnOrder;
@@ -61,6 +63,9 @@ public class Game implements GameActions {
 
         this.finalEvents = mainDeck.getFinalsEvents();
     }
+    public void addObserver(GameObserver observer) {
+        this.observers.add(observer);
+    }
 
     public int getGameID() {
         return gameID;
@@ -98,18 +103,25 @@ public class Game implements GameActions {
         return mainDeck;
     }
 
-
+    @Override
     public void addPlayer(Player player) {
         if (gameState != GameState.LOGIN) {
             throw new IllegalStateException("Cannot add players after game has started");
         }
         if (players.stream().anyMatch(p -> p.getNickname().equals(player.getNickname()))) {
-            throw new IllegalArgumentException("Nickname already taken: " + player.getNickname());
+
+            for (GameObserver obs : observers) {
+                obs.onPlayerError("Nickname already taken: " + player.getNickname());
+            }
+            throw new IllegalArgumentException("Nickname already taken");
         }
         players.add(player);
         numberOfPlayers++;
+        for (GameObserver obs : observers) {
+            obs.onPlayerJoined(player.getNickname());
+        }
     }
-
+    @Override
     public void startGame() { //forse meglio qui quella che da il via? non so discutiamone
         if (gameState != GameState.LOGIN) {
             throw new IllegalStateException("Cannot start game after game has started");
@@ -120,6 +132,11 @@ public class Game implements GameActions {
 
         setUpGameCards();
         setUpFirstRound();
+
+        for (GameObserver obs : observers) {
+            obs.onGameStarted();
+            obs.onBoardUpdated();
+        }
     }
 
     private void setUpGameCards() {
@@ -192,7 +209,7 @@ public class Game implements GameActions {
         playerInTurn = currentRoundOrder.get(0);
 
     }
-
+    @Override
     public void placeTotemOnOfferSpace(Player player, BoardSpace boardSpace) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(boardSpace, "boardSpace cannot be null");
@@ -201,12 +218,20 @@ public class Game implements GameActions {
             throw new IllegalStateException("Cannot place totem: wrong game state");
         }
         if (!boardSpace.isFree()) {
+            for (GameObserver obs : observers) {
+                obs.onInvalidAction(player.getNickname(), "Space already occupied");
+            }
             throw new IllegalStateException("BoardSpace " + boardSpace.getLetter() + " is already occupied");
         }
 
         //CLEAN BLOCK ORDER --> PLACE TOTEM ON BOARDSPACE
         turnOrder.clearBlock(player.getTotem());
         gameBoard.placeTotem(player.getTotem(), boardSpace);
+
+        for (GameObserver obs : observers) {
+            obs.onTotemPlaced(player.getNickname(), String.valueOf(boardSpace.getLetter()));
+        }
+
         advanceNextPlayer();
 
         // se tutti i giocatori hanno piazzato, avanza alla risoluzione
@@ -225,6 +250,7 @@ public class Game implements GameActions {
                 BoardSpace firstBoardSpace = playerInTurn.getTotem().getPosition();
                 if (firstBoardSpace.getLetter() == 'A') {
                     playerInTurn.addFood(3);
+                    for (GameObserver obs : observers) obs.onPlayerUpdated(playerInTurn.getNickname());
                     returnTotemToTurnOrder(playerInTurn);
                     advanceNextPlayer();
                 }
@@ -275,15 +301,20 @@ public class Game implements GameActions {
             advanceNextPlayer();
         }
     }
-
+    @Override
     public void pickCharacterCard(Player player, CharacterCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
 
         player.addCharacterCard((CharacterCard) card);
         gameBoard.removeCard(card);
-    }
 
+        for (GameObserver obs : observers) {
+            obs.onCardTaken(player.getNickname(), card.toString());
+            obs.onPlayerUpdated(player.getNickname());
+        }
+    }
+    @Override
     public void pickBuildingCard(Player player, BuildingCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -298,13 +329,22 @@ public class Game implements GameActions {
         gameBoard.removeCard(card);
         player.addBuildingCard(card);
 
+        for (GameObserver obs : observers) {
+            obs.onCardTaken(player.getNickname(), card.toString());
+            obs.onPlayerUpdated(player.getNickname());
+        }
     }
-
+    @Override
     public void returnTotemToTurnOrder(Player player) {
         Objects.requireNonNull(player, "player cannot be null");
 
         turnOrder.placeTotemFirstFree(player);
 
+        List<String> orderedNicks = turnOrder.getOrder(players).stream().map(Player::getNickname).toList();
+        for (GameObserver obs : observers) {
+            obs.onTurnOrderUpdated(orderedNicks);
+            obs.onPlayerUpdated(player.getNickname()); // Per bonus/malus cibo o PP
+        }
     }
 
     public void advanceNextPlayer() {
@@ -327,7 +367,7 @@ public class Game implements GameActions {
         }
     }
 
-
+    @Override
     public void resolveEvents() {
 
         if (gameState != GameState.EVENTS) {
@@ -342,6 +382,12 @@ public class Game implements GameActions {
 
         for (EventCard event : events) {
             event.resolve(players);
+            for (GameObserver obs : observers) {
+                obs.onEventResolved(event.getType().toString(), "Resolved");
+            }
+        }
+        for (Player p : players) {
+            for (GameObserver obs : observers) obs.onPlayerUpdated(p.getNickname());
         }
 
         if(currentAge != Age.Last_Event) {
@@ -361,7 +407,7 @@ public class Game implements GameActions {
         }
 
     }
-
+    @Override
     public void nextRound() {
         topPicks = 0;
         bottomPicks = 0;
@@ -457,6 +503,10 @@ public class Game implements GameActions {
         // aggiorna stato e ordine turno per il prossimo round
         gameState = GameState.OFFER_SPACE_CHOOSE;
         playerInTurn = turnOrder.getOrder(players).get(0);
+
+        for (GameObserver obs : observers) {
+            obs.onBoardUpdated();
+        }
     }
 
     public void updatedAge() {
@@ -464,9 +514,14 @@ public class Game implements GameActions {
         gameBoard.shiftRowsBuildings(); //toglie eventuali buildings sotto, e sposta da sopra a sotto quelle sopra
 
         gameBoard.setTopBuildingCards(buldingsInGame, currentAge); //aggiunge sopra le building dell'era nuova (currentAge già aggiornata)
+
+        for (GameObserver obs : observers) {
+            obs.onNewEraStarted(currentAge);
+            obs.onBoardUpdated();
+        }
     }
 
-
+    @Override
     public void endGame() {
 
         if (gameState != GameState.END) {
@@ -477,6 +532,10 @@ public class Game implements GameActions {
         // punteggi finali
         for (Player p : players) {
             p.getTotalPoints();
+        }
+
+        for (GameObserver obs : observers) {
+            obs.onGameOver();
         }
 
     }
