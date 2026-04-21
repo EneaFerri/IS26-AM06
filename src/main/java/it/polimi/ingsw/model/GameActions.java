@@ -23,8 +23,6 @@ public interface GameActions {
     // --- FASE 2: selezione carte (era CardSelectionPhase — troppo vago) ---
     // il controller invoca questi quando il giocatore sceglie
     void pickCard(Player player, Card card);
-    void pickCharacterCard(Player player, CharacterCard card);
-    void pickBuildingCard(Player player, BuildingCard card);
 
     // --- FINE TURNO GIOCATORE: ritorno totem (era TotemPositionEndRound) ---
     // aggiunto position perché ha effetti immediati (cibo/penalità)
