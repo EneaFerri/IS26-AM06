@@ -301,7 +301,7 @@ public class Game implements GameActions {
             advanceNextPlayer();
         }
     }
-    @Override
+
     public void pickCharacterCard(Player player, CharacterCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -314,7 +314,8 @@ public class Game implements GameActions {
             obs.onPlayerUpdated(player.getNickname());
         }
     }
-    @Override
+
+
     public void pickBuildingCard(Player player, BuildingCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
