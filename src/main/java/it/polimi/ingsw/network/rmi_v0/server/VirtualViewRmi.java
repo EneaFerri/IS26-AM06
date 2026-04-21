@@ -1,4 +1,4 @@
-package it.polimi.ingsw.network.rmi.server;
+package it.polimi.ingsw.network.rmi_v0.server;
 
 import it.polimi.ingsw.network.common.GameView;
 import it.polimi.ingsw.network.common.VirtualView;

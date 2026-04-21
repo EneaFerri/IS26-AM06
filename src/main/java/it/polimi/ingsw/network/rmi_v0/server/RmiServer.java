@@ -1,11 +1,11 @@
-package it.polimi.ingsw.network.rmi.server;
+package it.polimi.ingsw.network.rmi_v0.server;
 
 import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.network.common.GameView;
-import it.polimi.ingsw.network.rmi.client.VirtualServerRmi;
+import it.polimi.ingsw.network.rmi_v0.client.VirtualServerRmi;
 
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -15,14 +15,14 @@ import java.util.*;
 
 public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
 
-    private final it.polimi.ingsw.network.rmi.server.GameController controller;
+    private final it.polimi.ingsw.network.rmi_v0.server.GameController controller;
     private final Game game;
 
     private final Map<String, VirtualViewRmi> clients = new HashMap<>();
 
     public RmiServer() throws RemoteException {
         this.game = new Game(1);
-        this.controller = new it.polimi.ingsw.network.rmi.server.GameController(game);
+        this.controller = new it.polimi.ingsw.network.rmi_v0.server.GameController(game);
     }
 
     public static void main(String[] args) throws Exception {

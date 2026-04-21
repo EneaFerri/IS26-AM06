@@ -1,7 +1,7 @@
-package it.polimi.ingsw.network.rmi.client;
+package it.polimi.ingsw.network.rmi_v0.client;
 
 import it.polimi.ingsw.model.enums.TotemColor;
-import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
+import it.polimi.ingsw.network.rmi_v0.server.VirtualViewRmi;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
