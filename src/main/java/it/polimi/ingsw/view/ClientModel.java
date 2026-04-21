@@ -1,15 +1,14 @@
 package it.polimi.ingsw.view;
 
+import it.polimi.ingsw.model.enums.Age;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Model lato client.
- * Mantiene lo stato locale visibile dalla View (nickname, giocatori in lobby, ecc.)
- * e notifica gli observer (CLIView) ad ogni aggiornamento.
- *
- * Non conosce nulla di RMI: riceve i dati da RmiClient e li propaga via Observer.
- * Corrisponde a ClientModel nell'esempio dei prof.
+ * Riceve le callback da RmiClient (via VirtualViewRmi) e notifica
+ * gli observer (CLIView) tramite il pattern Observer.
+ * Non conosce nulla di RMI.
  */
 public class ClientModel {
 
@@ -23,32 +22,76 @@ public class ClientModel {
         observers.add(observer);
     }
 
-    // ------------------------------------------------------------------ //
-    //  Metodi chiamati da RmiClient (callback dal server)                 //
-    // ------------------------------------------------------------------ //
+    // --- LOBBY & SETUP ---
 
     public void onLoginAccepted(String nickname, int expected) {
-        this.myNickname      = nickname;
+        this.myNickname = nickname;
         this.expectedPlayers = expected;
-        for (ModelObserver o : observers) o.onLoginAccepted(nickname, expected);
+        observers.forEach(o -> o.onLoginAccepted(nickname, expected));
     }
 
     public void onPlayerJoined(String nickname, int currentCount, int expected) {
         if (!lobbyPlayers.contains(nickname)) lobbyPlayers.add(nickname);
-        for (ModelObserver o : observers) o.onPlayerJoined(nickname, currentCount, expected);
+        observers.forEach(o -> o.onPlayerJoined(nickname, currentCount, expected));
     }
 
     public void onGameStarting(List<String> playerNicknames) {
         this.lobbyPlayers = new ArrayList<>(playerNicknames);
-        for (ModelObserver o : observers) o.onGameStarting(playerNicknames);
+        observers.forEach(o -> o.onGameStarting(playerNicknames));
     }
 
     public void onError(String message) {
-        for (ModelObserver o : observers) o.onError(message);
+        observers.forEach(o -> o.onError(message));
     }
 
-    // Getters
-    public String       getMyNickname()     { return myNickname; }
-    public int          getExpectedPlayers(){ return expectedPlayers; }
-    public List<String> getLobbyPlayers()   { return List.copyOf(lobbyPlayers); }
+    // --- FASE 1: PIAZZAMENTO TOTEM ---
+
+    public void onTotemPlaced(String nickname, String boardSpaceId) {
+        observers.forEach(o -> o.onTotemPlaced(nickname, boardSpaceId));
+    }
+
+    public void onInvalidAction(String nicknameTarget, String errorMessage) {
+        observers.forEach(o -> o.onInvalidAction(nicknameTarget, errorMessage));
+    }
+
+    // --- FASE 2: SELEZIONE CARTE ---
+
+    public void onCardTaken(String nickname, String cardId) {
+        observers.forEach(o -> o.onCardTaken(nickname, cardId));
+    }
+
+    public void onPlayerUpdated(String nickname) {
+        observers.forEach(o -> o.onPlayerUpdated(nickname));
+    }
+
+    // --- FINE TURNO GIOCATORE ---
+
+    public void onTurnOrderUpdated(List<String> newOrderedNicknames) {
+        observers.forEach(o -> o.onTurnOrderUpdated(newOrderedNicknames));
+    }
+
+    // --- FINE ROUND & EVENTI ---
+
+    public void onEventResolved(String eventName, String resultDetails) {
+        observers.forEach(o -> o.onEventResolved(eventName, resultDetails));
+    }
+
+    public void onBoardUpdated() {
+        observers.forEach(o -> o.onBoardUpdated());
+    }
+
+    public void onNewEraStarted(Age newEra) {
+        observers.forEach(o -> o.onNewEraStarted(newEra));
+    }
+
+    // --- FINE PARTITA ---
+
+    public void onGameOver() {
+        observers.forEach(o -> o.onGameOver());
+    }
+
+    // --- Getters ---
+    public String       getMyNickname()      { return myNickname; }
+    public int          getExpectedPlayers() { return expectedPlayers; }
+    public List<String> getLobbyPlayers()    { return List.copyOf(lobbyPlayers); }
 }

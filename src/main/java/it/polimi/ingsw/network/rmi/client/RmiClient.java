@@ -1,5 +1,6 @@
 package it.polimi.ingsw.network.rmi.client;
 
+import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.cli.CLIView;
@@ -13,11 +14,12 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * Logica del client implementata con tecnologia RMI.
- * Estende UnicastRemoteObject e implementa VirtualViewRmi.
+ * Logica del client RMI.
+ * Estende UnicastRemoteObject e implementa VirtualViewRmi:
+ * è l'oggetto remoto su cui il server fa le callback.
  *
- * Lo stub di questo oggetto viene passato direttamente nei metodi
- * loginFirstPlayer/login, in un'unica chiamata atomica.
+ * Ogni callback ricevuta viene inoltrata a ClientModel,
+ * che notifica CLIView tramite ModelObserver.
  */
 public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
 
@@ -33,7 +35,7 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         this.model  = model;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws RemoteException, NotBoundException {
         String host = (args.length > 0) ? args[0] : "localhost";
 
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
@@ -46,9 +48,8 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         new RmiClient(server, model).run();
     }
 
-    private void run() throws Exception {
+    private void run() throws RemoteException {
         runLoginCli();
-
         System.out.println("\n[In attesa di aggiornamenti dal server...]");
         try {
             Thread.currentThread().join();
@@ -57,9 +58,8 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         }
     }
 
-    private void runLoginCli() throws Exception {
+    private void runLoginCli() throws RemoteException {
         Scanner scan = new Scanner(System.in);
-
         System.out.print("Inserisci il tuo nickname: ");
         String nickname = scan.nextLine().trim();
 
@@ -70,13 +70,9 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
             int numPlayers = 0;
             while (numPlayers < 2 || numPlayers > 5) {
                 System.out.print("Quanti giocatori vuoi? (2-5): ");
-                try {
-                    numPlayers = Integer.parseInt(scan.nextLine().trim());
-                } catch (NumberFormatException e) {
-                    System.out.println("Inserisci un numero valido.");
-                }
+                try { numPlayers = Integer.parseInt(scan.nextLine().trim()); }
+                catch (NumberFormatException e) { System.out.println("Numero non valido."); }
             }
-            // stub passato direttamente — registrazione e login in una sola chiamata RMI
             server.loginFirstPlayer(nickname, numPlayers, this);
         } else {
             server.login(nickname, this);
@@ -84,26 +80,57 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
     }
 
     // ------------------------------------------------------------------ //
-    //  VirtualViewRmi — callback chiamate dal server                      //
+    //  VirtualViewRmi — tutte le callback dal server                     //
     // ------------------------------------------------------------------ //
 
-    @Override
-    public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
+    // --- LOBBY & SETUP ---
+    @Override public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
         model.onLoginAccepted(nickname, expectedPlayers);
     }
-
-    @Override
-    public void onPlayerJoined(String nickname, int currentCount, int expected) throws RemoteException {
+    @Override public void onPlayerJoined(String nickname, int currentCount, int expected) throws RemoteException {
         model.onPlayerJoined(nickname, currentCount, expected);
     }
-
-    @Override
-    public void onGameStarting(List<String> playerNicknames) throws RemoteException {
+    @Override public void onGameStarting(List<String> playerNicknames) throws RemoteException {
         model.onGameStarting(playerNicknames);
     }
-
-    @Override
-    public void onError(String message) throws RemoteException {
+    @Override public void onError(String message) throws RemoteException {
         model.onError(message);
+    }
+
+    // --- FASE 1: PIAZZAMENTO TOTEM ---
+    @Override public void onTotemPlaced(String nickname, String boardSpaceId) throws RemoteException {
+        model.onTotemPlaced(nickname, boardSpaceId);
+    }
+    @Override public void onInvalidAction(String nicknameTarget, String errorMessage) throws RemoteException {
+        model.onInvalidAction(nicknameTarget, errorMessage);
+    }
+
+    // --- FASE 2: SELEZIONE CARTE ---
+    @Override public void onCardTaken(String nickname, String cardId) throws RemoteException {
+        model.onCardTaken(nickname, cardId);
+    }
+    @Override public void onPlayerUpdated(String nickname) throws RemoteException {
+        model.onPlayerUpdated(nickname);
+    }
+
+    // --- FINE TURNO GIOCATORE ---
+    @Override public void onTurnOrderUpdated(List<String> newOrderedNicknames) throws RemoteException {
+        model.onTurnOrderUpdated(newOrderedNicknames);
+    }
+
+    // --- FINE ROUND & EVENTI ---
+    @Override public void onEventResolved(String eventName, String resultDetails) throws RemoteException {
+        model.onEventResolved(eventName, resultDetails);
+    }
+    @Override public void onBoardUpdated() throws RemoteException {
+        model.onBoardUpdated();
+    }
+    @Override public void onNewEraStarted(Age newEra) throws RemoteException {
+        model.onNewEraStarted(newEra);
+    }
+
+    // --- FINE PARTITA ---
+    @Override public void onGameOver() throws RemoteException {
+        model.onGameOver();
     }
 }
