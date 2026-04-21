@@ -14,11 +14,10 @@ import java.util.Scanner;
 
 /**
  * Logica del client implementata con tecnologia RMI.
- * Estende UnicastRemoteObject e implementa VirtualViewRmi:
- * questo è il pattern esatto dell'esempio dei prof (RmiClient).
+ * Estende UnicastRemoteObject e implementa VirtualViewRmi.
  *
- * Riceve le callback dal server (onLoginAccepted, onPlayerJoined, ecc.)
- * e le inoltra al ClientModel, che notifica la CLIView via Observer.
+ * Lo stub di questo oggetto viene passato direttamente nei metodi
+ * loginFirstPlayer/login, in un'unica chiamata atomica.
  */
 public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
 
@@ -34,11 +33,7 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         this.model  = model;
     }
 
-    // ------------------------------------------------------------------ //
-    //  Entry point                                                         //
-    // ------------------------------------------------------------------ //
-
-    public static void main(String[] args) throws RemoteException, NotBoundException {
+    public static void main(String[] args) throws Exception {
         String host = (args.length > 0) ? args[0] : "localhost";
 
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
@@ -51,18 +46,9 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         new RmiClient(server, model).run();
     }
 
-    // ------------------------------------------------------------------ //
-    //  Avvio client                                                        //
-    // ------------------------------------------------------------------ //
+    private void run() throws Exception {
+        runLoginCli();
 
-    private void run() throws RemoteException {
-        // 1. Registra questo client presso il server (passa lo stub per le callback)
-        this.server.connect(this);
-
-        // 2. Esegui la CLI di login
-        this.runLoginCli();
-
-        // 3. Rimani in ascolto delle callback RMI (thread RMI gestisce autonomamente)
         System.out.println("\n[In attesa di aggiornamenti dal server...]");
         try {
             Thread.currentThread().join();
@@ -71,7 +57,7 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         }
     }
 
-    private void runLoginCli() throws RemoteException {
+    private void runLoginCli() throws Exception {
         Scanner scan = new Scanner(System.in);
 
         System.out.print("Inserisci il tuo nickname: ");
@@ -90,9 +76,10 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
                     System.out.println("Inserisci un numero valido.");
                 }
             }
-            server.loginFirstPlayer(nickname, numPlayers);
+            // stub passato direttamente — registrazione e login in una sola chiamata RMI
+            server.loginFirstPlayer(nickname, numPlayers, this);
         } else {
-            server.login(nickname);
+            server.login(nickname, this);
         }
     }
 

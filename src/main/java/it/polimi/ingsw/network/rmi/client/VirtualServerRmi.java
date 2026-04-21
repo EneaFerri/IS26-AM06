@@ -1,29 +1,20 @@
 package it.polimi.ingsw.network.rmi.client;
 
-import it.polimi.ingsw.VirtualServer;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 /**
- * Specializzazione RMI di VirtualServer.
- * Aggiunge extends Remote e throws RemoteException a tutti i metodi,
- * più il metodo connect() per registrare il client presso il server.
- *
- * Corrisponde a VirtualServerRmi nell'esempio dei prof.
+ * Interfaccia RMI esposta dal server verso i client.
+ * Estende direttamente Remote — non c'è bisogno di VirtualServer come base
+ * perché le firme con lo stub dipendono dalla tecnologia e non sono condivisibili.
  */
-public interface VirtualServerRmi extends Remote, VirtualServer {
+public interface VirtualServerRmi extends Remote {
 
-    /**
-     * Registra il client presso il server (passa lo stub RMI per le callback).
-     * Chiamato subito dopo la connessione al registry.
-     */
-    void connect(VirtualViewRmi client) throws RemoteException;
+    void loginFirstPlayer(String nickname, int numPlayers, VirtualViewRmi clientStub)
+            throws RemoteException;
 
-    @Override
-    void loginFirstPlayer(String nickname, int numPlayers) throws RemoteException;
-
-    @Override
-    void login(String nickname) throws RemoteException;
+    void login(String nickname, VirtualViewRmi clientStub)
+            throws RemoteException;
 }

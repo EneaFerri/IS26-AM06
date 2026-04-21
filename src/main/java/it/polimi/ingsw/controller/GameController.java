@@ -6,24 +6,18 @@ import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.model.enums.TotemColor;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Controller MVC lato server.
  * Non conosce RMI né Socket: lavora solo su VirtualView (interfaccia base).
- * La logica di rete è interamente in RmiServer (o in futuro SocketServer).
- *
- * Corrisponde ad AdderController nell'esempio dei prof.
+ * La lista dei client viene popolata direttamente dai metodi di login,
+ * che ricevono lo stub come parametro in modo atomico.
  */
 public class GameController {
 
     private final Game game;
-
-    /** Lista delle VirtualView (una per client connesso) — usata per le callback */
-    private final List<VirtualView> clients = new ArrayList<>();
-
-    /** Numero di giocatori scelto dal primo client (-1 = non ancora impostato) */
+    private final List<VirtualView> clients = new java.util.ArrayList<>();
     private int expectedPlayers = -1;
 
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
@@ -32,30 +26,23 @@ public class GameController {
         this.game = game;
     }
 
-    // ------------------------------------------------------------------ //
-    //  Metodi invocati da RmiServer (o SocketServer in futuro)            //
-    // ------------------------------------------------------------------ //
-
-    public synchronized void addClient(VirtualView client) {
-        clients.add(client);
-    }
-
     public synchronized void loginFirstPlayer(String nickname, int numPlayers, VirtualView caller) {
         try {
             if (numPlayers < 2 || numPlayers > 5) {
                 caller.onError("Numero di giocatori non valido (2-5).");
                 return;
             }
-            if (!clients.isEmpty() && expectedPlayers != -1) {
+            if (expectedPlayers != -1) {
                 caller.onError("La lobby è già stata creata.");
                 return;
             }
 
             expectedPlayers = numPlayers;
+            clients.add(caller);
             registerPlayer(nickname);
 
-            System.out.println("[Server] Primo giocatore: " + nickname
-                    + " | Giocatori richiesti: " + numPlayers);
+            System.out.println("[Controller] Primo giocatore: " + nickname
+                    + " | Attesi: " + numPlayers);
 
             caller.onLoginAccepted(nickname, expectedPlayers);
             broadcastPlayerJoined(nickname);
@@ -72,7 +59,7 @@ public class GameController {
                 caller.onError("Nessuna lobby attiva. Attendere il primo giocatore.");
                 return;
             }
-            if (game.getPlayers().size() >= expectedPlayers) {
+            if (game.getNumberOfPlayers() >= expectedPlayers) {
                 caller.onError("Lobby piena (" + expectedPlayers + "/" + expectedPlayers + ").");
                 return;
             }
@@ -81,9 +68,10 @@ public class GameController {
                 return;
             }
 
+            clients.add(caller);
             registerPlayer(nickname);
 
-            System.out.println("[Server] Nuovo giocatore: " + nickname
+            System.out.println("[Controller] " + nickname
                     + " [" + game.getNumberOfPlayers() + "/" + expectedPlayers + "]");
 
             caller.onLoginAccepted(nickname, expectedPlayers);
@@ -94,10 +82,6 @@ public class GameController {
             System.err.println("[Controller] Errore login: " + e.getMessage());
         }
     }
-
-    // ------------------------------------------------------------------ //
-    //  Logica privata                                                      //
-    // ------------------------------------------------------------------ //
 
     private void registerPlayer(String nickname) {
         TotemColor color = TOTEM_COLORS[(game.getNumberOfPlayers()) % TOTEM_COLORS.length];
