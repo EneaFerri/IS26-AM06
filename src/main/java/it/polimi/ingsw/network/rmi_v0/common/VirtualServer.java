@@ -1,4 +1,4 @@
-package it.polimi.ingsw.network.common;
+package it.polimi.ingsw.network.rmi_v0.common;
 
 public interface VirtualServer {
 

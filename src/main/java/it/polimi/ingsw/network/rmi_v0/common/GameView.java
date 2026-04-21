@@ -1,4 +1,4 @@
-package it.polimi.ingsw.network.common;
+package it.polimi.ingsw.network.rmi_v0.common;
 
 import it.polimi.ingsw.model.enums.GameState;
 import java.io.Serializable;
