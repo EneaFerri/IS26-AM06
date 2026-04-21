@@ -1,5 +1,6 @@
 package it.polimi.ingsw.network.rmi.client;
 
+import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 
 import java.rmi.Remote;
@@ -15,7 +16,7 @@ public interface VirtualServerRmi extends Remote {
 
     void connectClient(VirtualViewRmi client);
 
-    void connect(String nickname);
+    void connect(String nickname, TotemColor col);
 
     void startGame();
 

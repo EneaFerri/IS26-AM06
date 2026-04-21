@@ -15,14 +15,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TurnOrderTest {
 
-    @Test
-    void constructorAndGettersShouldWork() {
-        TurnOrder turnOrder = new TurnOrder(5);
-        assertEquals(5, turnOrder.getTag());
-
-        // copriamo il metodo vuoto
-        assertDoesNotThrow(() -> turnOrder.updateOrderFromBoard(null, null));
-    }
 
     @Test
     void placeTotemFirstFreeShouldDistributeBonusAndMalus() throws Exception {

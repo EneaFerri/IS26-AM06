@@ -1,6 +1,7 @@
 package it.polimi.ingsw.network.rmi.server;
 
 import it.polimi.ingsw.model.Game;
+import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.network.common.GameView;
@@ -50,9 +51,10 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         // gestisci dopo login
     }
 
+
     @Override
-    public void connect(String nickname) {
-        game.addPlayer(new Player(nickname, new Totem())); // TODO adattare costruttore
+    public void connect(String nickname, TotemColor col) {
+        game.addPlayer(new Player(nickname, new Totem(col))); // TODO adattare costruttore
     }
 
     @Override
