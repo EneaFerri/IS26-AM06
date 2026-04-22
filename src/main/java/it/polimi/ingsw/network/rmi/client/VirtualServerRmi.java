@@ -1,5 +1,6 @@
 package it.polimi.ingsw.network.rmi.client;
 
+import it.polimi.ingsw.model.GameObserver;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 
 import java.rmi.Remote;
