@@ -8,11 +8,11 @@ package it.polimi.ingsw;
  *  - VirtualServerRmi  (RMI)
  *  - VirtualServerSocket (Socket — futuro)
  */
-public interface VirtualServer {
+public interface VirtualServer<V extends VirtualView> {
 
     // --- LOBBY ---
-    void loginFirstPlayer(String nickname, int numPlayers, VirtualView clientView) throws Exception;
-    void login(String nickname, VirtualView clientView)                             throws Exception;
+    void loginFirstPlayer(String nickname, int numPlayers, V clientView) throws Exception;
+    void login(String nickname, V clientView) throws Exception;
 
     // --- FASE 1: PIAZZAMENTO TOTEM ---
     /**

@@ -196,7 +196,7 @@ public class GameController implements GameObserver {
 
     /**
      * Il model ci dice chi deve agire e in che fase.
-     * Costruiamo il pannello informativo e lo inviamo SOLO a quel client.
+     * Invio SOLO al client in turno il pannello con le info.
      */
     @Override
     public void onTurnStarted(String nickname, GameState phase) {
