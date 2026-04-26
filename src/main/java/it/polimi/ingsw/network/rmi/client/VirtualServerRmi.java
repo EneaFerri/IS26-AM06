@@ -8,14 +8,17 @@ import java.rmi.RemoteException;
 
 /**
  * Interfaccia RMI esposta dal server verso i client.
- * Estende direttamente Remote — non c'è bisogno di VirtualServer come base
- * perché le firme con lo stub dipendono dalla tecnologia e non sono condivisibili.
+ * Ogni metodo corrisponde a un'azione che il client può invocare sul server.
  */
 public interface VirtualServerRmi extends Remote {
 
-    void loginFirstPlayer(String nickname, int numPlayers, VirtualViewRmi clientStub)
-            throws RemoteException;
+    // --- LOBBY ---
+    void loginFirstPlayer(String nickname, int numPlayers, VirtualViewRmi clientStub) throws RemoteException;
+    void login(String nickname, VirtualViewRmi clientStub)                            throws RemoteException;
 
-    void login(String nickname, VirtualViewRmi clientStub)
-            throws RemoteException;
+    // --- FASE 1: PIAZZAMENTO TOTEM ---
+    void placeTotem(String nickname, char boardSpaceLetter)                           throws RemoteException;
+
+    // --- FASE 2: SELEZIONE CARTA ---
+    void pickCard(String nickname, int cardIndex, boolean fromTop)                    throws RemoteException;
 }

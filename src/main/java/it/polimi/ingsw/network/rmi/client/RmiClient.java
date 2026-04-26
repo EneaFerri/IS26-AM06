@@ -1,6 +1,7 @@
 package it.polimi.ingsw.network.rmi.client;
 
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.cli.CLIView;
@@ -15,11 +16,12 @@ import java.util.Scanner;
 
 /**
  * Logica del client RMI.
- * Estende UnicastRemoteObject e implementa VirtualViewRmi:
- * è l'oggetto remoto su cui il server fa le callback.
  *
- * Ogni callback ricevuta viene inoltrata a ClientModel,
- * che notifica CLIView tramite ModelObserver.
+ * - Estende UnicastRemoteObject e implementa VirtualViewRmi:
+ *   è l'oggetto remoto su cui il server fa le callback.
+ * - Ogni callback viene inoltrata a ClientModel → CLIView (Observer).
+ * - onYourTurn è l'unica callback che richiede input dell'utente:
+ *   legge dallo Scanner e chiama il metodo corretto sul server.
  */
 public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
 
@@ -28,12 +30,21 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
 
     private final VirtualServerRmi server;
     private final ClientModel      model;
+    private final Scanner          scanner;
+
+    // nickname di questo client, impostato al login
+    private String myNickname;
 
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
-        this.server = server;
-        this.model  = model;
+        this.server  = server;
+        this.model   = model;
+        this.scanner = new Scanner(System.in);
     }
+
+    // ────────────────────────────────────────────────
+    //  ENTRY POINT
+    // ────────────────────────────────────────────────
 
     public static void main(String[] args) throws RemoteException, NotBoundException {
         String host = (args.length > 0) ? args[0] : "localhost";
@@ -45,7 +56,11 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         CLIView view = new CLIView();
         model.registerObserver(view);
 
-        new RmiClient(server, model).run();
+        RmiClient client = new RmiClient(server, model);
+        // Passa il riferimento al server alla view, così onYourTurn può invocare le azioni
+        view.setServer(server, client);
+
+        client.run();
     }
 
     private void run() throws RemoteException {
@@ -59,78 +74,105 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
     }
 
     private void runLoginCli() throws RemoteException {
-        Scanner scan = new Scanner(System.in);
         System.out.print("Inserisci il tuo nickname: ");
-        String nickname = scan.nextLine().trim();
+        myNickname = scanner.nextLine().trim();
 
         System.out.print("Sei il primo giocatore della lobby? (s/n): ");
-        String answer = scan.nextLine().trim().toLowerCase();
+        String answer = scanner.nextLine().trim().toLowerCase();
 
         if (answer.equals("s")) {
             int numPlayers = 0;
             while (numPlayers < 2 || numPlayers > 5) {
                 System.out.print("Quanti giocatori vuoi? (2-5): ");
-                try { numPlayers = Integer.parseInt(scan.nextLine().trim()); }
+                try { numPlayers = Integer.parseInt(scanner.nextLine().trim()); }
                 catch (NumberFormatException e) { System.out.println("Numero non valido."); }
             }
-            server.loginFirstPlayer(nickname, numPlayers, this);
+            server.loginFirstPlayer(myNickname, numPlayers, this);
         } else {
-            server.login(nickname, this);
+            server.login(myNickname, this);
         }
     }
 
-    // ------------------------------------------------------------------ //
-    //  VirtualViewRmi — tutte le callback dal server                     //
-    // ------------------------------------------------------------------ //
+    public String getMyNickname() { return myNickname; }
 
-    // --- LOBBY & SETUP ---
-    @Override public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
+    // ────────────────────────────────────────────────
+    //  CALLBACK DA SERVER → ClientModel
+    // ────────────────────────────────────────────────
+
+    @Override
+    public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
         model.onLoginAccepted(nickname, expectedPlayers);
     }
-    @Override public void onPlayerJoined(String nickname, int currentCount, int expected) throws RemoteException {
+
+    @Override
+    public void onPlayerJoined(String nickname, int currentCount, int expected) throws RemoteException {
         model.onPlayerJoined(nickname, currentCount, expected);
     }
-    @Override public void onGameStarting(List<String> playerNicknames) throws RemoteException {
+
+    @Override
+    public void onGameStarting(List<String> playerNicknames) throws RemoteException {
         model.onGameStarting(playerNicknames);
     }
-    @Override public void onError(String message) throws RemoteException {
+
+    @Override
+    public void onError(String message) throws RemoteException {
         model.onError(message);
     }
 
-    // --- FASE 1: PIAZZAMENTO TOTEM ---
-    @Override public void onTotemPlaced(String nickname, String boardSpaceId) throws RemoteException {
+    /**
+     * Callback chiave: il server ci dice che è il nostro turno.
+     * Deleghiamo alla CLIView (tramite model) che mostrerà le opzioni
+     * e leggerà l'input dell'utente, poi chiamerà server.placeTotem / server.pickCard.
+     */
+    @Override
+    public void onYourTurn(String nickname, GameState phase, String extraInfo) throws RemoteException {
+        model.onYourTurn(nickname, phase, extraInfo);
+        // La CLIView (tramite ModelObserver) ha già il riferimento al server
+        // e gestirà l'input nel suo onYourTurn
+    }
+
+    @Override
+    public void onTotemPlaced(String nickname, String boardSpaceId) throws RemoteException {
         model.onTotemPlaced(nickname, boardSpaceId);
     }
-    @Override public void onInvalidAction(String nicknameTarget, String errorMessage) throws RemoteException {
+
+    @Override
+    public void onInvalidAction(String nicknameTarget, String errorMessage) throws RemoteException {
         model.onInvalidAction(nicknameTarget, errorMessage);
     }
 
-    // --- FASE 2: SELEZIONE CARTE ---
-    @Override public void onCardTaken(String nickname, String cardId) throws RemoteException {
+    @Override
+    public void onCardTaken(String nickname, String cardId) throws RemoteException {
         model.onCardTaken(nickname, cardId);
     }
-    @Override public void onPlayerUpdated(String nickname) throws RemoteException {
+
+    @Override
+    public void onPlayerUpdated(String nickname) throws RemoteException {
         model.onPlayerUpdated(nickname);
     }
 
-    // --- FINE TURNO GIOCATORE ---
-    @Override public void onTurnOrderUpdated(List<String> newOrderedNicknames) throws RemoteException {
+    @Override
+    public void onTurnOrderUpdated(List<String> newOrderedNicknames) throws RemoteException {
         model.onTurnOrderUpdated(newOrderedNicknames);
     }
 
-    // --- FINE ROUND & EVENTI ---
-    @Override public void onEventResolved(String eventName, String resultDetails) throws RemoteException {
+    @Override
+    public void onEventResolved(String eventName, String resultDetails) throws RemoteException {
         model.onEventResolved(eventName, resultDetails);
     }
-    @Override public void onBoardUpdated() throws RemoteException {
+
+    @Override
+    public void onBoardUpdated() throws RemoteException {
         model.onBoardUpdated();
     }
-    @Override public void onNewEraStarted(Age newEra) throws RemoteException {
+
+    @Override
+    public void onNewEraStarted(Age newEra) throws RemoteException {
         model.onNewEraStarted(newEra);
     }
 
-    // --- FINE PARTITA ---
-    @Override public void onGameOver() throws RemoteException {
-        model.onGameOver();
+    @Override
+    public void onGameOver(String results) throws RemoteException {
+        model.onGameOver(results);
     }
 }

@@ -1,17 +1,33 @@
 package it.polimi.ingsw;
 
-import it.polimi.ingsw.network.rmi.client.RmiClient;
-
 /**
  * Interfaccia technology-agnostic che definisce le azioni che il client
- * può invocare sul server. Corrisponde alle azioni di gioco (GameActions)
- * esposte verso la rete.
+ * può invocare sul server.
  *
- * Implementazioni concrete: VirtualServerRmi (RMI), VirtualServerSocket (Socket — futuro)
+ * Implementazioni concrete:
+ *  - VirtualServerRmi  (RMI)
+ *  - VirtualServerSocket (Socket — futuro)
  */
 public interface VirtualServer {
 
-    void loginFirstPlayer(String nickname, int numPlayers, RmiClient rmiClient) throws Exception;
+    // --- LOBBY ---
+    void loginFirstPlayer(String nickname, int numPlayers, VirtualView clientView) throws Exception;
+    void login(String nickname, VirtualView clientView)                             throws Exception;
 
-    void login(String nickname, RmiClient rmiClient) throws Exception;
+    // --- FASE 1: PIAZZAMENTO TOTEM ---
+    /**
+     * Il giocatore sceglie su quale BoardSpace piazzare il proprio totem.
+     * @param nickname     il giocatore che agisce
+     * @param boardSpaceLetter  la lettera dello spazio (es. 'B')
+     */
+    void placeTotem(String nickname, char boardSpaceLetter) throws Exception;
+
+    // --- FASE 2: SELEZIONE CARTA ---
+    /**
+     * Il giocatore sceglie una carta da prendere.
+     * @param nickname  il giocatore che agisce
+     * @param cardIndex indice della carta nella lista mostrata dalla CLI (0-based)
+     * @param fromTop   true = riga superiore, false = riga inferiore
+     */
+    void pickCard(String nickname, int cardIndex, boolean fromTop) throws Exception;
 }

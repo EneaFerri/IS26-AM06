@@ -2,7 +2,6 @@ package it.polimi.ingsw.network.rmi.server;
 
 import it.polimi.ingsw.controller.GameController;
 import it.polimi.ingsw.model.Game;
-import it.polimi.ingsw.network.rmi.client.RmiClient;
 import it.polimi.ingsw.network.rmi.client.VirtualServerRmi;
 
 import java.rmi.RemoteException;
@@ -11,12 +10,8 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
 /**
- * Logica del server implementata con tecnologia RMI.
- * Estende UnicastRemoteObject e implementa VirtualServerRmi.
- *
- * Lo stub del client arriva direttamente nei parametri di login/loginFirstPlayer,
- * rendendo la registrazione atomica e correggendo la race condition
- * che limitava l'accesso a 2 client.
+ * Implementazione RMI del server.
+ * Riceve le chiamate remote dai client e le delega a GameController.
  */
 public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
 
@@ -34,7 +29,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         Game game = new Game(1);
         GameController controller = new GameController(game);
 
-        VirtualServerRmi server = new RmiServer(controller);
+        RmiServer server = new RmiServer(controller);
 
         Registry registry = LocateRegistry.createRegistry(RMI_PORT);
         registry.rebind(SERVER_NAME, server);
@@ -45,6 +40,8 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         System.out.println("╚══════════════════════════════════╝");
     }
 
+    // --- LOBBY ---
+
     @Override
     public synchronized void loginFirstPlayer(String nickname, int numPlayers,
                                               VirtualViewRmi clientStub) throws RemoteException {
@@ -53,10 +50,24 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
     }
 
     @Override
-    public synchronized void login(String nickname, VirtualViewRmi clientStub)
-            throws RemoteException {
+    public synchronized void login(String nickname, VirtualViewRmi clientStub) throws RemoteException {
         System.out.println("[RmiServer] login: " + nickname);
         controller.login(nickname, clientStub);
     }
 
+    // --- FASE 1: PIAZZAMENTO TOTEM ---
+
+    @Override
+    public synchronized void placeTotem(String nickname, char boardSpaceLetter) throws RemoteException {
+        System.out.println("[RmiServer] placeTotem: " + nickname + " → " + boardSpaceLetter);
+        controller.placeTotem(nickname, boardSpaceLetter);
+    }
+
+    // --- FASE 2: SELEZIONE CARTA ---
+
+    @Override
+    public synchronized void pickCard(String nickname, int cardIndex, boolean fromTop) throws RemoteException {
+        System.out.println("[RmiServer] pickCard: " + nickname + " idx=" + cardIndex + " top=" + fromTop);
+        controller.pickCard(nickname, cardIndex, fromTop);
+    }
 }
