@@ -1,5 +1,6 @@
 package it.polimi.ingsw.view;
 
+import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 
@@ -45,6 +46,9 @@ public class ClientModel {
     public void onError(String message) {
         observers.forEach(o -> o.onError(message));
     }
+
+    public void onNoLobbyAvailable()                               { observers.forEach(o -> o.onNoLobbyAvailable()); }
+    public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies)  { observers.forEach(o -> o.onLobbyList(lobbies)); }
 
     // --- TURNO ---
 

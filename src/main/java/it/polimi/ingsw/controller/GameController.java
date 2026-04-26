@@ -39,6 +39,28 @@ public class GameController implements GameObserver {
         game.addObserver(this);
     }
 
+    // ================================================================== //
+    //  STATO LOBBY  <-- NEW (usati da LobbyManager)                     //
+    // ================================================================== //
+
+    /**
+     * True se la lobby accetta ancora giocatori (expectedPlayers non ancora
+     * raggiunto e partita non ancora iniziata).
+     */
+    public boolean isOpen() {                                            // <-- NEW
+        return expectedPlayers == -1
+                || (game.getNumberOfPlayers() < expectedPlayers
+                && game.getStatus() == GameState.LOGIN);
+    }
+
+    public int getCurrentPlayers()  { return game.getNumberOfPlayers(); } // <-- NEW
+    public int getExpectedPlayers() { return expectedPlayers; }           // <-- NEW
+
+    /** True se un giocatore con quel nickname è registrato in questa lobby. */
+    public boolean hasPlayer(String nickname) {                           // <-- NEW
+        return nicks.contains(nickname);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  LOBBY
     // ─────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 package it.polimi.ingsw.network.rmi.server;
 
 import it.polimi.ingsw.VirtualView;
+import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 
@@ -20,6 +21,9 @@ public interface VirtualViewRmi extends Remote, VirtualView {
     @Override void onPlayerJoined(String nickname, int currentCount, int expected)  throws RemoteException;
     @Override void onGameStarting(List<String> playerNicknames)                     throws RemoteException;
     @Override void onError(String message)                                          throws RemoteException;
+
+    @Override void onNoLobbyAvailable()                                            throws RemoteException;
+    @Override void onLobbyList(List<LobbyManager.LobbyInfo> lobbies)              throws RemoteException;
 
     // --- TURNO ---
     @Override void onYourTurn(String nickname, GameState phase, String extraInfo)   throws RemoteException;

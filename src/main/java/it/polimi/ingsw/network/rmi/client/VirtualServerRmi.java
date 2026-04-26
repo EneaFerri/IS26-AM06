@@ -19,6 +19,9 @@ public interface VirtualServerRmi extends Remote, VirtualServer<VirtualViewRmi> 
     @Override
     void login(String nickname, VirtualViewRmi clientStub)                            throws RemoteException;
 
+    @Override
+    void requestLobbyList(VirtualViewRmi clientView)                                  throws RemoteException;
+
     // --- FASE 1: PIAZZAMENTO TOTEM ---
     @Override
     void placeTotem(String nickname, char boardSpaceLetter)                           throws RemoteException;

@@ -1,5 +1,6 @@
 package it.polimi.ingsw.view.cli;
 
+import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.rmi.client.VirtualServerRmi;
@@ -73,6 +74,16 @@ public class CLIView implements ModelObserver {
     @Override
     public void onError(String message) {
         System.err.println("  ✗ ERRORE: " + message);
+    }
+
+    @Override
+    public void onNoLobbyAvailable() {
+
+    }
+
+    @Override
+    public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
+
     }
 
     // ─────────────────────────────────────────────────────────────────────

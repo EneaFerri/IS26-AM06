@@ -1,5 +1,6 @@
 package it.polimi.ingsw.view;
 
+import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 
@@ -17,6 +18,10 @@ public interface ModelObserver {
     void onPlayerJoined(String nickname, int currentCount, int expected);
     void onGameStarting(List<String> playerNicknames);
     void onError(String message);
+
+    // Lobby multiple
+    void onNoLobbyAvailable();
+    void onLobbyList(List<LobbyManager.LobbyInfo> lobbies);
 
     // --- TURNO ---
     /**
