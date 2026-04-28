@@ -99,6 +99,19 @@ public class TurnOrder {
         throw new IllegalStateException("No free blocks on TurnOrder tile");
     }
 
+    public void placeTotemFirstFreeFirstR(Player player) {
+        for (OrderBlock block : orderBlocks) {
+            if (block.isFree()) {
+                block.setTotem(player.getTotem());
+                player.getTotem().remove(); // totem non è più sull'offerta
+                return;
+            }
+        }
+        throw new IllegalStateException("No free blocks on TurnOrder tile");
+    }
+
+
+
     //TODO: SERVE? 0 USAGE
     public void clearAll() {
         for (OrderBlock block : orderBlocks) {

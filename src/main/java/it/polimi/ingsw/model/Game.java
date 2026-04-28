@@ -143,16 +143,20 @@ public class Game implements GameActions {
         currentRoundOrder = shuffled;
 
         for (Player player : shuffled) {
-            turnOrder.placeTotemFirstFree(player);
+            turnOrder.placeTotemFirstFreeFirstR(player);
         }
 
         for (int i = 0; i < shuffled.size(); i++) {
-            int food = switch (i) {
-                case 0 -> 2;
-                case 1, 2 -> 3;
-                default -> 4;
-            };
-            shuffled.get(i).addFood(food);
+
+            if( i == 0 ){
+                shuffled.get(i).addFood(2);
+            } else if (i == 1 || i == 2) {
+                shuffled.get(i).addFood(3);
+            } else if ( i == 3 || i == 4) {
+                shuffled.get(i).addFood(4);
+            }
+
+
         }
 
         // bottom cards
