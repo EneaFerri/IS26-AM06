@@ -37,7 +37,21 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
     // ─────────────────────────────────────────────────────────────────────
 
     public static void main(String[] args) throws Exception {
-        String host = (args.length > 0) ? args[0] : "localhost";
+        // Se non passato come argomento, chiede l'IP del server interattivamente
+        String host;
+        if (args.length > 0) {
+            host = args[0];
+        } else {
+            Scanner sc = new Scanner(System.in);
+            System.out.print("Inserisci l'IP del server (o premi INVIO per localhost): ");
+            String input = sc.nextLine().trim();
+            host = input.isEmpty() ? "localhost" : input;
+        }
+
+        // Dichiara a RMI il proprio IP (necessario per le callback dal server)
+        String clientIp = resolveLocalIp();
+        System.setProperty("java.rmi.server.hostname", clientIp);
+        System.out.println("[Client] IP locale: " + clientIp + " → Server: " + host);
 
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
         VirtualServerRmi server = (VirtualServerRmi) registry.lookup(SERVER_NAME);
@@ -49,6 +63,31 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         RmiClient client = new RmiClient(server, model);
         view.setServer(server, client);
         client.run();
+    }
+
+    /**
+     * Trova il primo IP non-loopback della macchina (es. 192.168.x.x).
+     * Fallback a localhost se non trovato.
+     */
+    private static String resolveLocalIp() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> ifaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = ifaces.nextElement();
+                if (!iface.isUp() || iface.isLoopback()) continue;
+                java.util.Enumeration<java.net.InetAddress> addrs = iface.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    java.net.InetAddress addr = addrs.nextElement();
+                    if (!addr.isLoopbackAddress() && addr instanceof java.net.Inet4Address) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (java.net.SocketException e) {
+            System.err.println("Impossibile rilevare IP: " + e.getMessage());
+        }
+        return "localhost";
     }
 
     private void run() throws Exception {

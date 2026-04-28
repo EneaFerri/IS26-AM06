@@ -22,12 +22,44 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
     public RmiServer() throws RemoteException { super(); }
 
     public static void main(String[] args) throws RemoteException {
+        // Auto-rileva l'IP della LAN (non localhost) e lo dichiara a RMI
+        String serverIp = resolveLocalIp();
+        System.setProperty("java.rmi.server.hostname", serverIp);
+
         VirtualServerRmi server = new RmiServer();
         Registry registry = LocateRegistry.createRegistry(RMI_PORT);
         registry.rebind(SERVER_NAME, server);
+
         System.out.println("╔══════════════════════════════════╗");
         System.out.println("║  Server avviato su porta " + RMI_PORT + "    ║");
+        System.out.println("║  IP: " + serverIp + "              ║");
+        System.out.println("║  Comunica questo IP ai client!   ║");
         System.out.println("╚══════════════════════════════════╝");
+    }
+
+    /**
+     * Trova il primo IP non-loopback della macchina (es. 192.168.x.x).
+     * Fallback a localhost se non trovato.
+     */
+    private static String resolveLocalIp() {
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> ifaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                java.net.NetworkInterface iface = ifaces.nextElement();
+                if (!iface.isUp() || iface.isLoopback()) continue;
+                java.util.Enumeration<java.net.InetAddress> addrs = iface.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    java.net.InetAddress addr = addrs.nextElement();
+                    if (!addr.isLoopbackAddress() && addr instanceof java.net.Inet4Address) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (java.net.SocketException e) {
+            System.err.println("Impossibile rilevare IP: " + e.getMessage());
+        }
+        return "localhost";
     }
 
     // --- LOGIN ---
