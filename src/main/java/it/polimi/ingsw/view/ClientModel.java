@@ -106,6 +106,12 @@ public class ClientModel {
         observers.forEach(o -> o.onGameOver(results));
     }
 
+    // --- DISCONNESSIONE ---
+
+    public void onPlayerDisconnected(String nickname) {
+        observers.forEach(o -> o.onPlayerDisconnected(nickname));
+    }
+
     // --- Getters ---
     public String       getMyNickname()      { return myNickname; }
     public int          getExpectedPlayers() { return expectedPlayers; }

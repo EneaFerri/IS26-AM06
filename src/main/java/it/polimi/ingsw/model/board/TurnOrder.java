@@ -91,7 +91,7 @@ public class TurnOrder {
                     }
                 }
 
-                if(FoodbonusOrMalus<0){
+                if(FoodbonusOrMalus < 0){
                     if(player.getFood()>0){
                         player.removeFood(1);
                     }else {

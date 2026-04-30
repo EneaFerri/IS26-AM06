@@ -56,4 +56,8 @@ public interface ModelObserver {
 
     // --- FINE PARTITA ---
     void onGameOver(String results);
+
+    // --- DISCONNESSIONE ---
+    /** Called when another player disconnects mid-game. */
+    void onPlayerDisconnected(String nickname);
 }

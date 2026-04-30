@@ -47,4 +47,7 @@ public interface VirtualViewRmi extends Remote, VirtualView {
 
     // --- FINE PARTITA ---
     @Override void onGameOver(String results)                                       throws RemoteException;
+
+    // --- DISCONNESSIONE ---
+    @Override void onPlayerDisconnected(String nickname)                             throws RemoteException;
 }

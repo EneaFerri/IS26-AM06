@@ -54,4 +54,8 @@ public interface VirtualView {
 
     // --- FINE PARTITA ---
     void onGameOver(String results)                                      throws Exception;
+
+    // --- DISCONNESSIONE ---
+    /** Broadcast to all remaining clients when a player disconnects mid-game. */
+    void onPlayerDisconnected(String nickname)                           throws Exception;
 }

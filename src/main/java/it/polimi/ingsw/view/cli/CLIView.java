@@ -3,34 +3,35 @@ package it.polimi.ingsw.view.cli;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.network.rmi.client.VirtualServerRmi;
-import it.polimi.ingsw.network.rmi.client.RmiClient;
+import it.polimi.ingsw.network.GameServerProxy;
 import it.polimi.ingsw.view.ModelObserver;
 
-import java.rmi.RemoteException;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * View CLI lato client.
+ * CLI view — transport-agnostic.
  *
- * ARCHITETTURA INPUT/OUTPUT
- * ─────────────────────────
- * Le callback RMI arrivano su thread separati (pool RMI).
- * L'input utente blocca il thread — per non bloccare il thread RMI,
- * ogni onYourTurn lancia un thread di input dedicato.
+ * Holds a {@link GameServerProxy} reference that abstracts away whether the
+ * underlying connection is RMI or Socket.  All login UI and lobby selection
+ * logic lives here (it was previously spread across RmiClient callbacks).
  *
- * Sincronizzazione tramite LinkedBlockingQueue<String> (capacità 1):
- *   • thread di input  → invia al server, poi chiama actionResultQueue.take()
- *   • onTotemPlaced    → pone "OK"           → sblocca il loop (azione OK)
- *   • onCardTaken      → pone "OK"           → sblocca il loop (azione OK)
- *   • onInvalidAction  → pone "RETRY:<msg>"  → sblocca il loop (riprova)
+ * ── Input/output architecture ───────────────────────────────────────────────
+ * Server callbacks arrive on background threads (RMI pool or socket reader).
+ * User input blocks the thread — to avoid blocking a callback thread,
+ * onYourTurn spawns a dedicated input thread.
+ *
+ * Synchronisation via LinkedBlockingQueue<String> (capacity 1):
+ *   input thread   → sends action, then calls actionResultQueue.take()
+ *   onTotemPlaced  → puts "OK"          → unblocks loop (action accepted)
+ *   onCardTaken    → puts "OK"          → unblocks loop
+ *   onInvalidAction→ puts "RETRY:<msg>" → unblocks loop (retry)
  */
 public class CLIView implements ModelObserver {
 
-    private VirtualServerRmi server;
-    private RmiClient        client;
+    /** Transport-agnostic server proxy — set by ClientLauncher before doLoginCli(). */
+    private GameServerProxy server;
 
     /** Single shared Scanner — never create a second one on System.in. */
     private final Scanner scanner = new Scanner(System.in);
@@ -42,16 +43,50 @@ public class CLIView implements ModelObserver {
 
     // ─────────────────────────────────────────────────────────────────────
 
-    public void setServer(VirtualServerRmi server, RmiClient client) {
+    /** Called by ClientLauncher once the network adapter is ready. */
+    public void setServer(GameServerProxy server) {
         this.server = server;
-        this.client = client;
     }
 
-    /** Exposes the shared scanner to RmiClient so only one Scanner reads System.in. */
+    /** Exposes the shared scanner so no second Scanner is ever opened on System.in. */
     public Scanner getScanner() { return scanner; }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  LOBBY & SETUP
+    //  LOGIN CLI  (called by ClientLauncher after setServer)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Interactive login flow. Runs on the main thread before the event loop starts.
+     * Asks for nickname and whether to create or join a lobby, then sends the
+     * appropriate request to the server via the GameServerProxy.
+     */
+    public void doLoginCli() {
+        System.out.print("Inserisci il tuo nickname: ");
+        myNick = scanner.nextLine().trim();
+
+        System.out.print("Vuoi creare una nuova lobby? (s/n): ");
+        if (scanner.nextLine().trim().equalsIgnoreCase("s")) {
+            int numPlayers = askNumPlayers();
+            try { server.loginFirstPlayer(myNick, numPlayers); }
+            catch (Exception e) { System.err.println("  ✗ Errore connessione: " + e.getMessage()); }
+        } else {
+            try { server.requestLobbyList(); }
+            catch (Exception e) { System.err.println("  ✗ Errore connessione: " + e.getMessage()); }
+        }
+    }
+
+    private int askNumPlayers() {
+        int n = 0;
+        while (n < 2 || n > 5) {
+            System.out.print("  Quanti giocatori? (2-5): ");
+            try { n = Integer.parseInt(scanner.nextLine().trim()); }
+            catch (NumberFormatException e) { System.out.println("  Numero non valido."); }
+        }
+        return n;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  LOBBY & SETUP callbacks
     // ─────────────────────────────────────────────────────────────────────
 
     @Override
@@ -82,12 +117,40 @@ public class CLIView implements ModelObserver {
 
     @Override
     public void onNoLobbyAvailable() {
-
+        // Runs on a callback thread — spawn a new thread for blocking scanner input.
+        new Thread(() -> {
+            System.out.println("\n  Nessuna lobby disponibile.");
+            System.out.print("  Vuoi crearne una nuova? (s/n): ");
+            if (scanner.nextLine().trim().equalsIgnoreCase("s")) {
+                int n = askNumPlayers();
+                try { server.loginFirstPlayer(myNick, n); }
+                catch (Exception e) { System.err.println("  ✗ " + e.getMessage()); }
+            } else {
+                System.out.println("  Arrivederci.");
+                System.exit(0);
+            }
+        }, "lobby-create-thread").start();
     }
 
     @Override
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
+        // Runs on a callback thread — spawn a new thread for blocking scanner input.
+        new Thread(() -> {
+            if (lobbies.isEmpty()) { onNoLobbyAvailable(); return; }
 
+            System.out.println("\n  Lobby disponibili:");
+            lobbies.forEach(l -> System.out.println("    " + l));
+            System.out.println("  Premi INVIO per unirti alla prima, oppure digita 'nuova' per crearne una.");
+            String choice = scanner.nextLine().trim().toLowerCase();
+            try {
+                if (choice.equals("nuova")) {
+                    int n = askNumPlayers();
+                    server.loginFirstPlayer(myNick, n);
+                } else {
+                    server.login(myNick);
+                }
+            } catch (Exception e) { System.err.println("  ✗ " + e.getMessage()); }
+        }, "lobby-join-thread").start();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -147,7 +210,7 @@ public class CLIView implements ModelObserver {
 
             try {
                 server.placeTotem(nickname, raw.charAt(0));
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 System.err.println("  Errore di rete: " + e.getMessage() + " — riprova.");
                 continue;
             }
@@ -208,7 +271,7 @@ public class CLIView implements ModelObserver {
 
             try {
                 server.pickCard(nickname, index, fromTop);
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 System.err.println("  Errore di rete: " + e.getMessage() + " — riprova.");
                 continue;
             }
@@ -306,6 +369,15 @@ public class CLIView implements ModelObserver {
             }
         }
         System.out.println("  └─────────────────────────────────────────────┘");
+    }
+
+    @Override
+    public void onPlayerDisconnected(String nickname) {
+        System.out.println();
+        printBanner("⚠ DISCONNESSIONE: " + nickname.toUpperCase());
+        System.out.println("  Il giocatore " + nickname + " si è disconnesso.");
+        System.out.println("  La partita potrebbe non poter continuare.");
+        printLine();
     }
 
     // ─────────────────────────────────────────────────────────────────────

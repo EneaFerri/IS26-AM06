@@ -93,6 +93,23 @@ public class LobbyManager {
         else System.err.println("[LobbyManager] pickCard: lobby non trovata per " + nickname);
     }
 
+    /**
+     * Called by SocketClientHandler (and any future transport) when a client's
+     * connection is lost unexpectedly.
+     *
+     * Finds the lobby the player belongs to and broadcasts an onPlayerDisconnected
+     * notification to all remaining client so they are aware of the situation.
+     */
+    public synchronized void handleDisconnect(String nickname) {
+        GameController lobby = findLobbyOf(nickname);
+        if (lobby == null) {
+            System.err.println("[LobbyManager] handleDisconnect: no lobby found for " + nickname);
+            return;
+        }
+        System.out.println("[LobbyManager] Broadcasting disconnect of: " + nickname);
+        lobby.onPlayerDisconnected(nickname);
+    }
+
     // ================================================================== //
     //  UTILITY                                                            //
     // ================================================================== //

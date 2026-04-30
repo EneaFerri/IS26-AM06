@@ -201,7 +201,7 @@ public class GameController implements GameObserver {
 
             // ── Guard: event cards sit in the tribe row but cannot be picked by players.
             //    Reject early with a friendly message so the client can retry immediately.
-            if (card.isEvent()) {
+            if (card instanceof EventCard) {
                 safeInvalidAction(nickname,
                         "La carta [" + card + "] è una carta Evento: non può essere pescata. "
                                 + "Scegli un'altra carta.");
@@ -311,6 +311,16 @@ public class GameController implements GameObserver {
     public void onGameOver() {
         String results = buildFinalResults();
         broadcast(v -> v.onGameOver(results));
+    }
+
+    /**
+     * Called by LobbyManager when a client connection drops unexpectedly.
+     * Broadcasts onPlayerDisconnected to all remaining clients in this lobby.
+     * The game state is left intact — a future reconnection mechanism could resume.
+     */
+    public void onPlayerDisconnected(String nickname) {
+        System.out.println("[GameController] Player disconnected: " + nickname);
+        broadcast(v -> v.onPlayerDisconnected(nickname));
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -441,6 +451,20 @@ public class GameController implements GameObserver {
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
+        // ── Riga inferiore carte ──────────────────────────────────────────
+        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
+
+        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
+        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
+
+        if (botTribe.isEmpty() && botBld.isEmpty()) {
+            sb.append("  │  (vuota)\n");
+        } else {
+            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
+            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
+        }
+        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
+
         // ── BoardSpaces ───────────────────────────────────────────────────
         sb.append("  ┌── Spazi Offerta ─────────────────────────────────────────────────┐\n");
         sb.append(String.format("  │  %-4s  %-6s  %-6s  %-6s  %-18s%n",
@@ -463,23 +487,6 @@ public class GameController implements GameObserver {
                 .map(s -> String.valueOf(s.getLetter()))
                 .toList();
         sb.append("  Spazi liberi: ").append(String.join(", ", free)).append("\n");
-
-
-        // ── Riga inferiore carte ──────────────────────────────────────────
-        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
-
-        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
-        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
-
-        if (botTribe.isEmpty() && botBld.isEmpty()) {
-            sb.append("  │  (vuota)\n");
-        } else {
-            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
-            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
-        }
-        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
-
-
     }
 
     /** Sezione "STATO GIOCATORI" con cibo e prestige. */

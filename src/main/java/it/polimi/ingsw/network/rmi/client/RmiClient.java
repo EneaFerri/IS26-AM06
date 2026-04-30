@@ -3,9 +3,9 @@ package it.polimi.ingsw.network.rmi.client;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
+import it.polimi.ingsw.network.GameServerProxy;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
 import it.polimi.ingsw.view.ClientModel;
-import it.polimi.ingsw.view.cli.CLIView;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -13,128 +13,80 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
-import java.util.Scanner;
 
-public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
+/**
+ * RMI client adapter.
+ *
+ * Implements both:
+ *   - {@link VirtualViewRmi} (receives server callbacks and forwards them to ClientModel)
+ *   - {@link GameServerProxy} (sends player actions to the server via the RMI stub)
+ *
+ * The dual role is natural for RMI: the client object IS the remote callback endpoint,
+ * and it also holds a reference to the server stub for outgoing calls.
+ *
+ * Login UI has been moved to {@link it.polimi.ingsw.view.cli.CLIView#doLoginCli()}.
+ */
+public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, GameServerProxy {
 
     private static final String SERVER_NAME = "GameServer";
     private static final int    RMI_PORT    = 1099;
 
     private final VirtualServerRmi server;
     private final ClientModel      model;
-    /**
-     * Shared Scanner — obtained from CLIView so that only one Scanner reads System.in.
-     * Never create a second Scanner on the same InputStream: they will race on buffered data.
-     */
-    private Scanner scanner;
-    private String myNickname;
 
+    /**
+     * The scanner is obtained from CLIView and passed here to avoid creating
+     * a second Scanner on System.in. Only used if this class needs direct input
+     * (currently none — login UI is in CLIView).
+     */
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
-        this.server  = server;
-        this.model   = model;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  ENTRY POINT
-    // ─────────────────────────────────────────────────────────────────────
-
-    public static void main(String[] args) throws Exception {
-        // Se non passato come argomento, chiede l'IP del server interattivamente
-        String host;
-        if (args.length > 0) {
-            host = args[0];
-        } else {
-            Scanner sc = new Scanner(System.in);
-            System.out.print("Inserisci l'IP del server (o premi INVIO per localhost): ");
-            String input = sc.nextLine().trim();
-            host = input.isEmpty() ? "localhost" : input;
-        }
-
-        // Dichiara a RMI il proprio IP (necessario per le callback dal server)
-        String clientIp = resolveLocalIp();
-        System.setProperty("java.rmi.server.hostname", clientIp);
-        System.out.println("[Client] IP locale: " + clientIp + " → Server: " + host);
-
-        Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
-        VirtualServerRmi server = (VirtualServerRmi) registry.lookup(SERVER_NAME);
-
-        ClientModel model = new ClientModel();
-        CLIView view = new CLIView();
-        model.registerObserver(view);
-
-        RmiClient client = new RmiClient(server, model);
-        // Share the single Scanner from CLIView — never create two Scanners on System.in
-        client.scanner = view.getScanner();
-        view.setServer(server, client);
-        client.run();
+        this.server = server;
+        this.model  = model;
     }
 
     /**
-     * Trova il primo IP non-loopback della macchina (es. 192.168.x.x).
-     * Fallback a localhost se non trovato.
+     * Factory: looks up the RMI registry on the given host and creates an RmiClient
+     * connected to it.
      */
-    private static String resolveLocalIp() {
-        try {
-            java.util.Enumeration<java.net.NetworkInterface> ifaces =
-                    java.net.NetworkInterface.getNetworkInterfaces();
-            while (ifaces.hasMoreElements()) {
-                java.net.NetworkInterface iface = ifaces.nextElement();
-                if (!iface.isUp() || iface.isLoopback()) continue;
-                java.util.Enumeration<java.net.InetAddress> addrs = iface.getInetAddresses();
-                while (addrs.hasMoreElements()) {
-                    java.net.InetAddress addr = addrs.nextElement();
-                    if (!addr.isLoopbackAddress() && addr instanceof java.net.Inet4Address) {
-                        return addr.getHostAddress();
-                    }
-                }
-            }
-        } catch (java.net.SocketException e) {
-            System.err.println("Impossibile rilevare IP: " + e.getMessage());
-        }
-        return "localhost";
-    }
-
-    private void run() throws Exception {
-        runLoginCli();
-        System.out.println("\n[In attesa di aggiornamenti dal server...]");
-        try { Thread.currentThread().join(); }
-        catch (InterruptedException e) { System.out.println("Client terminato."); }
+    public static RmiClient connect(String host, ClientModel model)
+            throws RemoteException, NotBoundException {
+        Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
+        VirtualServerRmi serverStub = (VirtualServerRmi) registry.lookup(SERVER_NAME);
+        return new RmiClient(serverStub, model);
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  LOGIN CLI  — nuovo flusso multi-lobby
+    //  GameServerProxy  (CLIView calls these)
     // ─────────────────────────────────────────────────────────────────────
 
-    private void runLoginCli() throws Exception {
-        System.out.print("Inserisci il tuo nickname: ");
-        myNickname = scanner.nextLine().trim();
-
-        System.out.print("Vuoi creare una nuova lobby? (s/n): ");
-        if (scanner.nextLine().trim().equalsIgnoreCase("s")) {
-            // Crea sempre una lobby nuova
-            int numPlayers = askNumPlayers();
-            server.loginFirstPlayer(myNickname, numPlayers, this);
-        } else {
-            // Chiedi al server le lobby aperte → arriva onLobbyList (o onNoLobbyAvailable)
-            server.requestLobbyList(this);
-        }
+    @Override
+    public void loginFirstPlayer(String nickname, int numPlayers) throws RemoteException {
+        server.loginFirstPlayer(nickname, numPlayers, this);
     }
 
-    private int askNumPlayers() {
-        int n = 0;
-        while (n < 2 || n > 5) {
-            System.out.print("Quanti giocatori? (2-5): ");
-            try { n = Integer.parseInt(scanner.nextLine().trim()); }
-            catch (NumberFormatException e) { System.out.println("Numero non valido."); }
-        }
-        return n;
+    @Override
+    public void login(String nickname) throws RemoteException {
+        server.login(nickname, this);
     }
 
-    public String getMyNickname() { return myNickname; }
+    @Override
+    public void requestLobbyList() throws RemoteException {
+        server.requestLobbyList(this);
+    }
+
+    @Override
+    public void placeTotem(String nickname, char boardSpaceLetter) throws RemoteException {
+        server.placeTotem(nickname, boardSpaceLetter);
+    }
+
+    @Override
+    public void pickCard(String nickname, int cardIndex, boolean fromTop) throws RemoteException {
+        server.pickCard(nickname, cardIndex, fromTop);
+    }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  CALLBACK DA SERVER
+    //  VirtualViewRmi  (server calls these as callbacks)
     // ─────────────────────────────────────────────────────────────────────
 
     @Override public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
@@ -149,58 +101,12 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
     @Override public void onError(String message) throws RemoteException {
         model.onError(message);
     }
-
-    /**
-     * Nessuna lobby aperta: chiedi all'utente se vuole crearne una.
-     * Questo metodo arriva su un thread RMI → non blocchiamo, lanciamo un thread.
-     */
     @Override public void onNoLobbyAvailable() throws RemoteException {
-        new Thread(() -> {
-            System.out.println("\nNessuna lobby disponibile.");
-            System.out.print("Vuoi crearne una nuova? (s/n): ");
-            if (scanner.nextLine().trim().equalsIgnoreCase("s")) {
-                try {
-                    int n = askNumPlayers();
-                    server.loginFirstPlayer(myNickname, n, this);
-                } catch (RemoteException e) {
-                    System.err.println("[Errore rete] " + e.getMessage());
-                }
-            } else {
-                System.out.println("Arrivederci.");
-                System.exit(0);
-            }
-        }, "lobby-create-thread").start();
+        model.onNoLobbyAvailable();
     }
-
-    /**
-     * Lista lobby disponibili ricevuta dal server.
-     * Mostra le opzioni e fa scegliere all'utente.
-     */
     @Override public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) throws RemoteException {
-        new Thread(() -> {
-            if (lobbies.isEmpty()) {
-                try { onNoLobbyAvailable(); }
-                catch (RemoteException e) { System.err.println(e.getMessage()); }
-                return;
-            }
-            System.out.println("\nLobby disponibili:");
-            lobbies.forEach(l -> System.out.println("  " + l));
-            System.out.println("Premi INVIO per unirti alla prima disponibile,");
-            System.out.println("oppure digita 'nuova' per crearne una tua.");
-            String choice = scanner.nextLine().trim().toLowerCase();
-            try {
-                if (choice.equals("nuova")) {
-                    int n = askNumPlayers();
-                    server.loginFirstPlayer(myNickname, n, this);
-                } else {
-                    server.login(myNickname, this);
-                }
-            } catch (RemoteException e) {
-                System.err.println("[Errore rete] " + e.getMessage());
-            }
-        }, "lobby-join-thread").start();
+        model.onLobbyList(lobbies);
     }
-
     @Override public void onTurnSnapshot(String currentPlayerNick, String boardSummary) throws RemoteException {
         model.onTurnSnapshot(currentPlayerNick, boardSummary);
     }
@@ -233,5 +139,8 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
     }
     @Override public void onGameOver(String results) throws RemoteException {
         model.onGameOver(results);
+    }
+    @Override public void onPlayerDisconnected(String nickname) throws RemoteException {
+        model.onPlayerDisconnected(nickname);
     }
 }
