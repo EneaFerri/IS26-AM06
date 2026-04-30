@@ -56,9 +56,12 @@ public class NetworkMessage {
         return v == null ? null : v.toString();
     }
 
-    /** Returns payload value as int. Throws if absent or not a Number. */
+    /** Returns payload value as int. Throws with a clear message if absent or not a Number. */
     public int num(String key) {
-        return ((Number) payload.get(key)).intValue();
+        Object v = payload.get(key);
+        if (v == null) throw new IllegalArgumentException(
+                "Missing required numeric field '" + key + "' in message type=" + type);
+        return ((Number) v).intValue();
     }
 
     /** Returns payload value as boolean. Absent → false. */

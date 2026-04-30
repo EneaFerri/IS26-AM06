@@ -28,7 +28,8 @@ import java.util.Map;
  *     LobbyManager so the other players in the lobby are informed.
  *
  * ── Thread safety ───────────────────────────────────────────────────────────
- *  send() is synchronised so multiple observer threads never interleave writes.
+ *  send() serialises JSON outside the lock, then sendRaw() acquires it to write.
+ *  out/nickname/running are volatile for cross-thread visibility.
  *  handleDisconnect() is idempotent (guarded by `running`).
  */
 public class SocketClientHandler implements VirtualView, Runnable {
@@ -38,9 +39,9 @@ public class SocketClientHandler implements VirtualView, Runnable {
     private final ObjectMapper     mapper    = new ObjectMapper();
     private final HeartbeatManager heartbeat = new HeartbeatManager();
 
-    private PrintWriter      out;
-    private String           nickname;       // set on successful login
-    private volatile boolean running = true;
+    private volatile PrintWriter  out;
+    private volatile String       nickname;       // set on successful login
+    private volatile boolean      running = true;
 
     public SocketClientHandler(Socket socket, LobbyManager lobbyManager) {
         this.socket      = socket;
@@ -252,10 +253,21 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  SEND  (synchronised — multiple server threads may call VirtualView)
     // ─────────────────────────────────────────────────────────────────────
 
-    private synchronized void send(NetworkMessage msg) {
+    private void send(NetworkMessage msg) {
+        String json;
+        try {
+            json = mapper.writeValueAsString(msg); // serializzazione fuori dal lock
+        } catch (Exception e) {
+            System.err.println("[SocketHandler] Serialization error: " + e.getMessage());
+            return;
+        }
+        sendRaw(json);
+    }
+
+    private synchronized void sendRaw(String json) {
         if (!running || out == null) return;
         try {
-            out.println(mapper.writeValueAsString(msg));
+            out.println(json);
             if (out.checkError()) throw new IOException("PrintWriter error");
         } catch (Exception e) {
             System.err.println("[SocketHandler] Send error to "
@@ -268,17 +280,23 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  DISCONNECTION (idempotent)
     // ─────────────────────────────────────────────────────────────────────
 
-    private synchronized void handleDisconnect(String reason) {
-        if (!running) return;
-        running = false;
-        heartbeat.stop();
-        try { socket.close(); } catch (IOException ignored) {}
-
-        System.out.println("[SocketHandler] Disconnected: "
-                + (nickname != null ? nickname : "unknown") + " — " + reason);
-
-        if (nickname != null) {
-            lobbyManager.handleDisconnect(nickname);
+    private void handleDisconnect(String reason) {
+        String nick;
+        synchronized (this) {
+            if (!running) return;
+            running = false;
+            heartbeat.stop();
+            try { socket.close(); } catch (IOException ignored) {}
+            System.out.println("[SocketHandler] Disconnected: "
+                    + (nickname != null ? nickname : "unknown") + " — " + reason);
+            nick = nickname;
+        }
+        // LobbyManager chiamato fuori dal lock per evitare deadlock:
+        // heartbeat thread: SocketClientHandler → LobbyManager → GameController
+        // read loop thread: LobbyManager → GameController → SocketClientHandler
+        // rilasciando il lock prima di chiamare LobbyManager si spezza il ciclo.
+        if (nick != null) {
+            lobbyManager.handleDisconnect(nick);
         }
     }
 }

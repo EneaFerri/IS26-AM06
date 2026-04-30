@@ -9,6 +9,7 @@ import it.polimi.ingsw.view.ModelObserver;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * CLI view — transport-agnostic.
@@ -215,8 +216,12 @@ public class CLIView implements ModelObserver {
                 continue;
             }
 
-            // Aspetta la risposta del server (bloccante — arriva da onTotemPlaced o onInvalidAction)
-            String result = actionResultQueue.take();
+            // Aspetta la risposta del server (timeout 30s per evitare blocco permanente)
+            String result = actionResultQueue.poll(30, TimeUnit.SECONDS);
+            if (result == null) {
+                System.out.println("  ✗ Nessuna risposta dal server (timeout). Riprova.");
+                continue;
+            }
             if (result.equals("OK")) return;
 
             // RETRY:<messaggio>
@@ -276,7 +281,11 @@ public class CLIView implements ModelObserver {
                 continue;
             }
 
-            String result = actionResultQueue.take();
+            String result = actionResultQueue.poll(30, TimeUnit.SECONDS);
+            if (result == null) {
+                System.out.println("  ✗ Nessuna risposta dal server (timeout). Riprova.");
+                continue;
+            }
             if (result.equals("OK")) return;
             System.out.println("  ✗ " + (result.startsWith("RETRY:") ? result.substring(6) : result));
         }
@@ -307,14 +316,10 @@ public class CLIView implements ModelObserver {
         if (nickname.equals(myNick)) signal("OK");
     }
 
-    /** Invia il segnale alla queue senza bloccare (timeout 200ms). */
+    /** Invia il segnale alla queue senza mai bloccare il callback thread. */
     private void signal(String value) {
-        try {
-            actionResultQueue.clear(); // scarica eventuali segnali stale
-            actionResultQueue.put(value);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        actionResultQueue.clear();   // scarica eventuali segnali stale
+        actionResultQueue.offer(value); // non-blocking: se piena (caso anomalo) scarta silenziosamente
     }
 
     // ─────────────────────────────────────────────────────────────────────

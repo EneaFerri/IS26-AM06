@@ -16,6 +16,7 @@ import it.polimi.ingsw.model.enums.TotemColor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -29,8 +30,8 @@ import java.util.stream.Collectors;
 public class GameController implements GameObserver {
 
     private final Game             game;
-    private final List<VirtualView> clients   = new ArrayList<>();
-    private final List<String>      nicks     = new ArrayList<>(); // indice parallelo a clients
+    private final List<VirtualView> clients   = new CopyOnWriteArrayList<>();
+    private final List<String>      nicks     = new CopyOnWriteArrayList<>(); // indice parallelo a clients
     private int expectedPlayers = -1;
 
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
@@ -318,7 +319,7 @@ public class GameController implements GameObserver {
      * Broadcasts onPlayerDisconnected to all remaining clients in this lobby.
      * The game state is left intact — a future reconnection mechanism could resume.
      */
-    public void onPlayerDisconnected(String nickname) {
+    public synchronized void onPlayerDisconnected(String nickname) {
         System.out.println("[GameController] Player disconnected: " + nickname);
         broadcast(v -> v.onPlayerDisconnected(nickname));
     }
