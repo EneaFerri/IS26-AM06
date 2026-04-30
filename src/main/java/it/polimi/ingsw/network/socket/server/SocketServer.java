@@ -1,5 +1,6 @@
 package it.polimi.ingsw.network.socket.server;
 
+import it.polimi.ingsw.CombinedServer;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.network.utils.NetworkUtils;
 
@@ -14,7 +15,7 @@ import java.net.Socket;
  * Shares the same {@link LobbyManager} as {@link it.polimi.ingsw.network.rmi.server.RmiServer}
  * so players using different transports can participate in the same game.
  *
- * Started by {@link it.polimi.ingsw.network.CombinedServer}.
+ * Started by {@link CombinedServer}.
  */
 public class SocketServer {
 

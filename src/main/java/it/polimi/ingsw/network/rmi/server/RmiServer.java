@@ -1,5 +1,6 @@
 package it.polimi.ingsw.network.rmi.server;
 
+import it.polimi.ingsw.CombinedServer;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.network.utils.NetworkUtils;
 import it.polimi.ingsw.network.rmi.client.VirtualServerRmi;
@@ -13,7 +14,7 @@ import java.rmi.server.UnicastRemoteObject;
  * RMI server. Owns (or shares) a {@link LobbyManager} and routes all
  * client calls to it.
  *
- * When started via {@link it.polimi.ingsw.network.CombinedServer}, it receives
+ * When started via {@link CombinedServer}, it receives
  * a shared LobbyManager so that RMI and Socket players can join the same games.
  * When started standalone (its own main()), it creates its own LobbyManager.
  */

@@ -1,4 +1,4 @@
-package it.polimi.ingsw.network;
+package it.polimi.ingsw;
 
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.network.rmi.server.RmiServer;

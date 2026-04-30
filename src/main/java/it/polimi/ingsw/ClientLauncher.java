@@ -1,4 +1,4 @@
-package it.polimi.ingsw.network;
+package it.polimi.ingsw;
 
 import it.polimi.ingsw.network.rmi.client.RmiClient;
 import it.polimi.ingsw.network.socket.client.SocketClient;
