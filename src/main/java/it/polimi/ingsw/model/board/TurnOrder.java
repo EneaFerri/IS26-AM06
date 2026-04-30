@@ -80,19 +80,26 @@ public class TurnOrder {
                 block.setTotem(player.getTotem());
                 player.getTotem().remove(); // totem non è più sull'offerta
 
-                int bonus = block.getNuggetsBonusOrMalus();
-                if (bonus > 0) {
-                    player.addFood(bonus);
+                int FoodbonusOrMalus = block.getNuggetsBonusOrMalus();
+                int malus = block.getPrestigeMalus();
+
+                if (FoodbonusOrMalus > 0) {
+                    player.addFood(FoodbonusOrMalus);
                     // altra condizione per edificio che da +1 cibo se si è su una casella che da cibo
                     if (player.hasExtraFoodOnTurnOrder()) {
                         player.addFood(1);
                     }
                 }
-                int malus = block.getPrestigeMalus();
-                if (malus != 0) {
-                    if (player.getFood() > 0) player.removeFood(1);
-                    else player.addPrestige(malus);
+
+                if(FoodbonusOrMalus<0){
+                    if(player.getFood()>0){
+                        player.removeFood(1);
+                    }else {
+                        player.removePrestige(-malus);
+                    }
                 }
+
+
                 return;
             }
         }
