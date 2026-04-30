@@ -43,6 +43,8 @@ public abstract class Card {
         return false;
     }
 
+    public boolean isEvent() {return false;}
+
     public String toString(){
         return "CardId: " + cardID + ", Age: " + cardAge;
     }

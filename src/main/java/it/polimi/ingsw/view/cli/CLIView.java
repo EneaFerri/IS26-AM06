@@ -32,9 +32,10 @@ public class CLIView implements ModelObserver {
     private VirtualServerRmi server;
     private RmiClient        client;
 
+    /** Single shared Scanner — never create a second one on System.in. */
     private final Scanner scanner = new Scanner(System.in);
 
-    /** "OK" = azione accettata | "RETRY:<msg>" = azione rifiutata */
+    /** "OK" = action accepted | "RETRY:<msg>" = action rejected */
     private final LinkedBlockingQueue<String> actionResultQueue = new LinkedBlockingQueue<>(1);
 
     private volatile String myNick = "";
@@ -45,6 +46,9 @@ public class CLIView implements ModelObserver {
         this.server = server;
         this.client = client;
     }
+
+    /** Exposes the shared scanner to RmiClient so only one Scanner reads System.in. */
+    public Scanner getScanner() { return scanner; }
 
     // ─────────────────────────────────────────────────────────────────────
     //  LOBBY & SETUP
@@ -89,6 +93,21 @@ public class CLIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
     //  TURNO
     // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Received by ALL players at the start of every turn.
+     * Waiting players see the current board state + whose turn it is.
+     * The active player ignores this (they receive the richer onYourTurn instead).
+     */
+    @Override
+    public void onTurnSnapshot(String currentPlayerNick, String boardSummary) {
+        if (currentPlayerNick.equals(myNick)) return; // active player: skip, onYourTurn handles it
+        System.out.println();
+        printBanner("⟳ Turno di " + currentPlayerNick.toUpperCase());
+        System.out.println(boardSummary);
+        System.out.println("  (In attesa che " + currentPlayerNick + " concluda il suo turno...)");
+        printLine();
+    }
 
     @Override
     public void onYourTurn(String nickname, GameState phase, String extraInfo) {
@@ -146,13 +165,21 @@ public class CLIView implements ModelObserver {
     //  LOOP FASE 2 — selezione carte
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * The extraInfo string uses two machine-readable markers injected by the server:
+     *   ##HAS_TOP##   — player has remaining top-row picks
+     *   ##HAS_BOT##   — player has remaining bottom-row picks
+     * These are appended by GameController.buildExtraInfo() and stripped before display.
+     */
     private void runPickCardLoop(String nickname, String extraInfo) throws InterruptedException {
-        System.out.println(extraInfo);
+        boolean hasTop = extraInfo.contains("##HAS_TOP##");
+        boolean hasBot = extraInfo.contains("##HAS_BOT##");
+
+        // Strip machine markers before printing
+        String display = extraInfo.replace("##HAS_TOP##", "").replace("##HAS_BOT##", "");
+        System.out.println(display);
 
         while (true) {
-            boolean hasTop = extraInfo.contains("Riga SUPERIORE:");
-            boolean hasBot = extraInfo.contains("Riga INFERIORE:");
-
             if (!hasTop && !hasBot) {
                 System.out.println("  Nessuna pescata disponibile — passaggio automatico.");
                 return;

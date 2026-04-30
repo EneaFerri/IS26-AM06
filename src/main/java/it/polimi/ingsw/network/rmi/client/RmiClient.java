@@ -22,14 +22,17 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
 
     private final VirtualServerRmi server;
     private final ClientModel      model;
-    private final Scanner          scanner;
+    /**
+     * Shared Scanner — obtained from CLIView so that only one Scanner reads System.in.
+     * Never create a second Scanner on the same InputStream: they will race on buffered data.
+     */
+    private Scanner scanner;
     private String myNickname;
 
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
         this.server  = server;
         this.model   = model;
-        this.scanner = new Scanner(System.in);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -61,6 +64,8 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         model.registerObserver(view);
 
         RmiClient client = new RmiClient(server, model);
+        // Share the single Scanner from CLIView — never create two Scanners on System.in
+        client.scanner = view.getScanner();
         view.setServer(server, client);
         client.run();
     }
@@ -196,6 +201,9 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi {
         }, "lobby-join-thread").start();
     }
 
+    @Override public void onTurnSnapshot(String currentPlayerNick, String boardSummary) throws RemoteException {
+        model.onTurnSnapshot(currentPlayerNick, boardSummary);
+    }
     @Override public void onYourTurn(String nickname, GameState phase, String extraInfo) throws RemoteException {
         model.onYourTurn(nickname, phase, extraInfo);
     }

@@ -26,7 +26,8 @@ public interface VirtualViewRmi extends Remote, VirtualView {
     @Override void onLobbyList(List<LobbyManager.LobbyInfo> lobbies)              throws RemoteException;
 
     // --- TURNO ---
-    @Override void onYourTurn(String nickname, GameState phase, String extraInfo)   throws RemoteException;
+    @Override void onTurnSnapshot(String currentPlayerNick, String boardSummary)  throws RemoteException;
+    @Override void onYourTurn(String nickname, GameState phase, String extraInfo)  throws RemoteException;
 
     // --- FASE 1: PIAZZAMENTO TOTEM ---
     @Override void onTotemPlaced(String nickname, String boardSpaceId)              throws RemoteException;

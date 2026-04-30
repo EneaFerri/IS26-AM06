@@ -25,10 +25,16 @@ public interface ModelObserver {
 
     // --- TURNO ---
     /**
-     * Chiamato SOLO sul client del giocatore che deve agire.
-     * @param nickname  il giocatore che deve agire (= this client)
-     * @param phase     la fase corrente
-     * @param extraInfo riepilogo leggibile delle opzioni (spazi liberi / carte disponibili)
+     * Broadcast to ALL players at the start of each turn.
+     * Waiting players receive the full board state so they stay informed.
+     */
+    void onTurnSnapshot(String currentPlayerNick, String boardSummary);
+
+    /**
+     * Called ONLY on the client of the player who must act.
+     * @param nickname  the player who must act (= this client)
+     * @param phase     the current game phase
+     * @param extraInfo human-readable summary of available options + player's hand
      */
     void onYourTurn(String nickname, GameState phase, String extraInfo);
 

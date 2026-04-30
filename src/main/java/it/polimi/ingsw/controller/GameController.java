@@ -6,6 +6,7 @@ import it.polimi.ingsw.model.GameObserver;
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Card;
+import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.cards.TribeCard;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
@@ -196,12 +197,24 @@ public class GameController implements GameObserver {
                 return;
             }
 
-            game.pickCard(player, available.get(cardIndex));
+            Card card = available.get(cardIndex);
+
+            // ── Guard: event cards sit in the tribe row but cannot be picked by players.
+            //    Reject early with a friendly message so the client can retry immediately.
+            if (card.isEvent()) {
+                safeInvalidAction(nickname,
+                        "La carta [" + card + "] è una carta Evento: non può essere pescata. "
+                                + "Scegli un'altra carta.");
+                return;
+            }
+
+            game.pickCard(player, card);
             // → Game notifica onCardTaken + onPlayerUpdated
             // → se pescate esaurite → returnTotemToTurnOrder + advanceNextPlayer
             // → se era l'ultimo → resolveEvents → nextRound / endGame  (tutto automatico)
 
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // Both exception types signal a rule violation — send it to the client as a retryable error.
             safeInvalidAction(nickname, e.getMessage());
         } catch (Exception e) {
             System.err.println("[Controller] pickCard: " + e.getMessage());
@@ -217,16 +230,33 @@ public class GameController implements GameObserver {
     @Override public void onGameStarted()                 { /* gestito in checkAndStartIfReady */ }
 
     /**
-     * Il model ci dice chi deve agire e in che fase.
-     * Invio SOLO al client in turno il pannello con le info.
+     * The model tells us who must act and in which phase.
+     *
+     * Strategy:
+     *  1. Build a full board snapshot and broadcast it to ALL non-active players via onTurnSnapshot.
+     *     This keeps every waiting player informed of the current game state.
+     *  2. Send the detailed action panel (available cards, player's own hand) only to the active player.
      */
     @Override
     public void onTurnStarted(String nickname, GameState phase) {
         try {
+            // ── 1. Board snapshot → all waiting players ───────────────────
+            String boardSummary = buildBoardSummaryForWatchers();
+            for (int i = 0; i < nicks.size(); i++) {
+                if (!nicks.get(i).equals(nickname)) {
+                    try { clients.get(i).onTurnSnapshot(nickname, boardSummary); }
+                    catch (Exception e) {
+                        System.err.println("[Controller] onTurnSnapshot → " + nicks.get(i) + ": " + e.getMessage());
+                    }
+                }
+            }
+
+            // ── 2. Full action panel → active player only ─────────────────
             VirtualView target = viewOf(nickname);
             if (target == null) return;
             String extra = buildExtraInfo(nickname, phase);
             target.onYourTurn(nickname, phase, extra);
+
         } catch (Exception e) {
             System.err.println("[Controller] onTurnStarted: " + e.getMessage());
         }
@@ -288,20 +318,19 @@ public class GameController implements GameObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Costruisce il testo multi-riga inviato al giocatore di turno.
+     * Builds the multi-line text sent to the active player.
      *
-     * FASE OFFER_SPACE_CHOOSE
-     *   • Riga superiore carte (tribe + building)
-     *   • Riga inferiore carte (tribe + building)
-     *   • Tabellone BoardSpace con lettera, carte sopra/sotto, cibo, occupazione
-     *   • Stato di tutti i giocatori (cibo + prestige)
+     * OFFER_SPACE_CHOOSE phase:
+     *   • Full board (card rows + offer spaces + free spaces)
+     *   • All players' status
+     *   • Player's own hand (characters + buildings)
      *
-     * FASE PICKING_CARD
-     *   • Pescate rimaste del giocatore
-     *   • Lista carte disponibili riga superiore (se ha pescate sopra)
-     *   • Lista carte disponibili riga inferiore (se ha pescate sotto)
-     *   • Stato di tutti i giocatori
-     *   • Cibo del giocatore corrente
+     * PICKING_CARD phase:
+     *   • Remaining picks (top/bottom)
+     *   • Available cards per row (only rows where picks remain)
+     *   • All players' status
+     *   • Player's own hand
+     *   • Machine markers ##HAS_TOP## / ##HAS_BOT## for CLI parsing
      */
     private String buildExtraInfo(String nickname, GameState phase) {
         Player player = findPlayer(nickname);
@@ -312,6 +341,7 @@ public class GameController implements GameObserver {
         if (phase == GameState.OFFER_SPACE_CHOOSE) {
             appendBoardDisplay(sb);
             appendPlayersSummary(sb);
+            appendPlayerCards(sb, player);
 
         } else if (phase == GameState.PICKING_CARD) {
             int remTop = game.getRemainingTopPicks(player);
@@ -324,6 +354,7 @@ public class GameController implements GameObserver {
             sb.append("\n");
 
             if (remTop > 0) {
+                sb.append("##HAS_TOP##");   // machine-readable marker for CLIView
                 sb.append("  ┌── Riga SUPERIORE: ──────────────────────────────────────────────┐\n");
                 List<Card> topCards = new ArrayList<>();
                 topCards.addAll(game.getBoard().getAvailableUpperTribeCards());
@@ -335,6 +366,7 @@ public class GameController implements GameObserver {
             }
 
             if (remBot > 0) {
+                sb.append("##HAS_BOT##");   // machine-readable marker for CLIView
                 sb.append("  ┌── Riga INFERIORE: ──────────────────────────────────────────────┐\n");
                 List<Card> botCards = new ArrayList<>();
                 botCards.addAll(game.getBoard().getAvailableBottomTribeCards());
@@ -346,9 +378,50 @@ public class GameController implements GameObserver {
             }
 
             appendPlayersSummary(sb);
+            appendPlayerCards(sb, player);
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Builds a concise board snapshot for all waiting players.
+     * Contains: card rows, offer spaces, player status.
+     * Does NOT include available-card indices or pick counts (those are only for the active player).
+     */
+    private String buildBoardSummaryForWatchers() {
+        StringBuilder sb = new StringBuilder();
+        appendBoardDisplay(sb);
+        appendPlayersSummary(sb);
+        return sb.toString();
+    }
+
+    /** Appends the player's own hand (characters + buildings). */
+    private void appendPlayerCards(StringBuilder sb, Player player) {
+        List<it.polimi.ingsw.model.cards.CharacterCard> chars    = player.getCharacterCards();
+        List<it.polimi.ingsw.model.cards.BuildingCard>  buildings = player.getBuildingCards();
+
+        sb.append("\n  ┌── Le tue carte ─────────────────────────────────────────────────┐\n");
+
+        if (chars.isEmpty()) {
+            sb.append("  │  [Personaggi] nessuna carta\n");
+        } else {
+            sb.append("  │  [Personaggi]\n");
+            for (it.polimi.ingsw.model.cards.CharacterCard c : chars) {
+                sb.append("  │    • ").append(c).append("\n");
+            }
+        }
+
+        if (buildings.isEmpty()) {
+            sb.append("  │  [Edifici] nessuna carta\n");
+        } else {
+            sb.append("  │  [Edifici]\n");
+            for (it.polimi.ingsw.model.cards.BuildingCard c : buildings) {
+                sb.append("  │    • ").append(c).append("\n");
+            }
+        }
+
+        sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
     }
 
     /** Sezione "TABELLONE" con carte e spazi offerta. */
@@ -365,20 +438,6 @@ public class GameController implements GameObserver {
         } else {
             for (TribeCard c : topTribe)   sb.append("  │  [T] ").append(c).append("\n");
             for (BuildingCard c : topBld)  sb.append("  │  [B] ").append(c).append("\n");
-        }
-        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
-
-        // ── Riga inferiore carte ──────────────────────────────────────────
-        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
-
-        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
-        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
-
-        if (botTribe.isEmpty() && botBld.isEmpty()) {
-            sb.append("  │  (vuota)\n");
-        } else {
-            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
-            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
@@ -404,6 +463,23 @@ public class GameController implements GameObserver {
                 .map(s -> String.valueOf(s.getLetter()))
                 .toList();
         sb.append("  Spazi liberi: ").append(String.join(", ", free)).append("\n");
+
+
+        // ── Riga inferiore carte ──────────────────────────────────────────
+        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
+
+        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
+        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
+
+        if (botTribe.isEmpty() && botBld.isEmpty()) {
+            sb.append("  │  (vuota)\n");
+        } else {
+            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
+            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
+        }
+        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
+
+
     }
 
     /** Sezione "STATO GIOCATORI" con cibo e prestige. */

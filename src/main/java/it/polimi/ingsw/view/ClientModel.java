@@ -52,6 +52,10 @@ public class ClientModel {
 
     // --- TURNO ---
 
+    public void onTurnSnapshot(String currentPlayerNick, String boardSummary) {
+        observers.forEach(o -> o.onTurnSnapshot(currentPlayerNick, boardSummary));
+    }
+
     public void onYourTurn(String nickname, GameState phase, String extraInfo) {
         observers.forEach(o -> o.onYourTurn(nickname, phase, extraInfo));
     }
