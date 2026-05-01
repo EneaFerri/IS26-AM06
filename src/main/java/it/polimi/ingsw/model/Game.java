@@ -127,7 +127,7 @@ public class Game implements GameActions {
 
     private void setUpGameCards() {
         gameBoard.prepareGameBoardSpace(numberOfPlayers);
-        turnOrder = new TurnOrder(numberOfPlayers);
+        turnOrder = new TurnOrder(numberOfPlayers-1);
 
         buldingsInGame = mainDeck.takeBuldingInGame(numberOfPlayers);
         gameBoard.setTopBuildingCards(buldingsInGame, Age.Era_I);
