@@ -27,6 +27,8 @@ public class GUIView implements ModelObserver {
     private GameServerProxy   server;
     private String            nick;
 
+    private List<String> players = new ArrayList<>();
+
     // Riferimenti agli elementi lobby che aggiorniamo live
     private VBox lobbyListBox;
     private Label lobbyStatusLabel;
@@ -46,7 +48,7 @@ public class GUIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     public void showLobbyScreen() {
-        Background bg = darkBackground();
+        AnimatedBackground animBg = new AnimatedBackground();
 
         // ── Header ────────────────────────────────────────────────────────
         Label title = new Label("Lobby");
@@ -129,9 +131,12 @@ public class GUIView implements ModelObserver {
         card.setMaxWidth(480);
         card.setStyle(styleGlassCard());
 
-        StackPane root = new StackPane(card);
-        root.setBackground(bg);
-        root.setPadding(new Insets(60));
+        StackPane cardWrapper = new StackPane(card);
+        cardWrapper.setPadding(new Insets(60));
+
+        StackPane root = new StackPane(animBg, cardWrapper);
+        animBg.prefWidthProperty().bind(root.widthProperty());
+        animBg.prefHeightProperty().bind(root.heightProperty());
 
         stage.setScene(new Scene(root, 600, 720));
     }
@@ -141,7 +146,7 @@ public class GUIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     private void showWaitingScreen(int current, int expected) {
-        Background bg = darkBackground();
+        AnimatedBackground animBg = new AnimatedBackground();
 
         Label title = new Label("In attesa…");
         title.setStyle(styleTitle());
@@ -167,9 +172,12 @@ public class GUIView implements ModelObserver {
         card.setMaxWidth(400);
         card.setStyle(styleGlassCard());
 
-        StackPane root = new StackPane(card);
-        root.setBackground(bg);
-        root.setPadding(new Insets(60));
+        StackPane cardWrapper = new StackPane(card);
+        cardWrapper.setPadding(new Insets(60));
+
+        StackPane root = new StackPane(animBg, cardWrapper);
+        animBg.prefWidthProperty().bind(root.widthProperty());
+        animBg.prefHeightProperty().bind(root.heightProperty());
 
         stage.setScene(new Scene(root, 560, 400));
     }
@@ -181,11 +189,22 @@ public class GUIView implements ModelObserver {
     private GameScreen gameScreen;
 
     public void showGameScreen() {
-        gameScreen = new GameScreen(server, model, nick,
-                model.getLobbyPlayers());
+        // Ricava gli spazi attivi dal boardSummary (arriva presto)
+        // Per ora usiamo la lista players per dedurre gli spazi attivi
+        List<String> activeSpaces = getActiveSpaces(players.size());
+        gameScreen = new GameScreen(server, model, nick, players, activeSpaces);
         Scene scene = gameScreen.build(stage);
         stage.setScene(scene);
         stage.setResizable(true);
+    }
+
+    private List<String> getActiveSpaces(int numPlayers) {
+        // Specchio esatto di Board.prepareGameBoardSpace
+        List<String> spaces = new ArrayList<>(List.of("A","B","C","D","E","F","G"));
+        if (numPlayers <= 4) spaces.remove("A");
+        if (numPlayers <= 3) spaces.remove("G");
+        if (numPlayers <= 2) spaces.remove("D");
+        return spaces;
     }
 
     // Parsa card IDs dopo un marker tipo ##HAS_TOP## o ##HAS_BOT##
@@ -230,6 +249,7 @@ public class GUIView implements ModelObserver {
 
     @Override
     public void onGameStarting(List<String> playerNicknames) {
+        this.players = new ArrayList<>(playerNicknames);
         it.polimi.ingsw.model.enums.TotemColor[] colors =
                 it.polimi.ingsw.model.enums.TotemColor.values();
         for (int i = 0; i < playerNicknames.size(); i++)
@@ -313,18 +333,24 @@ public class GUIView implements ModelObserver {
     public void onCardTaken(String nickname, String cardId) {
         Platform.runLater(() -> {
             if (gameScreen == null) return;
-            System.out.println("[GUI] onCardTaken: " + nickname + " → " + cardId);
-            if (nickname.equals(nick)) {
-                try {
-                    gameScreen.addCardToHand(Integer.parseInt(cardId.trim()));
-                } catch (NumberFormatException ex) {
-                    System.err.println("[GUI] cardId non parsabile: " + cardId);
-                }
+            // cardId è il toString() della carta: "CardId: 54, Age: Era_I, ..."
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(cardId);
+            if (m.find()) {
+                int id = Integer.parseInt(m.group(1));
+                if (nickname.equals(nick))
+                    gameScreen.addCardToHand(id);
             }
         });
     }
 
-    @Override public void onPlayerUpdated(String nickname) {}
+    @Override
+    public void onPlayerUpdated(String nickname) {
+        // Non abbiamo lo stato aggiornato qui, arriverà con il prossimo onYourTurn/onTurnSnapshot
+        // Ma possiamo forzare un aggiornamento se riceviamo boardSummary nell'extraInfo
+        Platform.runLater(() -> System.out.println("[GUI] playerUpdated: " + nickname));
+    }
+
     @Override
     public void onTurnOrderUpdated(List<String> newOrderedNicknames) {
         Platform.runLater(() -> {
@@ -332,7 +358,13 @@ public class GUIView implements ModelObserver {
                 gameScreen.updateTurnOrder(newOrderedNicknames, totemColors);
         });
     }
-    @Override public void onEventResolved(String eventName, String resultDetails) {}
+    @Override
+    public void onEventResolved(String eventName, String resultDetails) {
+        Platform.runLater(() -> {
+            if (gameScreen == null) return;
+            gameScreen.showEventNotification(eventName);
+        });
+    }
 
     @Override public void onBoardUpdated() {
         Platform.runLater(() -> { if (gameScreen != null) gameScreen.clearBoard(); });
@@ -352,16 +384,26 @@ public class GUIView implements ModelObserver {
 
     private void parseAndUpdateAllStats(String text) {
         if (gameScreen == null || text == null) return;
-        // Cerca righe tipo: │  fil                 3       0
-        java.util.regex.Matcher m =
-                java.util.regex.Pattern.compile(
-                                "│\\s+(\\S+)\\s+(\\d+)\\s+(\\d+)")
-                        .matcher(text);
-        while (m.find()) {
-            String pNick   = m.group(1);
-            int food       = Integer.parseInt(m.group(2));
-            int prestige   = Integer.parseInt(m.group(3));
-            gameScreen.updatePlayerStats(pNick, food, prestige);
+        // Formato tabella: │  nickname<spaces>food<spaces>prestige<spaces>turno
+        String[] lines = text.split("\n");
+        for (String line : lines) {
+            if (!line.contains("│")) continue;
+            // Rimuove il prefisso "│  " e splitta per 2+ spazi
+            String content = line.replaceFirst(".*?│\\s{2}", "").trim();
+            String[] parts = content.split("\\s{2,}");
+            if (parts.length < 3) continue;
+            String pNick = parts[0].trim();
+            // Salta righe header
+            if (pNick.equals("Nome") || pNick.isEmpty()) continue;
+            try {
+                int food     = Integer.parseInt(parts[1].trim());
+                int prestige = Integer.parseInt(parts[2].trim());
+                System.out.println("[GUI] stats: " + pNick +
+                        " cibo=" + food + " prestige=" + prestige);
+                gameScreen.updatePlayerStats(pNick, food, prestige);
+                if (pNick.equals(nick))
+                    gameScreen.updateMyStats(food, prestige);
+            } catch (NumberFormatException ignored) {}
         }
     }
 
@@ -420,13 +462,6 @@ public class GUIView implements ModelObserver {
         return tb;
     }
 
-    private Background darkBackground() {
-        return new Background(new BackgroundFill(
-                new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                        new Stop(0, Color.web("#0d0d1a")),
-                        new Stop(1, Color.web("#1a0d2e"))
-                ), CornerRadii.EMPTY, Insets.EMPTY));
-    }
 
     private Region separator() {
         Region r = new Region();

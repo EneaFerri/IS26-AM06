@@ -14,6 +14,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.*;
 import javafx.stage.Stage;
+import javafx.animation.AnimationTimer;
+import javafx.scene.shape.Rectangle;
 
 import static it.polimi.ingsw.network.utils.NetworkUtils.resolveLocalIp;
 
@@ -36,11 +38,7 @@ public class ClientLauncherGUI extends Application {
     // ── Schermata di connessione ───────────────────────────────────────────
 
     private void showConnectionScreen() {
-        Background bg = new Background(new BackgroundFill(
-                new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                        new Stop(0, Color.web("#0d0d1a")),
-                        new Stop(1, Color.web("#1a0d2e"))
-                ), CornerRadii.EMPTY, Insets.EMPTY));
+        AnimatedBackground animBg = new AnimatedBackground();
 
         // Glass card centrale
         VBox card = new VBox(20);
@@ -111,9 +109,12 @@ public class ClientLauncherGUI extends Application {
                 errorLabel, connectBtn
         );
 
-        StackPane root = new StackPane(card);
-        root.setBackground(bg);
-        root.setPadding(new Insets(60));
+        StackPane cardWrapper = new StackPane(card);
+        cardWrapper.setPadding(new Insets(60));
+
+        StackPane root = new StackPane(animBg, cardWrapper);
+        animBg.prefWidthProperty().bind(root.widthProperty());
+        animBg.prefHeightProperty().bind(root.heightProperty());
 
         primaryStage.setScene(new Scene(root, 580, 660));
         primaryStage.show();
@@ -218,4 +219,75 @@ public class ClientLauncherGUI extends Application {
                 "-fx-font-size:14;");
         return rb;
     }
+}
+
+class AnimatedBackground extends Pane {
+
+    private final AnimationTimer timer;
+    private double t = 0;
+
+    public AnimatedBackground() {
+        setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+        timer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                t += 0.004;
+                repaint();
+            }
+        };
+        timer.start();
+    }
+
+    private void repaint() {
+        double w = getWidth();
+        double h = getHeight();
+        if (w == 0 || h == 0) return;
+
+        // Tre colori che ciclano: giallo → rosso → viola → rosso → giallo
+        double r1 = 0.5 + 0.5 * Math.sin(t);
+        double r2 = 0.5 + 0.5 * Math.sin(t + Math.PI * 2.0 / 3.0);
+        double r3 = 0.5 + 0.5 * Math.sin(t + Math.PI * 4.0 / 3.0);
+
+        // Colori: giallo(255,200,0), rosso(200,20,20), viola(80,0,120)
+        double red   = 200 * r1 + 200 * r2 + 80  * r3;
+        double green = 200 * r1 + 20  * r2 + 0   * r3;
+        double blue  = 0   * r1 + 20  * r2 + 120 * r3;
+
+        double sum = r1 + r2 + r3;
+        red   = Math.min(255, red   / sum);
+        green = Math.min(255, green / sum);
+        blue  = Math.min(255, blue  / sum);
+
+        // Punto caldo che si muove
+        double cx = w * (0.5 + 0.35 * Math.sin(t * 0.7));
+        double cy = h * (0.5 + 0.35 * Math.cos(t * 0.5));
+
+        Color hotColor = Color.rgb(
+                (int) Math.min(255, red   * 1.4),
+                (int) Math.min(255, green * 0.6),
+                (int) Math.min(255, blue  * 1.2)
+        );
+        Color darkColor = Color.rgb(8, 4, 18); // quasi nero viola
+
+        RadialGradient grad = new RadialGradient(
+                0, 0,
+                cx / w, cy / h,
+                0.75,
+                true,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, hotColor),
+                new Stop(0.5, Color.rgb(
+                        (int) Math.min(255, red   * 0.5),
+                        (int) Math.min(255, green * 0.15),
+                        (int) Math.min(255, blue  * 0.6)
+                )),
+                new Stop(1.0, darkColor)
+        );
+
+        setBackground(new Background(new BackgroundFill(
+                grad, CornerRadii.EMPTY, Insets.EMPTY)));
+    }
+
+    public void stop() { timer.stop(); }
 }

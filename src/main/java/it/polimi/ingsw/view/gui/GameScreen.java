@@ -31,8 +31,10 @@ public class GameScreen {
     private static final double BOARD_TILE_H  = 155;
     private static final double BLOCK_W       = 88;
     private static final double BLOCK_H       = 125;
-    private static final double CARD_W        = 72;
-    private static final double CARD_H        = 102;
+    private static final double CARD_W = 95;
+    private static final double CARD_H = 134;
+
+    private AnimatedBackground animatedBg;
 
     // Colori Pantone dei totem (da pedine_specs.pdf)
     private static final Map<TotemColor, String> TOTEM_HEX = Map.of(
@@ -83,12 +85,15 @@ public class GameScreen {
     // ── Spazi offerta in ordine ───────────────────────────────────────────
     private static final List<String> SPACES = List.of("A","B","C","D","E","F","G");
 
+    private final List<String> activeSpaces;
+
     public GameScreen(GameServerProxy server, ClientModel model,
-                      String myNick, List<String> players) {
-        this.server  = server;
-        this.model   = model;
-        this.myNick  = myNick;
-        this.players = players;
+                      String myNick, List<String> players, List<String> activeSpaces) {
+        this.server       = server;
+        this.model        = model;
+        this.myNick       = myNick;
+        this.players      = players;
+        this.activeSpaces = activeSpaces;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -96,20 +101,23 @@ public class GameScreen {
     // ─────────────────────────────────────────────────────────────────────
 
     public Scene build(Stage stage) {
-        // Root
         BorderPane root = new BorderPane();
-        root.setBackground(darkBg());
+        root.setBackground(Background.EMPTY);
 
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
         root.setRight(buildPlayersPanel());
         root.setBottom(buildHandPanel());
 
-        BorderPane.setMargin(root.getTop(),    new Insets(0));
-        BorderPane.setMargin(root.getRight(),  new Insets(0));
-        BorderPane.setMargin(root.getBottom(), new Insets(0));
+        animatedBg = new AnimatedBackground();
 
-        return new Scene(root, 1400, 860);
+        StackPane wrapper = new StackPane(animatedBg, root);
+        StackPane.setAlignment(root, Pos.TOP_LEFT);
+
+        root.prefWidthProperty().bind(wrapper.widthProperty());
+        root.prefHeightProperty().bind(wrapper.heightProperty());
+
+        return new Scene(wrapper, 1400, 860);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -165,7 +173,7 @@ public class GameScreen {
         HBox boardRow = new HBox(10);
         boardRow.setAlignment(Pos.CENTER);
         boardRow.getChildren().add(buildTurnOrderTrack());
-        for (String letter : SPACES)
+        for (String letter : activeSpaces)
             boardRow.getChildren().add(buildBoardSpace(letter));
 
         BorderPane center = new BorderPane();
@@ -386,9 +394,9 @@ public class GameScreen {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         // Food + Prestige grandi
-        VBox myStats = new VBox(4,
-                styledStat("🍖", foodLabel),
-                styledStat("★",  prestigeLabel)
+        VBox myStats = new VBox(6,
+                styledStat("🍖", foodLabel, "#F5C518"),
+                styledStat("★",  prestigeLabel, "#FFD700")
         );
         myStats.setAlignment(Pos.CENTER_RIGHT);
         myStats.setPadding(new Insets(0, 8, 0, 16));
@@ -403,10 +411,11 @@ public class GameScreen {
         return bottom;
     }
 
-    private HBox styledStat(String icon, Label valueLabel) {
+    private HBox styledStat(String icon, Label valueLabel, String color) {
         Label iconLbl = new Label(icon);
-        iconLbl.setStyle(labelStyle(16, "white"));
-        valueLabel.setStyle(labelStyle(16, "white"));
+        iconLbl.setStyle(labelStyle(18, color));
+        valueLabel.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:22;-fx-font-weight:bold;-fx-text-fill:white;");
         HBox row = new HBox(6, iconLbl, valueLabel);
         row.setAlignment(Pos.CENTER_RIGHT);
         return row;
@@ -520,7 +529,14 @@ public class GameScreen {
     }
 
     public void clearBoard() {
-        spaceTotemSlots.values().forEach(slot -> slot.getChildren().clear());
+        // Svuota totem dagli spazi
+        spaceTotemSlots.values().forEach(v -> v.getChildren().clear());
+        playerOnSpace.clear();
+        // Svuota le righe carte — verranno ripopolate dal prossimo onYourTurn
+        topRowBox.getChildren().clear();
+        botRowBox.getChildren().clear();
+        lastTopIds.clear();
+        lastBotIds.clear();
     }
 
     public void showErrorMessage(String msg) {
@@ -541,37 +557,38 @@ public class GameScreen {
         row.getChildren().clear();
         for (int i = 0; i < ids.size(); i++) {
             int cardId = ids.get(i);
-            int index  = i;
+            int index  = i; // indice nella lista aggiornata dal server
             StackPane card = buildCardSlot(cardId, fromTop);
 
-            // Click → pickCard
-            card.setOnMouseClicked(e -> {
-                if (!canPickCards || !isMyTurn) return;
-                // Effetto visivo immediato
-                card.setOpacity(0.5);
-                card.setDisable(true);
-                new Thread(() -> {
-                    try { server.pickCard(myNick, index, fromTop); }
-                    catch (Exception ex) {
-                        javafx.application.Platform.runLater(() -> {
-                            card.setOpacity(1.0);
-                            card.setDisable(false);
-                            showErrorMessage("Errore: " + ex.getMessage());
-                        });
-                    }
-                }, "gui-pick").start();
-            });
-
-            // Hover glow quando cliccabile
-            card.setOnMouseEntered(e -> {
-                if (canPickCards && isMyTurn)
-                    card.setEffect(new DropShadow(14, Color.web("#34C759")));
-            });
-            card.setOnMouseExited(e -> card.setEffect(null));
-
-            // Opacità ridotta se non cliccabile
-            card.setOpacity(canPickCards && isMyTurn ? 1.0 : 0.80);
-
+            if (isEventCard(cardId)) {
+                card.setOpacity(0.65);
+                card.setCursor(javafx.scene.Cursor.DEFAULT);
+                card.setStyle("-fx-background-radius:6;" +
+                        "-fx-border-color:#FFD700;-fx-border-width:2;" +
+                        "-fx-border-radius:6;");
+            } else {
+                card.setOnMouseEntered(e -> {
+                    if (canPickCards && isMyTurn)
+                        card.setEffect(new DropShadow(14, Color.web("#34C759")));
+                });
+                card.setOnMouseExited(e -> card.setEffect(null));
+                card.setOnMouseClicked(e -> {
+                    if (!canPickCards || !isMyTurn) return;
+                    card.setOpacity(0.5);
+                    card.setDisable(true);
+                    new Thread(() -> {
+                        try { server.pickCard(myNick, index, fromTop); }
+                        catch (Exception ex) {
+                            javafx.application.Platform.runLater(() -> {
+                                card.setOpacity(1.0);
+                                card.setDisable(false);
+                                showErrorMessage("Errore: " + ex.getMessage());
+                            });
+                        }
+                    }, "gui-pick").start();
+                });
+                card.setOpacity(canPickCards && isMyTurn ? 1.0 : 0.80);
+            }
             row.getChildren().add(card);
         }
     }
@@ -582,6 +599,35 @@ public class GameScreen {
         turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
         phaseLabel.setText("In attesa…");
         spacePanes.forEach((l, p) -> p.setOpacity(0.75));
+    }
+
+    public void showEventNotification(String eventName) {
+        // Banner animato in cima
+        String emoji = switch (eventName) {
+            case "HUNT"       -> "🏹";
+            case "PICTURES"   -> "🎨";
+            case "RITUAL"     -> "🔮";
+            case "SUSTENANCE" -> "🍖";
+            default           -> "⚡";
+        };
+
+        Label banner = new Label(emoji + "  " + eventName.replace("_", " "));
+        banner.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:15;-fx-font-weight:bold;-fx-text-fill:white;" +
+                "-fx-background-color:rgba(255,200,0,0.25);" +
+                "-fx-background-radius:20;-fx-padding:6 20 6 20;" +
+                "-fx-border-color:rgba(255,200,0,0.5);" +
+                "-fx-border-radius:20;-fx-border-width:1;");
+
+        // Mostralo nell'header al posto della fase
+        phaseLabel.setText(emoji + " " + eventName.replace("_", " "));
+        phaseLabel.setStyle(labelStyle(13, "#FFD700"));
+
+        // Sparisce dopo 2.5 secondi
+        javafx.animation.PauseTransition pause =
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2.5));
+        pause.setOnFinished(e -> phaseLabel.setStyle(labelStyle(12, "rgba(255,255,255,0.55)")));
+        pause.play();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -630,6 +676,10 @@ public class GameScreen {
             case "G" -> 1;
             default  -> 0;
         };
+    }
+
+    private static boolean isEventCard(int cardId) {
+        return cardId >= 200;
     }
 
     private ImageView loadImage(String path, double w, double h) {
