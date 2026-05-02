@@ -58,6 +58,9 @@ public class GameScreen {
     private final HBox botRowBox = new HBox(8);
     private boolean canPickCards = false;
 
+    private boolean canPickTop = false;
+    private boolean canPickBot = false;
+
     // spazio → lista ImageView dei totem sovrapposti
     private final Map<String, VBox> spaceTotemSlots = new HashMap<>();
     // spazio → il StackPane cliccabile
@@ -283,6 +286,7 @@ public class GameScreen {
         slot.setPrefSize(CARD_W, CARD_H);
         slot.setStyle("-fx-background-radius:6;-fx-cursor:hand;");
         slot.setEffect(new DropShadow(6, Color.rgb(0, 0, 0, 0.5)));
+        slot.setUserData(cardId != null ? cardId : -1); // ← traccia l'ID
 
         if (cardId != null) {
             ImageView front = loadImage("/gui/cards/card_" + cardId + ".png",
@@ -529,14 +533,9 @@ public class GameScreen {
     }
 
     public void clearBoard() {
-        // Svuota totem dagli spazi
+        // Svuota SOLO i totem dagli spazi — le carte rimangono sempre visibili
         spaceTotemSlots.values().forEach(v -> v.getChildren().clear());
         playerOnSpace.clear();
-        // Svuota le righe carte — verranno ripopolate dal prossimo onYourTurn
-        topRowBox.getChildren().clear();
-        botRowBox.getChildren().clear();
-        lastTopIds.clear();
-        lastBotIds.clear();
     }
 
     public void showErrorMessage(String msg) {
@@ -544,20 +543,88 @@ public class GameScreen {
         turnLabel.setStyle(labelStyle(13, "#FF453A"));
     }
 
-    public void updateBoardCards(List<Integer> topIds, List<Integer> botIds, boolean canPick) {
-        lastTopIds = new ArrayList<>(topIds);
-        lastBotIds = new ArrayList<>(botIds);
-        this.canPickCards = canPick;
+    public void updateBoardCards(List<Integer> topIds, List<Integer> botIds,
+                                 boolean canPick, boolean pickFromTop) {
+        // Aggiorna solo se arrivano dati non vuoti
+        if (!topIds.isEmpty()) lastTopIds = new ArrayList<>(topIds);
+        if (!botIds.isEmpty()) lastBotIds = new ArrayList<>(botIds);
 
-        rebuildCardRow(topRowBox, topIds, true);
-        rebuildCardRow(botRowBox, botIds, false);
+        this.canPickCards = canPick;
+        this.canPickTop   = canPick && pickFromTop;
+        this.canPickBot   = canPick && !pickFromTop;
+
+        rebuildCardRow(topRowBox, lastTopIds, true);
+        rebuildCardRow(botRowBox, lastBotIds, false);
+
+        topRowBox.setStyle(canPickTop
+                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
+                : "-fx-border-color:transparent;-fx-padding:6;");
+        botRowBox.setStyle(canPickBot
+                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
+                : "-fx-border-color:transparent;-fx-padding:6;");
+        topRowBox.setOpacity(canPickBot ? 0.55 : 1.0);
+        botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
+    }
+
+    public void refreshCardClickability(boolean canPick, boolean pickFromTop) {
+        this.canPickCards = canPick;
+        this.canPickTop   = canPick && pickFromTop;
+        this.canPickBot   = canPick && !pickFromTop;
+        // Ricostruisce solo i click handler, non le immagini
+        rebuildCardRow(topRowBox, lastTopIds, true);
+        rebuildCardRow(botRowBox, lastBotIds, false);
+        // Aggiorna bordi
+        topRowBox.setStyle(canPickTop
+                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
+                : "-fx-border-color:transparent;-fx-padding:6;");
+        botRowBox.setStyle(canPickBot
+                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
+                : "-fx-border-color:transparent;-fx-padding:6;");
+        topRowBox.setOpacity(canPickBot ? 0.55 : 1.0);
+        botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
+    }
+
+    public void removeCardFromBoard(int cardId) {
+        boolean changed = false;
+
+        // Cerca e rimuove dalla top row
+        if (lastTopIds.remove(Integer.valueOf(cardId))) {
+            changed = true;
+            // Trova il nodo nella UI e fai fade-out prima di ricostruire
+            fadeOutCard(topRowBox, cardId, () -> rebuildCardRow(topRowBox, lastTopIds, true));
+        }
+
+        // Cerca e rimuove dalla bot row
+        if (lastBotIds.remove(Integer.valueOf(cardId))) {
+            changed = true;
+            fadeOutCard(botRowBox, cardId, () -> rebuildCardRow(botRowBox, lastBotIds, false));
+        }
+    }
+
+    private void fadeOutCard(HBox row, int cardId, Runnable onComplete) {
+        // Trova il StackPane che contiene la carta con quell'ID
+        row.getChildren().stream()
+                .filter(n -> n instanceof StackPane)
+                .filter(n -> cardId == (int) n.getUserData())
+                .findFirst()
+                .ifPresentOrElse(node -> {
+                    javafx.animation.FadeTransition ft =
+                            new javafx.animation.FadeTransition(
+                                    javafx.util.Duration.millis(300), node);
+                    ft.setFromValue(1.0);
+                    ft.setToValue(0.0);
+                    ft.setOnFinished(e -> onComplete.run());
+                    ft.play();
+                }, onComplete); // se non trova il nodo, ricostruisce direttamente
     }
 
     private void rebuildCardRow(HBox row, List<Integer> ids, boolean fromTop) {
         row.getChildren().clear();
+        boolean rowPickable = fromTop ? canPickTop : canPickBot;
+
         for (int i = 0; i < ids.size(); i++) {
             int cardId = ids.get(i);
-            int index  = i; // indice nella lista aggiornata dal server
+            int index  = i;
             StackPane card = buildCardSlot(cardId, fromTop);
 
             if (isEventCard(cardId)) {
@@ -567,27 +634,27 @@ public class GameScreen {
                         "-fx-border-color:#FFD700;-fx-border-width:2;" +
                         "-fx-border-radius:6;");
             } else {
-                card.setOnMouseEntered(e -> {
-                    if (canPickCards && isMyTurn)
-                        card.setEffect(new DropShadow(14, Color.web("#34C759")));
-                });
-                card.setOnMouseExited(e -> card.setEffect(null));
-                card.setOnMouseClicked(e -> {
-                    if (!canPickCards || !isMyTurn) return;
-                    card.setOpacity(0.5);
-                    card.setDisable(true);
-                    new Thread(() -> {
-                        try { server.pickCard(myNick, index, fromTop); }
-                        catch (Exception ex) {
-                            javafx.application.Platform.runLater(() -> {
-                                card.setOpacity(1.0);
-                                card.setDisable(false);
-                                showErrorMessage("Errore: " + ex.getMessage());
-                            });
-                        }
-                    }, "gui-pick").start();
-                });
-                card.setOpacity(canPickCards && isMyTurn ? 1.0 : 0.80);
+                if (rowPickable && isMyTurn) {
+                    card.setOnMouseEntered(e ->
+                            card.setEffect(new DropShadow(16, Color.web("#34C759"))));
+                    card.setOnMouseExited(e -> card.setEffect(null));
+                    card.setOnMouseClicked(e -> {
+                        card.setOpacity(0.5);
+                        card.setDisable(true);
+                        new Thread(() -> {
+                            try { server.pickCard(myNick, index, fromTop); }
+                            catch (Exception ex) {
+                                javafx.application.Platform.runLater(() -> {
+                                    card.setOpacity(1.0);
+                                    card.setDisable(false);
+                                    showErrorMessage("Errore: " + ex.getMessage());
+                                });
+                            }
+                        }, "gui-pick").start();
+                    });
+                } else {
+                    card.setCursor(javafx.scene.Cursor.DEFAULT);
+                }
             }
             row.getChildren().add(card);
         }

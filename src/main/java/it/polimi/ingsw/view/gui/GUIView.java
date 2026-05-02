@@ -223,12 +223,22 @@ public class GUIView implements ModelObserver {
         return ids;
     }
 
-    // Parsa card IDs con tag tipo [T] o [B] (per boardSummary watchers)
-    private List<Integer> parseCardIdsTag(String text, String tag) {
+    private List<Integer> parseTopCards(String text) {
+        return parseCardsBetween(text, "Riga SUPERIORE", "Riga INFERIORE");
+    }
+
+    private List<Integer> parseBotCards(String text) {
+        return parseCardsBetween(text, "Riga INFERIORE", "Spazi Offerta");
+    }
+
+    private List<Integer> parseCardsBetween(String text, String startMarker, String endMarker) {
         List<Integer> ids = new ArrayList<>();
+        int start = text.indexOf(startMarker);
+        if (start < 0) return ids;
+        int end = text.indexOf(endMarker, start + startMarker.length());
+        String section = end >= 0 ? text.substring(start, end) : text.substring(start);
         java.util.regex.Matcher m =
-                java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(tag) +
-                        ".*?CardId:\\s*(\\d+)").matcher(text);
+                java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(section);
         while (m.find()) ids.add(Integer.parseInt(m.group(1)));
         return ids;
     }
@@ -288,6 +298,15 @@ public class GUIView implements ModelObserver {
         });
     }
 
+    private boolean parsePickFromTop(String extraInfo) {
+        if (extraInfo == null) return true;
+        // Il server indica da che riga: cerca "fila superiore" o "fila inferiore"
+        if (extraInfo.toLowerCase().contains("superiore")) return true;
+        if (extraInfo.toLowerCase().contains("inferiore")) return false;
+        // Fallback: se ha totem su spazio con numCardTop > 0 → top
+        return true;
+    }
+
     @Override
     public void onYourTurn(String nickname, GameState phase, String extraInfo) {
         Platform.runLater(() -> {
@@ -295,21 +314,42 @@ public class GUIView implements ModelObserver {
             gameScreen.updatePhase(phase, nickname);
             parseAndUpdateStats(extraInfo);
             parseAndUpdateAllStats(extraInfo);
-            List<Integer> top = parseCardIds(extraInfo, "##HAS_TOP##");
-            List<Integer> bot = parseCardIds(extraInfo, "##HAS_BOT##");
-            gameScreen.updateBoardCards(top, bot, true);
+
+            boolean myTurn  = nick.equals(nickname);
+            boolean canPick = myTurn && phase == GameState.PICKING_CARD;
+
+            List<Integer> top;
+            List<Integer> bot;
+            boolean pickTop;
+
+            if (phase == GameState.PICKING_CARD) {
+                // Carte con marker ##HAS_TOP## / ##HAS_BOT##
+                top     = parseCardIds(extraInfo, "##HAS_TOP##");
+                bot     = parseCardIds(extraInfo, "##HAS_BOT##");
+                pickTop = !top.isEmpty(); // può pescare dall'alto se ci sono carte lì
+            } else {
+                top     = parseTopCards(extraInfo);
+                bot     = parseBotCards(extraInfo);
+                pickTop = false;
+            }
+
+            gameScreen.updateBoardCards(top, bot, canPick, pickTop);
         });
+    }
+
+    private boolean isMyTurn(String nickname) {
+        return nick.equals(nickname);
     }
 
     @Override
     public void onTurnSnapshot(String currentPlayerNick, String boardSummary) {
         Platform.runLater(() -> {
             if (gameScreen == null) return;
-            // Non è il mio turno — aggiorna fase e carte
             gameScreen.setOtherPlayerTurn(currentPlayerNick);
-            List<Integer> top = parseCardIdsTag(boardSummary, "[T]");
-            List<Integer> bot = parseCardIdsTag(boardSummary, "[B]");
-            gameScreen.updateBoardCards(top, bot, false);
+            List<Integer> top = parseTopCards(boardSummary);
+            List<Integer> bot = parseBotCards(boardSummary);
+            // Passa sempre — updateBoardCards ignora le liste vuote internamente
+            gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
         });
     }
@@ -333,11 +373,13 @@ public class GUIView implements ModelObserver {
     public void onCardTaken(String nickname, String cardId) {
         Platform.runLater(() -> {
             if (gameScreen == null) return;
-            // cardId è il toString() della carta: "CardId: 54, Age: Era_I, ..."
             java.util.regex.Matcher m =
                     java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(cardId);
             if (m.find()) {
                 int id = Integer.parseInt(m.group(1));
+                // Rimuovi la carta dal board per tutti (anche se la prende un altro)
+                gameScreen.removeCardFromBoard(id);
+                // Aggiungila alla mano solo se è mia
                 if (nickname.equals(nick))
                     gameScreen.addCardToHand(id);
             }
