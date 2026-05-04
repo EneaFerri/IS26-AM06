@@ -183,7 +183,7 @@ public class GUIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  SCHERMATA DI GIOCO (step 3 — TODO)
+    //  SCHERMATA DI GIOCO
     // ─────────────────────────────────────────────────────────────────────
 
     private GameScreen gameScreen;
@@ -298,14 +298,6 @@ public class GUIView implements ModelObserver {
         });
     }
 
-    private boolean parsePickFromTop(String extraInfo) {
-        if (extraInfo == null) return true;
-        // Il server indica da che riga: cerca "fila superiore" o "fila inferiore"
-        if (extraInfo.toLowerCase().contains("superiore")) return true;
-        if (extraInfo.toLowerCase().contains("inferiore")) return false;
-        // Fallback: se ha totem su spazio con numCardTop > 0 → top
-        return true;
-    }
 
     @Override
     public void onYourTurn(String nickname, GameState phase, String extraInfo) {
@@ -337,9 +329,6 @@ public class GUIView implements ModelObserver {
         });
     }
 
-    private boolean isMyTurn(String nickname) {
-        return nick.equals(nickname);
-    }
 
     @Override
     public void onTurnSnapshot(String currentPlayerNick, String boardSummary) {

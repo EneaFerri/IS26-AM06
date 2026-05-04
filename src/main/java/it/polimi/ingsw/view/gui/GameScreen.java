@@ -218,13 +218,6 @@ public class GameScreen {
         return track;
     }
 
-    private StackPane buildBlockTile(int blockNum) {
-        ImageView img = loadImage("/gui/board/block" + blockNum + ".png",
-                BLOCK_W, BLOCK_H);
-        StackPane sp = new StackPane(img);
-        sp.setPrefSize(BLOCK_W, BLOCK_H);
-        return sp;
-    }
 
     // ── Singolo spazio offerta ────────────────────────────────────────────
 
@@ -266,20 +259,6 @@ public class GameScreen {
     }
 
     // ── Riga di carte (upper / lower) ────────────────────────────────────
-
-    private HBox buildCardRow(String letter, boolean upper) {
-        int count = upper ? numCardsUpper(letter) : numCardsLower(letter);
-        HBox row = new HBox(4);
-        row.setAlignment(Pos.CENTER);
-        row.setMinHeight(count > 0 ? CARD_H + 4 : 0);
-
-        for (int i = 0; i < count; i++) {
-            // Placeholder carta coperta (back generico)
-            StackPane cardSlot = buildCardSlot(null, upper);
-            row.getChildren().add(cardSlot);
-        }
-        return row;
-    }
 
     private StackPane buildCardSlot(Integer cardId, boolean isUpper) {
         StackPane slot = new StackPane();
@@ -566,23 +545,7 @@ public class GameScreen {
         botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
     }
 
-    public void refreshCardClickability(boolean canPick, boolean pickFromTop) {
-        this.canPickCards = canPick;
-        this.canPickTop   = canPick && pickFromTop;
-        this.canPickBot   = canPick && !pickFromTop;
-        // Ricostruisce solo i click handler, non le immagini
-        rebuildCardRow(topRowBox, lastTopIds, true);
-        rebuildCardRow(botRowBox, lastBotIds, false);
-        // Aggiorna bordi
-        topRowBox.setStyle(canPickTop
-                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
-                : "-fx-border-color:transparent;-fx-padding:6;");
-        botRowBox.setStyle(canPickBot
-                ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
-                : "-fx-border-color:transparent;-fx-padding:6;");
-        topRowBox.setOpacity(canPickBot ? 0.55 : 1.0);
-        botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
-    }
+
 
     public void removeCardFromBoard(int cardId) {
         boolean changed = false;
@@ -725,25 +688,7 @@ public class GameScreen {
     //  HELPERS
     // ─────────────────────────────────────────────────────────────────────
 
-    private static int numCardsUpper(String letter) {
-        return switch (letter) {
-            case "C" -> 1;
-            case "E" -> 1;
-            case "F" -> 2;
-            case "G" -> 2;
-            default  -> 0;
-        };
-    }
 
-    private static int numCardsLower(String letter) {
-        return switch (letter) {
-            case "B" -> 1;
-            case "D" -> 2;
-            case "E" -> 1;
-            case "G" -> 1;
-            default  -> 0;
-        };
-    }
 
     private static boolean isEventCard(int cardId) {
         return cardId >= 200;
@@ -769,13 +714,6 @@ public class GameScreen {
         return colors[Math.abs(nick.hashCode()) % colors.length];
     }
 
-    private Background darkBg() {
-        return new Background(new BackgroundFill(
-                new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                        new Stop(0, Color.web("#0d0d1a")),
-                        new Stop(1, Color.web("#1a0d2e"))),
-                CornerRadii.EMPTY, Insets.EMPTY));
-    }
 
     private String labelStyle(int size, String color) {
         return "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
