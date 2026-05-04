@@ -16,6 +16,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 public class Player {
     private final String nickname;
     private final Totem myTotem;
@@ -324,7 +327,31 @@ public class Player {
 
     public int countSet() {
         //TODO
-        return 0;
+        // contiamo quante carte ha il player per ciascuno dei 6 tipi "veri"
+        // un set completo richiede almeno 1 carta per ogni tipo
+        Map<CharacterType, Integer> counts = new EnumMap<>(CharacterType.class);
+
+        counts.put(CharacterType.ARTIST, 0);
+        counts.put(CharacterType.BUILDER, 0);
+        counts.put(CharacterType.COLLECTOR, 0);
+        counts.put(CharacterType.HUNTER, 0);
+        counts.put(CharacterType.INVENTOR, 0);
+        counts.put(CharacterType.SHAMAN, 0);
+
+        for (CharacterCard card : myCharacterCards) {
+            CharacterType type = card.getCharacterType();
+
+            // per ingorare eventuali tipi "speciali" dell enum che non rappresentano personaggi validi per il set
+            if (counts.containsKey(type)) {
+                counts.put(type, counts.get(type) + 1);
+            }
+        }
+
+        // il numero di set completi è dato dal minimo tra i conteggi. tipo 2 artisti, 3 builder, 1 hunter allora ho solo 1 set completo.
+        return counts.values().stream()
+                .min(Integer::compareTo)
+                .orElse(0);
+
     }
 
     public int getPointsFromEndEffect() {
