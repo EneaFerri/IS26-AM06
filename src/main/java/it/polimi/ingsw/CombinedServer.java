@@ -20,7 +20,7 @@ import java.rmi.RemoteException;
 public class CombinedServer {
 
     public static void main(String[] args) {
-        String ip = NetworkUtils.resolveLocalIp();
+        String ip = "localhost";
         System.setProperty("java.rmi.server.hostname", ip);
 
         LobbyManager sharedLobbyManager = new LobbyManager();
