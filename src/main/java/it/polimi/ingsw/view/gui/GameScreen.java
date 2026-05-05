@@ -573,7 +573,7 @@ public class GameScreen {
                 .ifPresentOrElse(node -> {
                     javafx.animation.FadeTransition ft =
                             new javafx.animation.FadeTransition(
-                                    javafx.util.Duration.millis(300), node);
+                                    javafx.util.Duration.millis(3000), node);
                     ft.setFromValue(1.0);
                     ft.setToValue(0.0);
                     ft.setOnFinished(e -> onComplete.run());
