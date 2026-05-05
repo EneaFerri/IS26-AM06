@@ -205,4 +205,51 @@ class PlayerTest {
         // totale = 15
         assertEquals(16, player.getTotalPoints());
     }
+
+    @Test
+    void countSet_returnsNumberOfCompleteSets() {
+        Player player = new Player("Mario", new Totem(TotemColor.RED));
+
+        // Primo set completo
+        player.addCharacterCard(new Artist(1, Age.Era_I, 2));
+        player.addCharacterCard(new Builder(2, Age.Era_I, 2, 3, 1));
+        player.addCharacterCard(new Collector(3, Age.Era_I, 2));
+        player.addCharacterCard(new Hunter(4, Age.Era_I, 2, 0));
+        player.addCharacterCard(new Inventor(5, Age.Era_I, 2, InventionType.ARROW));
+        player.addCharacterCard(new Shaman(6, Age.Era_I, 2, 1));
+
+        // Secondo set completo
+        player.addCharacterCard(new Artist(7, Age.Era_I, 2));
+        player.addCharacterCard(new Builder(8, Age.Era_I, 2, 3, 1));
+        player.addCharacterCard(new Collector(9, Age.Era_I, 2));
+        player.addCharacterCard(new Hunter(10, Age.Era_I, 2, 0));
+        player.addCharacterCard(new Inventor(11, Age.Era_I, 2, InventionType.BREAD));
+        player.addCharacterCard(new Shaman(12, Age.Era_I, 2, 2));
+
+        assertEquals(2, player.countSet());
+    }
+
+    @Test
+    void countSet_doesNotCountIncompleteSet() {
+        Player player = new Player("Mario", new Totem(TotemColor.RED));
+
+        // Qui completiamo solo un set.
+        player.addCharacterCard(new Artist(1, Age.Era_I, 2));
+        player.addCharacterCard(new Builder(2, Age.Era_I, 2, 3, 1));
+        player.addCharacterCard(new Collector(3, Age.Era_I, 2));
+        player.addCharacterCard(new Hunter(4, Age.Era_I, 2, 0));
+        player.addCharacterCard(new Inventor(5, Age.Era_I, 2, InventionType.ARROW));
+        player.addCharacterCard(new Shaman(6, Age.Era_I, 2, 1));
+
+        // Secondo giro incompleto: manca almeno uno dei 6 tipi.
+        player.addCharacterCard(new Artist(7, Age.Era_I, 2));
+        player.addCharacterCard(new Builder(8, Age.Era_I, 2, 3, 1));
+        player.addCharacterCard(new Collector(9, Age.Era_I, 2));
+        player.addCharacterCard(new Hunter(10, Age.Era_I, 2, 0));
+        player.addCharacterCard(new Inventor(11, Age.Era_I, 2, InventionType.BREAD));
+
+        assertEquals(1, player.countSet());
+    }
+
+
 }

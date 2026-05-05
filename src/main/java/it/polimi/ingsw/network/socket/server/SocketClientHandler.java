@@ -5,7 +5,7 @@ import it.polimi.ingsw.VirtualView;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.network.utils.HeartbeatManager;
+import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
 
@@ -37,7 +37,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
     private final Socket           socket;
     private final LobbyManager     lobbyManager;
     private final ObjectMapper     mapper    = new ObjectMapper();
-    private final HeartbeatManager heartbeat = new HeartbeatManager();
+    private final PingPongManager heartbeat = new PingPongManager();
 
     private volatile PrintWriter  out;
     private volatile String       nickname;       // set on successful login
