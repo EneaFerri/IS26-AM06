@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   // on clean close:
  *   hb.stop();
  */
-public class HeartbeatManager {
+public class PingPongManager {
 
     /** How often to send a PING. Must be longer than typical round-trip time. */
     private static final int PING_INTERVAL_MS = 10_000;

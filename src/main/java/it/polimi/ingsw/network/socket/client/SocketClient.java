@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.network.utils.HeartbeatManager;
+import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
 import it.polimi.ingsw.view.ClientModel;
@@ -12,7 +12,6 @@ import it.polimi.ingsw.view.ClientModel;
 import java.io.*;
 import java.net.Socket;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +33,7 @@ public class SocketClient {
 
     private final ClientModel      model;
     private final ObjectMapper     mapper    = new ObjectMapper();
-    private final HeartbeatManager heartbeat = new HeartbeatManager();
+    private final PingPongManager heartbeat = new PingPongManager();
 
     private SocketServerProxy proxy;
     private volatile boolean  running = true;
