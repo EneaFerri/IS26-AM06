@@ -26,14 +26,12 @@ public class Ritual extends EventCard {
     }
 
     @Override
-    public void resolve(List<Player> players) { //TODO: da implementare la applyEventEffect una volta fatta su ritual nelle buildingCard
+    public void resolve(List<Player> players) {
         int maxStars = -1;
         int minStars = Integer.MAX_VALUE;
 
         for (Player player : players) {
-            int stars = player.getStarsFromShamans();
-
-            if(player.extraThreeStars) stars = stars + 3;
+            int stars = getRitualStars(player);
 
             if (stars > maxStars) {
                 maxStars = stars;
@@ -44,7 +42,7 @@ public class Ritual extends EventCard {
         }
 
         for (Player player : players) {
-            if (player.getStarsFromShamans() == maxStars) {
+            if (getRitualStars(player) == maxStars) {
                 if(!player.doublePointForRituals){
                     player.addPrestige(maxBonus);
                 }else{
@@ -53,12 +51,20 @@ public class Ritual extends EventCard {
             }
         }
         for (Player player : players) {
-            if (player.getStarsFromShamans() == minStars) {
+            if (getRitualStars(player) == minStars) {
                 if(!player.noMalusForRituals){
                     player.removePrestige(maxMalus);
                 } //altrimenti: cioè player ha la building con effetto nomalus da ritual, player non perde punti
             }
         }
+    }
+
+    private int  getRitualStars(Player player) {
+        int stars = player.getStarsFromShamans();
+        if (player.extraThreeStars) {
+            stars = stars +3;
+        }
+        return stars;
     }
 
     public String toString(){
