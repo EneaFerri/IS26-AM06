@@ -207,21 +207,36 @@ public class GUIView implements ModelObserver {
         return spaces;
     }
 
-    // Parsa card IDs dopo un marker tipo ##HAS_TOP## o ##HAS_BOT##
+    // il metodo restituisce gli id delle carte nella riga del marker passato (e si limita a leggere quelle della riga E NON anche quelle pescate)
     private List<Integer> parseCardIds(String text, String marker) {
         List<Integer> ids = new ArrayList<>();
         int markerIdx = text.indexOf(marker);
         if (markerIdx < 0) return ids;
-        // Prende la sezione dopo il marker fino al prossimo marker o fine
+
         String section = text.substring(markerIdx + marker.length());
+
+        int end = section.length();
+
         int nextMarker = section.indexOf("##");
-        if (nextMarker >= 0) section = section.substring(0, nextMarker);
-        // Cerca "CardId: N"
+        if (nextMarker >= 0) end = Math.min(end, nextMarker);
+
+        int playersIdx = section.indexOf("┌── Stato giocatori");
+        if (playersIdx >= 0) end = Math.min(end, playersIdx);
+
+        int handIdx = section.indexOf("┌── Le tue carte");
+        if (handIdx >= 0) end = Math.min(end, handIdx);
+
+        section = section.substring(0, end);
+
         java.util.regex.Matcher m =
                 java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(section);
-        while (m.find()) ids.add(Integer.parseInt(m.group(1)));
+        while (m.find()) {
+            ids.add(Integer.parseInt(m.group(1)));
+        }
+
         return ids;
     }
+
 
     private List<Integer> parseTopCards(String text) {
         return parseCardsBetween(text, "Riga SUPERIORE", "Riga INFERIORE");
