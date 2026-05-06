@@ -435,7 +435,7 @@ public class GameScreen {
         statsDelay.setOnFinished(e -> applyAnimatedEventStats(req.stats));
 
         javafx.animation.PauseTransition hold =
-                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(10));
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(6));
 
         javafx.animation.Timeline outro = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(450),
@@ -989,7 +989,7 @@ public class GameScreen {
         spacePanes.forEach((l, p) -> p.setOpacity(0.75));
     }
 
-    public void showEventNotification(String eventName) {
+    public void showEventNotification(String eventName) { //TODO: DA ELIMINARE IN MY OPINION AVENDO AGGIUNTO L'ANIMAZIONE
         // Banner animato in cima
         String emoji = switch (eventName) {
             case "HUNT"       -> "🏹";
