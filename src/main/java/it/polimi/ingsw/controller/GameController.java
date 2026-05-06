@@ -306,8 +306,10 @@ public class GameController implements GameObserver {
 
     @Override
     public void onEventResolved(String eventName, String details) {
-        broadcast(v -> v.onEventResolved(eventName, details));
+        String payload = buildEventAnimationPayload(details);
+        broadcast(v -> v.onEventResolved(eventName, payload));
     }
+
 
     @Override
     public void onBoardUpdated() {
@@ -526,6 +528,22 @@ public class GameController implements GameObserver {
                 .findFirst()
                 .orElse("?");
     }
+
+    /** Build a new animation for event_resolution phase*/
+    private String buildEventAnimationPayload(String details) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(details).append("\n");
+
+        for (Player p : game.getPlayers()) {
+            sb.append("player=").append(p.getNickname())
+                    .append(";food=").append(p.getFood())
+                    .append(";prestige=").append(p.getPrestige())
+                    .append("\n");
+        }
+
+        return sb.toString();
+    }
+
 
     /** Classifica finale ordinata per punti totali. */
     private String buildFinalResults() {

@@ -491,9 +491,10 @@ public class Game implements GameActions {
         for (EventCard event : events) {
             event.resolve(players);
             for (GameObserver obs : observers) {
-                obs.onEventResolved(event.getType().toString(), "Resolved");
+                obs.onEventResolved(event.getType().toString(), "cardId=" + event.getID());
             }
         }
+
         for (Player p : players) {
             for (GameObserver obs : observers) obs.onPlayerUpdated(p.getNickname());
         }
@@ -509,9 +510,10 @@ public class Game implements GameActions {
             for (EventCard event : lastEvents) {
                 event.resolve(players);
                 for (GameObserver obs : observers) {
-                    obs.onEventResolved(event.getType().toString(), "FinalEvent");
+                    obs.onEventResolved(event.getType().toString(), "cardId=" + event.getID());
                 }
             }
+
 
             gameState = GameState.END;
             endGame();

@@ -411,13 +411,19 @@ public class GUIView implements ModelObserver {
                 gameScreen.updateTurnOrder(newOrderedNicknames, totemColors);
         });
     }
+
     @Override
     public void onEventResolved(String eventName, String resultDetails) {
         Platform.runLater(() -> {
             if (gameScreen == null) return;
-            gameScreen.showEventNotification(eventName);
+
+            int cardId = parseEventCardId(resultDetails);
+            Map<String, int[]> stats = parseEventStats(resultDetails);
+
+            gameScreen.showEventResolution(eventName, cardId, stats);
         });
     }
+
 
     @Override public void onBoardUpdated() {
         Platform.runLater(() -> { if (gameScreen != null) gameScreen.clearBoard(); });
@@ -568,4 +574,45 @@ public class GUIView implements ModelObserver {
             }
         } catch (Exception ignored) {}
     }
+
+    private int parseEventCardId(String payload) {
+        for (String line : payload.split("\n")) {
+            if (line.startsWith("cardId=")) {
+                try {
+                    return Integer.parseInt(line.substring("cardId=".length()).trim());
+                } catch (NumberFormatException ignored) { }
+            }
+        }
+        return -1;
+    }
+
+    private Map<String, int[]> parseEventStats(String payload) {
+        Map<String, int[]> stats = new java.util.HashMap<>();
+
+        for (String line : payload.split("\n")) {
+            if (!line.startsWith("player=")) continue;
+
+            String[] parts = line.split(";");
+            String pNick = null;
+            Integer food = null;
+            Integer prestige = null;
+
+            for (String part : parts) {
+                if (part.startsWith("player=")) {
+                    pNick = part.substring("player=".length()).trim();
+                } else if (part.startsWith("food=")) {
+                    food = Integer.parseInt(part.substring("food=".length()).trim());
+                } else if (part.startsWith("prestige=")) {
+                    prestige = Integer.parseInt(part.substring("prestige=".length()).trim());
+                }
+            }
+
+            if (pNick != null && food != null && prestige != null) {
+                stats.put(pNick, new int[]{food, prestige});
+            }
+        }
+
+        return stats;
+    }
+
 }

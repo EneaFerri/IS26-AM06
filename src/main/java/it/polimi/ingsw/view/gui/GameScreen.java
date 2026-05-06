@@ -15,6 +15,9 @@ import javafx.scene.paint.*;
 import javafx.scene.shape.*;
 import javafx.scene.text.*;
 import javafx.stage.Stage;
+import javafx.scene.SnapshotParameters;
+import javafx.scene.effect.GaussianBlur;
+
 
 import java.util.*;
 
@@ -95,6 +98,37 @@ public class GameScreen {
 
     private final List<String> activeSpaces;
 
+    // elementi per ANIMAZIONE EVENTI
+    private BorderPane mainRoot;
+
+    private final Queue<EventAnimationRequest> eventQueue = new ArrayDeque<>();
+    private boolean eventAnimationRunning = false;
+
+    private final StackPane eventOverlay = new StackPane();
+    private final Rectangle eventFlash = new Rectangle();
+    private final Rectangle eventScrim = new Rectangle();
+    private final ImageView eventHeroCard = new ImageView();
+    private final Label eventHeroTitle = new Label();
+
+    private ScrollPane centerScrollPane;
+
+
+    private final javafx.scene.effect.GaussianBlur eventBlur =
+            new javafx.scene.effect.GaussianBlur(0);
+
+    private static final class EventAnimationRequest {
+        final String eventName;
+        final int cardId;
+        final Map<String, int[]> stats;
+
+        EventAnimationRequest(String eventName, int cardId, Map<String, int[]> stats) {
+            this.eventName = eventName;
+            this.cardId = cardId;
+            this.stats = stats;
+        }
+    }
+
+
     public GameScreen(GameServerProxy server, ClientModel model,
                       String myNick, List<String> players, List<String> activeSpaces) {
         this.server       = server;
@@ -110,6 +144,7 @@ public class GameScreen {
 
     public Scene build(Stage stage) {
         BorderPane root = new BorderPane();
+        mainRoot = root;
         root.setBackground(Background.EMPTY);
 
         root.setTop(buildHeader());
@@ -138,14 +173,299 @@ public class GameScreen {
                 "-fx-border-radius:16;" +
                 "-fx-padding:12 20 12 20;");
 
-
         rootWrapper.getChildren().add(toastLabel);
         StackPane.setAlignment(toastLabel, Pos.TOP_CENTER);
         StackPane.setMargin(toastLabel, new Insets(86, 0, 0, 0));
 
-        return new Scene(rootWrapper, 1400, 860);
+        eventScrim.setFill(Color.rgb(8, 10, 18, 0.18));
+        eventScrim.setOpacity(0.0);
+        eventScrim.widthProperty().bind(rootWrapper.widthProperty());
+        eventScrim.heightProperty().bind(rootWrapper.heightProperty());
+        eventScrim.setMouseTransparent(true);
 
+        eventFlash.setFill(Color.web("#FFD54A"));
+        eventFlash.setOpacity(0.0);
+        eventFlash.widthProperty().bind(rootWrapper.widthProperty());
+        eventFlash.heightProperty().bind(rootWrapper.heightProperty());
+        eventFlash.setMouseTransparent(true);
+
+        eventHeroCard.setPreserveRatio(true);
+        eventHeroCard.setFitWidth(CARD_W);
+        eventHeroCard.setFitHeight(CARD_H);
+
+        eventHeroCard.setSmooth(true);
+        eventHeroCard.setCache(true);
+        eventHeroCard.setPickOnBounds(false);
+
+        DropShadow glow = new DropShadow();
+        glow.setRadius(70);
+        glow.setSpread(0.22);
+        glow.setColor(Color.web("#FFD54A"));
+
+        DropShadow shadow = new DropShadow();
+        shadow.setRadius(24);
+        shadow.setOffsetY(10);
+        shadow.setColor(Color.rgb(0, 0, 0, 0.55));
+        glow.setInput(shadow);
+
+        eventHeroCard.setEffect(glow);
+
+
+        eventHeroTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:32;-fx-font-weight:bold;-fx-text-fill:white;" +
+                "-fx-background-color:rgba(0,0,0,0.72);" +
+                "-fx-background-radius:20;" +
+                "-fx-border-color:rgba(255,213,74,0.55);" +
+                "-fx-border-radius:20;" +
+                "-fx-padding:14 28 14 28;");
+        eventHeroTitle.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.85)));
+
+
+        eventHeroTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:32;-fx-font-weight:bold;-fx-text-fill:white;" +
+                "-fx-background-color:rgba(0,0,0,0.78);" +
+                "-fx-background-radius:20;" +
+                "-fx-border-color:rgba(255,213,74,0.55);" +
+                "-fx-border-radius:20;" +
+                "-fx-padding:14 28 14 28;");
+        eventHeroTitle.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.85)));
+
+        StackPane.setAlignment(eventHeroTitle, Pos.TOP_CENTER);
+        StackPane.setMargin(eventHeroTitle, new Insets(72, 0, 0, 0));
+
+        StackPane.setAlignment(eventHeroCard, Pos.CENTER);
+        eventHeroCard.setTranslateY(60);
+
+        eventOverlay.getChildren().addAll(eventScrim, eventFlash, eventHeroCard, eventHeroTitle);
+
+        eventOverlay.setVisible(false);
+        eventOverlay.setMouseTransparent(true);
+        eventOverlay.setOpacity(1.0);
+
+        rootWrapper.getChildren().add(eventOverlay);
+        StackPane.setAlignment(eventOverlay, Pos.CENTER);
+
+        return new Scene(rootWrapper, 1400, 860);
     }
+
+
+    //HELPER
+
+    private String eventDisplayName(String eventName) {
+        return switch (eventName) {
+            case "HUNT" -> "CACCIA";
+            case "PICTURES" -> "PITTURE RUPESTRI";
+            case "RITUAL" -> "RITUALE SCIAMANICO";
+            case "SUSTENANCE" -> "SOSTENTAMENTO";
+            default -> eventName.replace("_", " ");
+        };
+    }
+
+    private StackPane findCardNode(int cardId) {
+        for (javafx.scene.Node n : topRowBox.getChildren()) {
+            if (n instanceof StackPane sp && Integer.valueOf(cardId).equals(sp.getUserData())) {
+                return sp;
+            }
+        }
+        for (javafx.scene.Node n : botRowBox.getChildren()) {
+            if (n instanceof StackPane sp && Integer.valueOf(cardId).equals(sp.getUserData())) {
+                return sp;
+            }
+        }
+        return null;
+    }
+
+    private Image buildEventAnimationImage(int cardId) {
+        var url = getClass().getResource("/gui/cards/card_" + cardId + ".png");
+        return url != null ? new Image(url.toExternalForm()) : null;
+    }
+
+
+    private int extractLabelNumber(Label label) {
+        String digits = label.getText().replaceAll("[^0-9-]", "");
+        if (digits.isEmpty() || digits.equals("-")) return 0;
+        return Integer.parseInt(digits);
+    }
+
+    private void animateNumber(Label label, String prefix, int target) {
+        int start = extractLabelNumber(label);
+
+        javafx.animation.Timeline tl = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(new javafx.beans.property.SimpleIntegerProperty(start), start)
+                )
+        );
+
+        javafx.beans.property.IntegerProperty animatedValue =
+                new javafx.beans.property.SimpleIntegerProperty(start);
+
+        animatedValue.addListener((obs, oldVal, newVal) ->
+                label.setText(prefix + newVal.intValue()));
+
+        tl.getKeyFrames().setAll(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.seconds(1.2),
+                        new javafx.animation.KeyValue(animatedValue, target, javafx.animation.Interpolator.EASE_BOTH)
+                )
+        );
+        tl.play();
+    }
+
+    private void animateMyStats(int food, int prestige) {
+        animateNumber(foodLabel, "", food);
+        animateNumber(prestigeLabel, "", prestige);
+    }
+
+    private void animatePlayerStats(String nick, int food, int prestige) {
+        Label fl = playerFoodLabels.get(nick);
+        Label pl = playerPrestigeLabels.get(nick);
+
+        if (fl != null) animateNumber(fl, "🍖 ", food);
+        if (pl != null) animateNumber(pl, "★ ", prestige);
+    }
+
+    private void applyAnimatedEventStats(Map<String, int[]> stats) {
+        for (Map.Entry<String, int[]> entry : stats.entrySet()) {
+            String nick = entry.getKey();
+            int[] values = entry.getValue();
+
+            animatePlayerStats(nick, values[0], values[1]);
+            if (nick.equals(myNick)) {
+                animateMyStats(values[0], values[1]);
+            }
+        }
+    }
+
+    public void showEventResolution(String eventName, int cardId, Map<String, int[]> stats) {
+        eventQueue.offer(new EventAnimationRequest(eventName, cardId, stats));
+        if (!eventAnimationRunning) {
+            playNextEventAnimation();
+        }
+    }
+
+    private void playNextEventAnimation() {
+        EventAnimationRequest req = eventQueue.poll();
+        if (req == null) {
+            eventAnimationRunning = false;
+            return;
+        }
+
+        eventAnimationRunning = true;
+
+        Image img = buildEventAnimationImage(req.cardId);
+        if (img != null) {
+            eventHeroCard.setImage(img);
+        }
+
+        eventHeroTitle.setText("RISOLUZIONE EVENTO " + eventDisplayName(req.eventName));
+        eventOverlay.setVisible(true);
+        eventOverlay.setOpacity(1.0);
+        eventOverlay.toFront();
+
+        StackPane source = findCardNode(req.cardId);
+        double startDx = 0;
+        double startDy = 0;
+
+        if (source != null && source.getScene() != null) {
+            Bounds sceneBounds = source.localToScene(source.getBoundsInLocal());
+            Bounds localBounds = rootWrapper.sceneToLocal(sceneBounds);
+
+            double sourceCx = localBounds.getMinX() + localBounds.getWidth() / 2.0;
+            double sourceCy = localBounds.getMinY() + localBounds.getHeight() / 2.0;
+            double rootCx = rootWrapper.getWidth() / 2.0;
+            double rootCy = rootWrapper.getHeight() / 2.0;
+
+            startDx = sourceCx - rootCx;
+            startDy = sourceCy - rootCy;
+        }
+
+        eventHeroCard.setTranslateX(startDx+40);
+        eventHeroCard.setTranslateY(startDy);
+        eventHeroCard.setScaleX(1.0);
+        eventHeroCard.setScaleY(1.0);
+        eventHeroCard.setRotate(0.0);
+
+        eventHeroTitle.setOpacity(0.0);
+        eventHeroTitle.setTranslateY(24);
+
+        eventScrim.setOpacity(0.0);
+        eventFlash.setOpacity(0.0);
+
+        centerScrollPane.setEffect(eventBlur);
+
+        javafx.animation.Timeline intro = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(eventHeroCard.translateXProperty(), startDx),
+                        new javafx.animation.KeyValue(eventHeroCard.translateYProperty(), startDy),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleYProperty(), 1.0),
+                        new javafx.animation.KeyValue(eventHeroCard.rotateProperty(), 0.0),
+                        new javafx.animation.KeyValue(eventHeroTitle.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(eventHeroTitle.translateYProperty(), 24),
+                        new javafx.animation.KeyValue(eventScrim.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(eventFlash.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(eventBlur.radiusProperty(), 0.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(180),
+                        new javafx.animation.KeyValue(eventFlash.opacityProperty(), 0.92, javafx.animation.Interpolator.EASE_OUT)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(320),
+                        new javafx.animation.KeyValue(eventScrim.opacityProperty(), 0.55, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventBlur.radiusProperty(), 10.0, javafx.animation.Interpolator.EASE_BOTH)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(1250),
+                        new javafx.animation.KeyValue(eventHeroCard.translateXProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroCard.translateYProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleXProperty(), 4.55, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.24, 1.0)),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleYProperty(), 4.55, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.24, 1.0)),
+                        new javafx.animation.KeyValue(eventHeroCard.rotateProperty(), 720.0, javafx.animation.Interpolator.EASE_OUT),
+                        new javafx.animation.KeyValue(eventHeroTitle.opacityProperty(), 1.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroTitle.translateYProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventFlash.opacityProperty(), 0.20, javafx.animation.Interpolator.EASE_BOTH)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(1500),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleXProperty(), 4.35, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleYProperty(), 4.35, javafx.animation.Interpolator.EASE_BOTH)
+                )
+        );
+
+        javafx.animation.PauseTransition statsDelay =
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(1.7));
+        statsDelay.setOnFinished(e -> applyAnimatedEventStats(req.stats));
+
+        javafx.animation.PauseTransition hold =
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(10));
+
+        javafx.animation.Timeline outro = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(450),
+                        new javafx.animation.KeyValue(eventOverlay.opacityProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventScrim.opacityProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventFlash.opacityProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventBlur.radiusProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleXProperty(), 4.05, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(eventHeroCard.scaleYProperty(), 4.05, javafx.animation.Interpolator.EASE_BOTH)
+                )
+        );
+
+        javafx.animation.SequentialTransition seq =
+                new javafx.animation.SequentialTransition(
+                        intro,
+                        new javafx.animation.ParallelTransition(statsDelay, hold),
+                        outro
+                );
+
+        seq.setOnFinished(e -> {
+            centerScrollPane.setEffect(null);
+            eventOverlay.setVisible(false);
+            eventOverlay.setOpacity(1.0);
+            eventHeroCard.setImage(null);
+            playNextEventAnimation();
+        });
+
+        seq.play();
+    }
+
 
     // ─────────────────────────────────────────────────────────────────────
     //  HEADER
@@ -192,29 +512,43 @@ public class GameScreen {
         topRowBox.setAlignment(Pos.CENTER);
         topRowBox.setMinHeight(CARD_H + 16);
         topRowBox.setPadding(new Insets(8, 0, 8, 0));
+        topRowBox.setMaxWidth(Region.USE_PREF_SIZE);
 
         botRowBox.setAlignment(Pos.CENTER);
         botRowBox.setMinHeight(CARD_H + 16);
         botRowBox.setPadding(new Insets(8, 0, 8, 0));
+        botRowBox.setMaxWidth(Region.USE_PREF_SIZE);
 
         HBox boardRow = new HBox(10);
         boardRow.setAlignment(Pos.CENTER);
+        boardRow.setFillHeight(false);
         boardRow.getChildren().add(buildTurnOrderTrack());
         for (String letter : activeSpaces)
             boardRow.getChildren().add(buildBoardSpace(letter));
 
-        BorderPane center = new BorderPane();
-        center.setTop(topRowBox);
-        center.setCenter(boardRow);
-        center.setBottom(botRowBox);
-        center.setPadding(new Insets(12, 16, 12, 16));
+        VBox centerContent = new VBox(10, topRowBox, boardRow, botRowBox);
+        centerContent.setAlignment(Pos.CENTER);
+        centerContent.setFillWidth(false);
+        centerContent.setPadding(new Insets(12, 16, 12, 16));
+        centerContent.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
 
-        ScrollPane sp = new ScrollPane(center);
-        sp.setFitToWidth(true);
-        sp.setFitToHeight(true);
-        sp.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
+        StackPane centeredWrapper = new StackPane(centerContent);
+        centeredWrapper.setAlignment(Pos.CENTER);
+        centeredWrapper.setPadding(Insets.EMPTY);
+
+        centerScrollPane = new ScrollPane(centeredWrapper);
+        centerScrollPane.setFitToWidth(true);
+        centerScrollPane.setFitToHeight(true);
+        centerScrollPane.setPannable(true);
+        centerScrollPane.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
                 "-fx-border-color:transparent;");
-        return sp;
+
+        centerScrollPane.viewportBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+            centeredWrapper.setMinWidth(newBounds.getWidth());
+            centeredWrapper.setMinHeight(newBounds.getHeight());
+        });
+
+        return centerScrollPane;
     }
 
     // ── Turn order track ─────────────────────────────────────────────────
