@@ -308,10 +308,17 @@ public class GUIView implements ModelObserver {
     @Override
     public void onError(String message) {
         Platform.runLater(() -> {
-            if (lobbyStatusLabel != null)
+            if (gameScreen != null) {
+                gameScreen.showToast(message);
+                return;
+            }
+
+            if (lobbyStatusLabel != null) {
                 lobbyStatusLabel.setText("⚠  " + message);
+            }
         });
     }
+
 
 
     @Override

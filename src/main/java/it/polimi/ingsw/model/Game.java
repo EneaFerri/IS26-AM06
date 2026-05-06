@@ -382,17 +382,95 @@ public class Game implements GameActions {
         }
     }
 
-    /**
+    /*
      * Notifica via observer il giocatore di turno attuale,
      * comunicando la fase corrente.
      * Il GameController la tradurrà in onYourTurn sul client corretto.
      */
+    // così risolviamo il bug del freeze quando non ci sono più carte da pescare
+
+    private static final String AUTO_ADVANCE_MESSAGE =
+            "Non ci sono più carte da pescare. Avanzamento automatico.";
+
+    private boolean hasPickableCardsInRow(Player player, boolean topRow) {
+        List<TribeCard> tribeCards = topRow
+                ? gameBoard.getAvailableUpperTribeCards()
+                : gameBoard.getAvailableBottomTribeCards();
+
+        for (TribeCard card : tribeCards) {
+            if (card.isCharacter()) {
+                return true;
+            }
+        }
+
+        List<BuildingCard> buildingCards = topRow
+                ? gameBoard.getAvailableUpperBuildingCards()
+                : gameBoard.getAvailableBottomBuildingCards();
+
+        int discount = player.foodDiscountToBuyBuildings();
+        for (BuildingCard card : buildingCards) {
+            int actualCost = Math.max(0, card.getFoodCost() - discount);
+            if (player.getFood() >= actualCost) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean consumeUnavailableRowPicks(Player player) {
+        if (player == null || gameState != GameState.PICKING_CARD) return false;
+
+        boolean consumed = false;
+
+        if (getRemainingTopPicks(player) > 0 && !hasPickableCardsInRow(player, true)) {
+            topPicks = player.getTotem().getPosition().getTopCardsNumber();
+            consumed = true;
+        }
+
+        if (getRemainingBottomPicks(player) > 0 && !hasPickableCardsInRow(player, false)) {
+            bottomPicks = player.getTotem().getPosition().getBottomCardsNumber();
+            consumed = true;
+        }
+
+        if (consumed) {
+            for (GameObserver obs : observers) {
+                obs.onPlayerError(AUTO_ADVANCE_MESSAGE);
+            }
+        }
+
+        return consumed;
+    }
+
+
     private void notifyCurrentPlayerTurn() {
+        while (playerInTurn != null && gameState == GameState.PICKING_CARD) {
+            consumeUnavailableRowPicks(playerInTurn);
+
+            if (getRemainingTopPicks(playerInTurn) == 0
+                    && getRemainingBottomPicks(playerInTurn) == 0) {
+                returnTotemToTurnOrder(playerInTurn);
+                advanceNextPlayer();
+
+                if (gameState == GameState.EVENTS) {
+                    resolveEvents();
+                    return;
+                }
+
+                continue;
+            }
+
+            break;
+        }
+
         if (playerInTurn == null) return;
+
         for (GameObserver obs : observers) {
             obs.onTurnStarted(playerInTurn.getNickname(), gameState);
         }
     }
+
+
 
     // ────────────────────────────────────────────────
     //  FINE ROUND: EVENTI (chiamato automaticamente)

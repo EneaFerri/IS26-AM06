@@ -36,6 +36,11 @@ public class GameScreen {
 
     private AnimatedBackground animatedBg;
 
+    private StackPane rootWrapper;
+    private final Label toastLabel = new Label();
+    private javafx.animation.PauseTransition toastPause;
+
+
     // Colori Pantone dei totem (da pedine_specs.pdf)
     private static final Map<TotemColor, String> TOTEM_HEX = Map.of(
             TotemColor.RED,    "#E8472A",
@@ -114,13 +119,32 @@ public class GameScreen {
 
         animatedBg = new AnimatedBackground();
 
-        StackPane wrapper = new StackPane(animatedBg, root);
+        rootWrapper = new StackPane(animatedBg, root);
         StackPane.setAlignment(root, Pos.TOP_LEFT);
 
-        root.prefWidthProperty().bind(wrapper.widthProperty());
-        root.prefHeightProperty().bind(wrapper.heightProperty());
+        root.prefWidthProperty().bind(rootWrapper.widthProperty());
+        root.prefHeightProperty().bind(rootWrapper.heightProperty());
 
-        return new Scene(wrapper, 1400, 860);
+        toastLabel.setVisible(false);
+        toastLabel.setMouseTransparent(true);
+        toastLabel.setWrapText(true);
+        toastLabel.setMaxWidth(460);
+        toastLabel.setAlignment(Pos.CENTER);
+        toastLabel.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:14;-fx-font-weight:bold;-fx-text-fill:white;" +
+                "-fx-background-color:rgba(0,0,0,0.78);" +
+                "-fx-background-radius:16;" +
+                "-fx-border-color:rgba(255,255,255,0.14);" +
+                "-fx-border-radius:16;" +
+                "-fx-padding:12 20 12 20;");
+
+
+        rootWrapper.getChildren().add(toastLabel);
+        StackPane.setAlignment(toastLabel, Pos.TOP_CENTER);
+        StackPane.setMargin(toastLabel, new Insets(86, 0, 0, 0));
+
+        return new Scene(rootWrapper, 1400, 860);
+
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -659,6 +683,35 @@ public class GameScreen {
         pause.setOnFinished(e -> phaseLabel.setStyle(labelStyle(12, "rgba(255,255,255,0.55)")));
         pause.play();
     }
+
+    public void showToast(String message) {
+        toastLabel.setText(message);
+        toastLabel.setOpacity(1.0);
+        toastLabel.setVisible(true);
+        toastLabel.toFront();
+
+        if (toastPause != null) {
+            toastPause.stop();
+        }
+
+        toastPause = new javafx.animation.PauseTransition(
+                javafx.util.Duration.seconds(5));
+        toastPause.setOnFinished(e -> {
+            javafx.animation.FadeTransition fade =
+                    new javafx.animation.FadeTransition(
+                            javafx.util.Duration.millis(250), toastLabel);
+            fade.setFromValue(1.0);
+            fade.setToValue(0.0);
+            fade.setOnFinished(ev -> {
+                toastLabel.setVisible(false);
+                toastLabel.setOpacity(1.0);
+            });
+            fade.play();
+        });
+        toastPause.playFromStart();
+    }
+
+
 
     // ─────────────────────────────────────────────────────────────────────
     //  AZIONI UTENTE

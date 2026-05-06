@@ -227,7 +227,18 @@ public class GameController implements GameObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     @Override public void onPlayerJoined(String nickname) { /* gestito in broadcastPlayerJoined */ }
-    @Override public void onPlayerError(String message)   { /* gestito inline */ }
+    @Override // così gli errori arrivano al client interessato
+    public void onPlayerError(String message) {
+        try {
+            Player current = game.getCurrentPlayer();
+            if (current != null) {
+                safeError(current.getNickname(), message);
+            }
+        } catch (Exception e) {
+            System.err.println("[Controller] onPlayerError: " + e.getMessage());
+        }
+    }
+
     @Override public void onGameStarted()                 { /* gestito in checkAndStartIfReady */ }
 
     /**
