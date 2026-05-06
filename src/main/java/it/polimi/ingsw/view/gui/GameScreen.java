@@ -116,6 +116,21 @@ public class GameScreen {
     private final javafx.scene.effect.GaussianBlur eventBlur =
             new javafx.scene.effect.GaussianBlur(0);
 
+    // overlay separato per il dettaglio carta. lo tengo distinto da quello degli eventi così non si pestano i piedi
+    private final StackPane cardDetailOverlay = new StackPane();
+    private final Rectangle cardDetailScrim = new Rectangle();
+    private final VBox cardDetailPanel = new VBox(16);
+    private final ImageView cardDetailImage = new ImageView();
+    private final Label cardDetailTitle = new Label("DETTAGLIO CARTA");
+    private final Label cardDetailSubtitle = new Label();
+    private final Label cardDetailHint = new Label(
+            "Click fuori, premi ESC o usa il bottone qui sotto per tornare alla partita."
+    );
+
+    private final javafx.scene.effect.GaussianBlur cardDetailBlur =
+            new javafx.scene.effect.GaussianBlur(0);
+
+
     private static final class EventAnimationRequest {
         final String eventName;
         final int cardId;
@@ -245,7 +260,21 @@ public class GameScreen {
         rootWrapper.getChildren().add(eventOverlay);
         StackPane.setAlignment(eventOverlay, Pos.CENTER);
 
-        return new Scene(rootWrapper, 1400, 860);
+        // effetto per vedere i dettagli della carta
+        rootWrapper.getChildren().add(buildCardDetailOverlay());
+        StackPane.setAlignment(cardDetailOverlay, Pos.CENTER);
+
+        Scene scene = new Scene(rootWrapper, 1400, 860);
+
+        scene.setOnKeyPressed(e -> {
+            // esc cosi si puo anche non smenare il mouse
+            if (cardDetailOverlay.isVisible()
+                    && e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                hideCardDetail();
+            }
+        });
+
+        return scene;
     }
 
 
@@ -279,6 +308,207 @@ public class GameScreen {
         var url = getClass().getResource("/gui/cards/card_" + cardId + ".png");
         return url != null ? new Image(url.toExternalForm()) : null;
     }
+
+    // da solo un po difficile
+    private StackPane buildCardDetailOverlay() {
+        cardDetailScrim.setFill(Color.rgb(6, 8, 14, 0.82));
+        cardDetailScrim.setOpacity(0.0);
+        cardDetailScrim.widthProperty().bind(rootWrapper.widthProperty());
+        cardDetailScrim.heightProperty().bind(rootWrapper.heightProperty());
+
+        cardDetailImage.setPreserveRatio(true);
+        cardDetailImage.setFitWidth(CARD_W * 4.9);
+        cardDetailImage.setFitHeight(CARD_H * 4.9);
+        cardDetailImage.setSmooth(true);
+        cardDetailImage.setCache(true);
+
+        cardDetailTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:30;-fx-font-weight:bold;-fx-text-fill:white;");
+
+        cardDetailSubtitle.setWrapText(true);
+        cardDetailSubtitle.setAlignment(Pos.CENTER);
+        cardDetailSubtitle.setTextAlignment(TextAlignment.CENTER);
+        cardDetailSubtitle.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:13;-fx-text-fill:rgba(255,255,255,0.72);");
+
+        cardDetailHint.setWrapText(true);
+        cardDetailHint.setAlignment(Pos.CENTER);
+        cardDetailHint.setTextAlignment(TextAlignment.CENTER);
+        cardDetailHint.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:12;-fx-text-fill:rgba(255,255,255,0.42);");
+
+        Button closeBtn = new Button("Chiudi");
+        closeBtn.setPrefHeight(40);
+        closeBtn.setPrefWidth(150);
+        closeBtn.setStyle("-fx-background-color:#007AFF;" +
+                "-fx-background-radius:14;" +
+                "-fx-text-fill:white;" +
+                "-fx-font-size:14;" +
+                "-fx-font-weight:bold;" +
+                "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-cursor:hand;");
+        closeBtn.setOnAction(e -> hideCardDetail());
+
+        cardDetailPanel.setAlignment(Pos.CENTER);
+        cardDetailPanel.setMaxWidth(760);
+        cardDetailPanel.setPadding(new Insets(26, 28, 24, 28));
+        cardDetailPanel.setStyle("-fx-background-color:rgba(18,22,34,0.96);" +
+                "-fx-background-radius:28;" +
+                "-fx-border-color:rgba(255,255,255,0.11);" +
+                "-fx-border-radius:28;" +
+                "-fx-border-width:1;");
+        cardDetailPanel.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.48)));
+
+        // consumo il click sul pannello così il click fuori chiude, quello dentro no
+        cardDetailPanel.setOnMouseClicked(e -> e.consume());
+
+        cardDetailPanel.getChildren().setAll(
+                cardDetailTitle,
+                cardDetailSubtitle,
+                cardDetailImage,
+                cardDetailHint,
+                closeBtn
+        );
+
+        StackPane panelHolder = new StackPane(cardDetailPanel);
+        panelHolder.setPadding(new Insets(40));
+        panelHolder.setPickOnBounds(false);
+
+        cardDetailOverlay.getChildren().setAll(cardDetailScrim, panelHolder);
+        cardDetailOverlay.setVisible(false);
+        cardDetailOverlay.setMouseTransparent(true);
+        cardDetailOverlay.setOpacity(1.0);
+
+        // click sullo sfondo = chiusura rapida del dettaglio
+        cardDetailOverlay.setOnMouseClicked(e -> hideCardDetail());
+
+        return cardDetailOverlay;
+    }
+
+    private Image buildCardDetailImage(int cardId) {
+        var url = getClass().getResource("/gui/cards/card_" + cardId + ".png");
+        return url != null ? new Image(url.toExternalForm()) : null;
+    }
+
+    private String cardTypeLabel(int cardId) {
+        if (cardId >= 200) return "Carta evento";
+        if (cardId >= 100) return "Carta edificio";
+        return "Carta personaggio";
+    }
+
+    private void showCardDetail(int cardId) {
+        Image img = buildCardDetailImage(cardId);
+
+        if (img == null) {
+            // meglio dare feedback esplicito che lasciare un click morto
+            showErrorMessage("Immagine non trovata per la carta " + cardId);
+            return;
+        }
+
+        cardDetailImage.setImage(img);
+        cardDetailTitle.setText("DETTAGLIO CARTA");
+        cardDetailSubtitle.setText(cardTypeLabel(cardId) + "  •  ID " + cardId);
+
+        cardDetailOverlay.setVisible(true);
+        cardDetailOverlay.setMouseTransparent(false);
+        cardDetailOverlay.setOpacity(1.0);
+        cardDetailOverlay.toFront();
+
+        cardDetailPanel.setOpacity(0.0);
+        cardDetailPanel.setScaleX(0.92);
+        cardDetailPanel.setScaleY(0.92);
+        cardDetailPanel.setTranslateY(24);
+
+        cardDetailScrim.setOpacity(0.0);
+
+        mainRoot.setEffect(cardDetailBlur);
+        cardDetailBlur.setRadius(0.0);
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), cardDetailScrim);
+        scrimFade.setFromValue(0.0);
+        scrimFade.setToValue(1.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), cardDetailPanel);
+        panelFade.setFromValue(0.0);
+        panelFade.setToValue(1.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(260), cardDetailPanel);
+        panelScale.setFromX(0.92);
+        panelScale.setFromY(0.92);
+        panelScale.setToX(1.0);
+        panelScale.setToY(1.0);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(260), cardDetailPanel);
+        panelSlide.setFromY(24);
+        panelSlide.setToY(0);
+
+        javafx.animation.Timeline blurIn = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(260),
+                        new javafx.animation.KeyValue(
+                                cardDetailBlur.radiusProperty(), 10.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide, blurIn
+        ).play();
+    }
+
+    private void hideCardDetail() {
+        if (!cardDetailOverlay.isVisible()) return;
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), cardDetailScrim);
+        scrimFade.setFromValue(cardDetailScrim.getOpacity());
+        scrimFade.setToValue(0.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), cardDetailPanel);
+        panelFade.setFromValue(cardDetailPanel.getOpacity());
+        panelFade.setToValue(0.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(180), cardDetailPanel);
+        panelScale.setFromX(cardDetailPanel.getScaleX());
+        panelScale.setFromY(cardDetailPanel.getScaleY());
+        panelScale.setToX(0.95);
+        panelScale.setToY(0.95);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(180), cardDetailPanel);
+        panelSlide.setFromY(cardDetailPanel.getTranslateY());
+        panelSlide.setToY(18);
+
+        javafx.animation.Timeline blurOut = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(180),
+                        new javafx.animation.KeyValue(
+                                cardDetailBlur.radiusProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        javafx.animation.ParallelTransition close =
+                new javafx.animation.ParallelTransition(
+                        scrimFade, panelFade, panelScale, panelSlide, blurOut
+                );
+
+        close.setOnFinished(e -> {
+            cardDetailOverlay.setVisible(false);
+            cardDetailOverlay.setMouseTransparent(true);
+            cardDetailImage.setImage(null);
+            mainRoot.setEffect(null);
+        });
+
+        close.play();
+    }
+
 
 
     private int extractLabelNumber(Label label) {
@@ -950,36 +1180,53 @@ public class GameScreen {
 
             if (isEventCard(cardId)) {
                 card.setOpacity(0.65);
-                card.setCursor(javafx.scene.Cursor.DEFAULT);
                 card.setStyle("-fx-background-radius:6;" +
                         "-fx-border-color:#FFD700;-fx-border-width:2;" +
                         "-fx-border-radius:6;");
+                card.setCursor(javafx.scene.Cursor.HAND);
+
+                // visto che le carte evento non sono mai pescabili qui il click apre solo il dettaglio
+                card.setOnMouseClicked(e -> showCardDetail(cardId));
+            } else if (rowPickable && isMyTurn) {
+                card.setOnMouseEntered(e ->
+                        card.setEffect(new DropShadow(16, Color.web("#34C759"))));
+                card.setOnMouseExited(e -> card.setEffect(null));
+
+                card.setOnMouseClicked(e -> {
+                    // tasto destro per il dettaglio rapido cosi non interferisce con la pick vera
+                    if (e.getButton() == javafx.scene.input.MouseButton.SECONDARY) {
+                        showCardDetail(cardId);
+                        return;
+                    }
+
+                    if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY) return;
+
+                    card.setOpacity(0.5);
+                    card.setDisable(true);
+
+                    new Thread(() -> {
+                        try {
+                            server.pickCard(myNick, index, fromTop);
+                        } catch (Exception ex) {
+                            javafx.application.Platform.runLater(() -> {
+                                card.setOpacity(1.0);
+                                card.setDisable(false);
+                                showErrorMessage("Errore: " + ex.getMessage());
+                            });
+                        }
+                    }, "gui-pick").start();
+                });
             } else {
-                if (rowPickable && isMyTurn) {
-                    card.setOnMouseEntered(e ->
-                            card.setEffect(new DropShadow(16, Color.web("#34C759"))));
-                    card.setOnMouseExited(e -> card.setEffect(null));
-                    card.setOnMouseClicked(e -> {
-                        card.setOpacity(0.5);
-                        card.setDisable(true);
-                        new Thread(() -> {
-                            try { server.pickCard(myNick, index, fromTop); }
-                            catch (Exception ex) {
-                                javafx.application.Platform.runLater(() -> {
-                                    card.setOpacity(1.0);
-                                    card.setDisable(false);
-                                    showErrorMessage("Errore: " + ex.getMessage());
-                                });
-                            }
-                        }, "gui-pick").start();
-                    });
-                } else {
-                    card.setCursor(javafx.scene.Cursor.DEFAULT);
-                }
+                card.setCursor(javafx.scene.Cursor.HAND);
+
+                // quando non sono in una fase di pick il click serve a ispezionare la carta
+                card.setOnMouseClicked(e -> showCardDetail(cardId));
             }
+
             row.getChildren().add(card);
         }
     }
+
 
     public void setOtherPlayerTurn(String currentPlayer) {
         this.isMyTurn = false;
@@ -1062,9 +1309,9 @@ public class GameScreen {
         }, "gui-place-totem").start();
     }
 
-    private void showCardDetail(int cardId) {
+ //   private void showCardDetail(int cardId) {
         // TODO step 4 — modal con immagine grande + effetto frosted glass
-    }
+ //   }
 
     private void showError(String msg) {
         turnLabel.setText("⚠ " + msg);
