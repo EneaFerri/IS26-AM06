@@ -94,6 +94,9 @@ public class GameScreen {
     private final Map<String, Label> playerPrestigeLabels = new HashMap<>();
     private final Map<String, Label> playerFoodLabels     = new HashMap<>();
 
+    private final Map<String, Circle> playerTotemDots     = new HashMap<>();
+    private final Map<String, TotemColor> playerTotemColors = new HashMap<>();
+
     // ── Spazi offerta in ordine ───────────────────────────────────────────
     private static final List<String> SPACES = List.of("A","B","C","D","E","F","G");
 
@@ -564,6 +567,31 @@ public class GameScreen {
         if (cardId >= 200) return "Carta evento";
         if (cardId >= 100) return "Carta edificio";
         return "Carta personaggio";
+    }
+
+    //helper per pin totem sulla destra
+    private void applyPlayerTotemColor(String nick, TotemColor color) {
+        if (nick == null) return;
+
+        Circle dot = playerTotemDots.get(nick);
+        if (dot == null) return;
+
+        if (color == null) {
+            playerTotemColors.remove(nick);
+            dot.setFill(Color.TRANSPARENT);
+            dot.setStroke(Color.rgb(255, 255, 255, 0.18));
+            dot.setStrokeWidth(0.8);
+            return;
+        }
+
+        playerTotemColors.put(nick, color);
+
+        String hex = TOTEM_HEX.getOrDefault(color, "#888");
+        dot.setFill(Color.web(hex));
+        dot.setStroke(color == TotemColor.WHITE
+                ? Color.rgb(255, 255, 255, 0.92)
+                : Color.rgb(255, 255, 255, 0.28));
+        dot.setStrokeWidth(color == TotemColor.WHITE ? 1.5 : 0.9);
     }
 
     private void showCardDetail(int cardId) {
@@ -1068,12 +1096,12 @@ public class GameScreen {
     }
 
     private VBox buildPlayerCard(String nick, boolean isMe) {
-        // Colore totem del giocatore (placeholder finché non arriva dal server)
-        TotemColor color = assignTotemColor(nick);
-        String hex = TOTEM_HEX.getOrDefault(color, "#888");
+        TotemColor color = playerTotemColors.get(nick);
 
         // Indicatore colore
-        Circle dot = new Circle(5, Color.web(hex));
+        Circle dot = new Circle(5);
+        playerTotemDots.put(nick, dot);
+        applyPlayerTotemColor(nick, color);
 
         Label nickLbl = new Label(nick + (isMe ? " (tu)" : ""));
         nickLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
@@ -1223,6 +1251,7 @@ public class GameScreen {
         if (slot == null) return;
 
         playerOnSpace.put(nickname, letter); // ← tieni traccia
+        applyPlayerTotemColor(nickname, color);
 
         String hex = TOTEM_HEX.getOrDefault(color, "#888");
         ImageView totemImg = loadImage(
@@ -1254,6 +1283,7 @@ public class GameScreen {
         turnOrderTotemSlots.getChildren().clear();
         for (String nick : orderedNicknames) {
             TotemColor color = totemColors.getOrDefault(nick, TotemColor.BLUE);
+            applyPlayerTotemColor(nick, color);
             ImageView tv = loadImage(
                     "/gui/totems/totem_" + color.name().toLowerCase() + ".png", 22, 28);
             turnOrderTotemSlots.getChildren().add(tv);
