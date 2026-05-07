@@ -17,6 +17,7 @@ import javafx.scene.text.*;
 import javafx.stage.Stage;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.effect.GaussianBlur;
+import javafx.beans.binding.Bindings;
 
 
 import java.util.*;
@@ -119,6 +120,10 @@ public class GameScreen {
     // overlay separato per il dettaglio carta. lo tengo distinto da quello degli eventi così non si pestano i piedi
     private final StackPane cardDetailOverlay = new StackPane();
     private final Rectangle cardDetailScrim = new Rectangle();
+
+    private final StackPane cardDetailGlass = new StackPane();
+    private final LiquidGlassPane cardDetailLiquidGlass = new LiquidGlassPane();
+
     private final VBox cardDetailPanel = new VBox(16);
     private final ImageView cardDetailImage = new ImageView();
     private final Label cardDetailTitle = new Label("DETTAGLIO CARTA");
@@ -130,6 +135,114 @@ public class GameScreen {
     private final javafx.scene.effect.GaussianBlur cardDetailBlur =
             new javafx.scene.effect.GaussianBlur(0);
 
+
+    private static final class LiquidGlassPane extends Pane {
+        private final javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas();
+        private final javafx.animation.AnimationTimer timer;
+        private double t = 0.0;
+
+        LiquidGlassPane() {
+            setMouseTransparent(true);
+            setOpacity(0.92);
+            getChildren().add(canvas);
+
+            canvas.widthProperty().bind(widthProperty());
+            canvas.heightProperty().bind(heightProperty());
+
+            widthProperty().addListener((obs, oldVal, newVal) -> paint());
+            heightProperty().addListener((obs, oldVal, newVal) -> paint());
+
+            timer = new javafx.animation.AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    t += 0.012;
+                    paint();
+                }
+            };
+            timer.start();
+        }
+
+        private void paint() {
+            double w = getWidth();
+            double h = getHeight();
+            if (w <= 0 || h <= 0) return;
+
+            javafx.scene.canvas.GraphicsContext g = canvas.getGraphicsContext2D();
+            g.clearRect(0, 0, w, h);
+
+            g.setGlobalAlpha(0.55);
+            g.setFill(new RadialGradient(
+                    0, 0,
+                    0.24 + 0.04 * Math.sin(t * 0.42),
+                    0.16 + 0.03 * Math.cos(t * 0.34),
+                    0.92,
+                    true,
+                    CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.rgb(255, 255, 255, 0.86)),
+                    new Stop(0.36, Color.rgb(244, 247, 255, 0.48)),
+                    new Stop(0.72, Color.rgb(204, 218, 238, 0.18)),
+                    new Stop(1.00, Color.rgb(255, 255, 255, 0.00))
+            ));
+            g.fillRect(0, 0, w, h);
+
+            g.setGlobalAlpha(0.28);
+            g.setFill(new LinearGradient(
+                    0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.rgb(255, 255, 255, 0.54)),
+                    new Stop(0.18, Color.rgb(255, 255, 255, 0.18)),
+                    new Stop(0.58, Color.rgb(205, 218, 235, 0.10)),
+                    new Stop(1.00, Color.rgb(117, 136, 160, 0.12))
+            ));
+            g.fillRoundRect(0, 0, w, h, 56, 56);
+
+            g.setGlobalAlpha(0.44);
+            g.setFill(new LinearGradient(
+                    0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.rgb(255, 255, 255, 0.78)),
+                    new Stop(0.10, Color.rgb(255, 255, 255, 0.38)),
+                    new Stop(0.34, Color.rgb(255, 255, 255, 0.06)),
+                    new Stop(1.00, Color.rgb(255, 255, 255, 0.00))
+            ));
+            g.save();
+            g.translate(Math.sin(t * 0.22) * w * 0.008, Math.cos(t * 0.16) * h * 0.006);
+            g.rotate(-9.5);
+            g.fillRoundRect(w * -0.04, h * 0.00, w * 0.72, h * 0.28, 54, 54);
+            g.restore();
+
+            g.setGlobalAlpha(0.18);
+            g.setFill(new RadialGradient(
+                    0, 0,
+                    0.68 + 0.02 * Math.cos(t * 0.28),
+                    0.44 + 0.02 * Math.sin(t * 0.24),
+                    0.52,
+                    true,
+                    CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.rgb(255, 255, 255, 0.30)),
+                    new Stop(0.55, Color.rgb(220, 228, 242, 0.08)),
+                    new Stop(1.00, Color.rgb(255, 255, 255, 0.00))
+            ));
+            g.fillOval(w * 0.40, h * 0.16, w * 0.54, h * 0.66);
+
+            g.setGlobalAlpha(0.42);
+            g.setFill(new LinearGradient(
+                    0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                    new Stop(0.00, Color.rgb(255, 255, 255, 0.00)),
+                    new Stop(0.18, Color.rgb(255, 120, 120, 0.16)),
+                    new Stop(0.38, Color.rgb(255, 214, 120, 0.24)),
+                    new Stop(0.58, Color.rgb(170, 255, 214, 0.22)),
+                    new Stop(0.78, Color.rgb(130, 190, 255, 0.18)),
+                    new Stop(1.00, Color.rgb(255, 255, 255, 0.00))
+            ));
+            g.fillRoundRect(w * 0.34, h * 0.952, w * 0.30, Math.max(2.0, h * 0.012), 12, 12);
+
+            g.setGlobalAlpha(0.12);
+            g.setStroke(Color.rgb(120, 130, 150, 0.85));
+            g.setLineWidth(1.0);
+            g.strokeRoundRect(1.0, 1.0, w - 2.0, h - 2.0, 56, 56);
+
+            g.setGlobalAlpha(1.0);
+        }
+    }
 
     private static final class EventAnimationRequest {
         final String eventName;
@@ -311,16 +424,23 @@ public class GameScreen {
 
     // da solo un po difficile
     private StackPane buildCardDetailOverlay() {
-        cardDetailScrim.setFill(Color.rgb(6, 8, 14, 0.82));
+        cardDetailScrim.setFill(Color.rgb(10, 14, 20, 0.22));
         cardDetailScrim.setOpacity(0.0);
         cardDetailScrim.widthProperty().bind(rootWrapper.widthProperty());
         cardDetailScrim.heightProperty().bind(rootWrapper.heightProperty());
 
         cardDetailImage.setPreserveRatio(true);
-        cardDetailImage.setFitWidth(CARD_W * 4.9);
-        cardDetailImage.setFitHeight(CARD_H * 4.9);
+        cardDetailImage.fitWidthProperty().bind(Bindings.min(
+                rootWrapper.widthProperty().multiply(0.40),
+                rootWrapper.heightProperty().multiply(0.58 * CARD_W / CARD_H)
+        ));
+        cardDetailImage.fitHeightProperty().bind(Bindings.min(
+                rootWrapper.heightProperty().multiply(0.58),
+                rootWrapper.widthProperty().multiply(0.40 * CARD_H / CARD_W)
+        ));
         cardDetailImage.setSmooth(true);
         cardDetailImage.setCache(true);
+        cardDetailImage.setEffect(new DropShadow(30, Color.rgb(0, 0, 0, 0.50)));
 
         cardDetailTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
                 "-fx-font-size:30;-fx-font-weight:bold;-fx-text-fill:white;");
@@ -340,27 +460,25 @@ public class GameScreen {
         Button closeBtn = new Button("Chiudi");
         closeBtn.setPrefHeight(40);
         closeBtn.setPrefWidth(150);
-        closeBtn.setStyle("-fx-background-color:#007AFF;" +
-                "-fx-background-radius:14;" +
+        closeBtn.setStyle("-fx-background-color:linear-gradient(to bottom, rgba(255,255,255,0.34), rgba(255,255,255,0.14));" +
+                "-fx-background-radius:18;" +
                 "-fx-text-fill:white;" +
                 "-fx-font-size:14;" +
                 "-fx-font-weight:bold;" +
                 "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-border-color:rgba(255,255,255,0.36);" +
+                "-fx-border-radius:18;" +
+                "-fx-border-width:1.1;" +
                 "-fx-cursor:hand;");
         closeBtn.setOnAction(e -> hideCardDetail());
 
         cardDetailPanel.setAlignment(Pos.CENTER);
-        cardDetailPanel.setMaxWidth(760);
+        cardDetailPanel.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         cardDetailPanel.setPadding(new Insets(26, 28, 24, 28));
-        cardDetailPanel.setStyle("-fx-background-color:rgba(18,22,34,0.96);" +
-                "-fx-background-radius:28;" +
-                "-fx-border-color:rgba(255,255,255,0.11);" +
-                "-fx-border-radius:28;" +
-                "-fx-border-width:1;");
-        cardDetailPanel.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.48)));
+        cardDetailPanel.setStyle("-fx-background-color:transparent;");
 
         // consumo il click sul pannello così il click fuori chiude, quello dentro no
-        cardDetailPanel.setOnMouseClicked(e -> e.consume());
+        cardDetailGlass.setOnMouseClicked(e -> e.consume());
 
         cardDetailPanel.getChildren().setAll(
                 cardDetailTitle,
@@ -370,8 +488,60 @@ public class GameScreen {
                 closeBtn
         );
 
-        StackPane panelHolder = new StackPane(cardDetailPanel);
-        panelHolder.setPadding(new Insets(40));
+        Rectangle glassClip = new Rectangle();
+        glassClip.setArcWidth(64);
+        glassClip.setArcHeight(64);
+        glassClip.widthProperty().bind(cardDetailGlass.widthProperty());
+        glassClip.heightProperty().bind(cardDetailGlass.heightProperty());
+
+        Rectangle glassWash = new Rectangle();
+        glassWash.setArcWidth(64);
+        glassWash.setArcHeight(64);
+        glassWash.widthProperty().bind(cardDetailGlass.widthProperty());
+        glassWash.heightProperty().bind(cardDetailGlass.heightProperty());
+        glassWash.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 255, 255, 0.44)),
+                new Stop(0.24, Color.rgb(250, 252, 255, 0.18)),
+                new Stop(0.62, Color.rgb(196, 210, 228, 0.11)),
+                new Stop(1.00, Color.rgb(255, 255, 255, 0.16))
+        ));
+
+        Rectangle topGlint = new Rectangle();
+        topGlint.setHeight(2.0);
+        topGlint.setArcWidth(60);
+        topGlint.setArcHeight(60);
+        topGlint.widthProperty().bind(cardDetailGlass.widthProperty().multiply(0.88));
+        topGlint.setFill(new LinearGradient(
+                0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(255, 255, 255, 0.00)),
+                new Stop(0.5, Color.rgb(255, 255, 255, 0.92)),
+                new Stop(1.0, Color.rgb(255, 255, 255, 0.00))
+        ));
+        topGlint.setMouseTransparent(true);
+
+        cardDetailLiquidGlass.prefWidthProperty().bind(cardDetailGlass.widthProperty());
+        cardDetailLiquidGlass.prefHeightProperty().bind(cardDetailGlass.heightProperty());
+
+        cardDetailGlass.prefWidthProperty().bind(Bindings.min(
+                rootWrapper.widthProperty().multiply(0.56),
+                760
+        ));
+        cardDetailGlass.maxWidthProperty().bind(cardDetailGlass.prefWidthProperty());
+        cardDetailGlass.prefHeightProperty().bind(Bindings.min(
+                rootWrapper.heightProperty().multiply(0.84),
+                760
+        ));
+        cardDetailGlass.maxHeightProperty().bind(cardDetailGlass.prefHeightProperty());
+        cardDetailGlass.setMinSize(340, 430);
+        cardDetailGlass.setClip(glassClip);
+        cardDetailGlass.getChildren().setAll(glassWash, cardDetailLiquidGlass, cardDetailPanel, topGlint);
+        StackPane.setAlignment(topGlint, Pos.TOP_CENTER);
+        StackPane.setMargin(topGlint, new Insets(16, 0, 0, 0));
+        cardDetailGlass.setEffect(new DropShadow(54, Color.rgb(36, 48, 68, 0.24)));
+
+        StackPane panelHolder = new StackPane(cardDetailGlass);
+        panelHolder.setPadding(new Insets(28));
         panelHolder.setPickOnBounds(false);
 
         cardDetailOverlay.getChildren().setAll(cardDetailScrim, panelHolder);
@@ -414,10 +584,10 @@ public class GameScreen {
         cardDetailOverlay.setOpacity(1.0);
         cardDetailOverlay.toFront();
 
-        cardDetailPanel.setOpacity(0.0);
-        cardDetailPanel.setScaleX(0.92);
-        cardDetailPanel.setScaleY(0.92);
-        cardDetailPanel.setTranslateY(24);
+        cardDetailGlass.setOpacity(0.0);
+        cardDetailGlass.setScaleX(0.92);
+        cardDetailGlass.setScaleY(0.92);
+        cardDetailGlass.setTranslateY(24);
 
         cardDetailScrim.setOpacity(0.0);
 
@@ -430,19 +600,19 @@ public class GameScreen {
         scrimFade.setToValue(1.0);
 
         javafx.animation.FadeTransition panelFade =
-                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), cardDetailPanel);
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), cardDetailGlass);
         panelFade.setFromValue(0.0);
         panelFade.setToValue(1.0);
 
         javafx.animation.ScaleTransition panelScale =
-                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(260), cardDetailPanel);
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(260), cardDetailGlass);
         panelScale.setFromX(0.92);
         panelScale.setFromY(0.92);
         panelScale.setToX(1.0);
         panelScale.setToY(1.0);
 
         javafx.animation.TranslateTransition panelSlide =
-                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(260), cardDetailPanel);
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(260), cardDetailGlass);
         panelSlide.setFromY(24);
         panelSlide.setToY(0);
 
@@ -450,7 +620,7 @@ public class GameScreen {
                 new javafx.animation.KeyFrame(
                         javafx.util.Duration.millis(260),
                         new javafx.animation.KeyValue(
-                                cardDetailBlur.radiusProperty(), 10.0, javafx.animation.Interpolator.EASE_BOTH
+                                cardDetailBlur.radiusProperty(), 22.0, javafx.animation.Interpolator.EASE_BOTH
                         )
                 )
         );
@@ -469,20 +639,20 @@ public class GameScreen {
         scrimFade.setToValue(0.0);
 
         javafx.animation.FadeTransition panelFade =
-                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), cardDetailPanel);
-        panelFade.setFromValue(cardDetailPanel.getOpacity());
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), cardDetailGlass);
+        panelFade.setFromValue(cardDetailGlass.getOpacity());
         panelFade.setToValue(0.0);
 
         javafx.animation.ScaleTransition panelScale =
-                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(180), cardDetailPanel);
-        panelScale.setFromX(cardDetailPanel.getScaleX());
-        panelScale.setFromY(cardDetailPanel.getScaleY());
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(180), cardDetailGlass);
+        panelScale.setFromX(cardDetailGlass.getScaleX());
+        panelScale.setFromY(cardDetailGlass.getScaleY());
         panelScale.setToX(0.95);
         panelScale.setToY(0.95);
 
         javafx.animation.TranslateTransition panelSlide =
-                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(180), cardDetailPanel);
-        panelSlide.setFromY(cardDetailPanel.getTranslateY());
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(180), cardDetailGlass);
+        panelSlide.setFromY(cardDetailGlass.getTranslateY());
         panelSlide.setToY(18);
 
         javafx.animation.Timeline blurOut = new javafx.animation.Timeline(
