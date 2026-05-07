@@ -278,14 +278,33 @@ public class GameScreen {
     }
 
 
+    // === SPECTATOR ===
+    private final boolean   isSpectator;
+    private final GUIView   guiView;     // needed for "Torna alla Lobby" callback
+    // === END SPECTATOR ===
+
     public GameScreen(GameServerProxy server, ClientModel model,
                       String myNick, List<String> players, List<String> activeSpaces) {
+        this(server, model, myNick, players, activeSpaces, false, null);
+    }
+
+    // === SPECTATOR ===
+    /**
+     * Full constructor used when entering as spectator.
+     * isSpectator=true disables all game actions and shows the "Torna alla Lobby" button.
+     */
+    public GameScreen(GameServerProxy server, ClientModel model,
+                      String myNick, List<String> players, List<String> activeSpaces,
+                      boolean isSpectator, GUIView guiView) {
         this.server       = server;
         this.model        = model;
         this.myNick       = myNick;
         this.players      = players;
         this.activeSpaces = activeSpaces;
+        this.isSpectator  = isSpectator;
+        this.guiView      = guiView;
     }
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  BUILD SCENE
@@ -400,6 +419,35 @@ public class GameScreen {
         // effetto per vedere i dettagli della carta
         rootWrapper.getChildren().add(buildCardDetailOverlay());
         StackPane.setAlignment(cardDetailOverlay, Pos.CENTER);
+
+        // === SPECTATOR: overlay button to leave spectator mode ===
+        if (isSpectator) {
+            Label spectatorBadge = new Label("MODALITÀ SPETTATORE");
+            spectatorBadge.setStyle(
+                    "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                    "-fx-font-size:11;-fx-font-weight:bold;" +
+                    "-fx-text-fill:rgba(255,255,255,0.70);" +
+                    "-fx-background-color:rgba(0,0,0,0.45);" +
+                    "-fx-background-radius:8;-fx-padding:4 10 4 10;");
+
+            Button backBtn = new Button("Torna alla Lobby");
+            backBtn.setStyle(
+                    "-fx-background-color:#FF9F0A;-fx-background-radius:12;" +
+                    "-fx-text-fill:white;-fx-font-size:13;-fx-font-weight:bold;" +
+                    "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                    "-fx-cursor:hand;-fx-padding:8 18 8 18;");
+            backBtn.setOnAction(e -> {
+                if (guiView != null) guiView.leaveSpectatorView();
+            });
+
+            VBox spectatorBar = new VBox(6, spectatorBadge, backBtn);
+            spectatorBar.setAlignment(Pos.CENTER_RIGHT);
+            spectatorBar.setPadding(new Insets(12, 16, 0, 0));
+            spectatorBar.setMouseTransparent(false);
+            rootWrapper.getChildren().add(spectatorBar);
+            StackPane.setAlignment(spectatorBar, Pos.TOP_RIGHT);
+        }
+        // === END SPECTATOR ===
 
         Scene scene = new Scene(rootWrapper, 1400, 860);
 

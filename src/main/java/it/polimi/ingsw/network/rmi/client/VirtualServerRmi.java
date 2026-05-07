@@ -18,6 +18,8 @@ public interface VirtualServerRmi extends Remote, VirtualServer<VirtualViewRmi> 
     void loginFirstPlayer(String nickname, int numPlayers, VirtualViewRmi clientStub) throws RemoteException;
     @Override
     void login(String nickname, VirtualViewRmi clientStub)                            throws RemoteException;
+    @Override
+    void loginToLobby(String nickname, int lobbyId, VirtualViewRmi clientStub)        throws RemoteException;
 
     @Override
     void requestLobbyList(VirtualViewRmi clientView)                                  throws RemoteException;
@@ -29,4 +31,15 @@ public interface VirtualServerRmi extends Remote, VirtualServer<VirtualViewRmi> 
     // --- FASE 2: SELEZIONE CARTA ---
     @Override
     void pickCard(String nickname, int cardIndex, boolean fromTop)                    throws RemoteException;
+
+    // === SPECTATOR ===
+    @Override
+    void joinAsSpectator(String nickname, int lobbyId, VirtualViewRmi clientView)     throws RemoteException;
+    @Override
+    void leaveSpectator(String nickname, VirtualViewRmi clientView)                   throws RemoteException;
+    // === END SPECTATOR ===
+
+    // --- HEARTBEAT ---
+    /** Client calls this periodically to verify the server is still alive. */
+    void ping() throws RemoteException;
 }

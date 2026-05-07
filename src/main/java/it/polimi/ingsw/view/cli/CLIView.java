@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * CLI view — transport-agnostic.
@@ -40,7 +41,10 @@ public class CLIView implements ModelObserver {
     /** "OK" = action accepted | "RETRY:<msg>" = action rejected */
     private final LinkedBlockingQueue<String> actionResultQueue = new LinkedBlockingQueue<>(1);
 
-    private volatile String myNick = "";
+    private volatile String  myNick      = "";
+    // === SPECTATOR ===
+    private volatile boolean isSpectator = false;
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
 
@@ -137,18 +141,76 @@ public class CLIView implements ModelObserver {
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
         // Runs on a callback thread — spawn a new thread for blocking scanner input.
         new Thread(() -> {
-            if (lobbies.isEmpty()) { onNoLobbyAvailable(); return; }
+            // === SPECTATOR: if returning from spectator mode, just show the updated list ===
+            // The spectator-exit thread has already cleared isSpectator.
+            // This list arrives as the server's reply to leaveSpectator().
+            // Fall through to normal display.
+            // === END SPECTATOR ===
 
-            System.out.println("\n  Lobby disponibili:");
-            lobbies.forEach(l -> System.out.println("    " + l));
-            System.out.println("  Premi INVIO per unirti alla prima, oppure digita 'nuova' per crearne una.");
+            List<LobbyManager.LobbyInfo> open = lobbies.stream()
+                    .filter(l -> !l.inProgress()).collect(Collectors.toList());
+            List<LobbyManager.LobbyInfo> inProgress = lobbies.stream()
+                    .filter(LobbyManager.LobbyInfo::inProgress).collect(Collectors.toList());
+
+            if (open.isEmpty() && inProgress.isEmpty()) {
+                onNoLobbyAvailable();
+                return;
+            }
+
+            System.out.println();
+            if (!open.isEmpty()) {
+                System.out.println("  Lobby aperte:");
+                for (int i = 0; i < open.size(); i++) {
+                    System.out.printf("    [%d] %s%n", i + 1, open.get(i));
+                }
+            } else {
+                System.out.println("  Nessuna lobby aperta.");
+            }
+
+            // === SPECTATOR ===
+            if (!inProgress.isEmpty()) {
+                System.out.println("  Partite in corso (solo spettatori):");
+                for (int i = 0; i < inProgress.size(); i++) {
+                    System.out.printf("    [s%d] %s%n", i + 1, inProgress.get(i));
+                }
+            }
+            // === END SPECTATOR ===
+
+            System.out.println("  Digita: numero per entrare, s+numero per guardare, 'nuova' per creare.");
             String choice = scanner.nextLine().trim().toLowerCase();
             try {
                 if (choice.equals("nuova")) {
                     int n = askNumPlayers();
                     server.loginFirstPlayer(myNick, n);
+                // === SPECTATOR ===
+                } else if (choice.startsWith("s") && choice.length() > 1) {
+                    try {
+                        int sIdx = Integer.parseInt(choice.substring(1)) - 1;
+                        if (sIdx >= 0 && sIdx < inProgress.size()) {
+                            server.joinAsSpectator(myNick, inProgress.get(sIdx).id());
+                        } else {
+                            System.out.println("  Scelta non valida.");
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println("  Formato non valido. Usa: s1, s2, ecc.");
+                    }
+                // === END SPECTATOR ===
                 } else {
-                    server.login(myNick);
+                    try {
+                        int idx = Integer.parseInt(choice) - 1;
+                        if (idx >= 0 && idx < open.size()) {
+                            server.loginToLobby(myNick, open.get(idx).id());
+                        } else if (!open.isEmpty()) {
+                            server.loginToLobby(myNick, open.get(0).id());
+                        } else {
+                            System.out.println("  Nessuna lobby aperta disponibile.");
+                        }
+                    } catch (NumberFormatException e) {
+                        // INVIO senza input → prima lobby aperta
+                        if (!open.isEmpty()) {
+                            server.loginToLobby(myNick, open.get(0).id());
+                        }
+                    }
                 }
             } catch (Exception e) { System.err.println("  ✗ " + e.getMessage()); }
         }, "lobby-join-thread").start();
@@ -384,6 +446,41 @@ public class CLIView implements ModelObserver {
         System.out.println("  La partita potrebbe non poter continuare.");
         printLine();
     }
+
+    // === SPECTATOR ===
+
+    @Override
+    public void onSpectatorJoined(String currentPlayerNick, String boardSummary) {
+        isSpectator = true;
+        printBanner("MODALITÀ SPETTATORE");
+        System.out.println("  Stai guardando la partita in sola lettura. Nessuna azione disponibile.");
+        System.out.println("  Turno corrente: " + currentPlayerNick);
+        System.out.println(boardSummary);
+        printLine();
+        System.out.println("  Digita 'esci' per tornare alla schermata lobby.");
+
+        // Listens for "esci" on a separate thread so normal callbacks keep printing
+        Thread exitThread = new Thread(() -> {
+            while (isSpectator) {
+                String input = scanner.nextLine().trim().toLowerCase();
+                if (input.equals("esci")) {
+                    isSpectator = false;
+                    try {
+                        server.leaveSpectator(myNick);
+                        // Server replies with onLobbyList, which triggers the normal lobby flow
+                    } catch (Exception e) {
+                        System.err.println("  ✗ Errore uscita spettatore: " + e.getMessage());
+                    }
+                    return;
+                }
+                System.out.println("  (Solo spettatore — digita 'esci' per tornare alla lobby.)");
+            }
+        }, "spectator-exit-thread");
+        exitThread.setDaemon(true);
+        exitThread.start();
+    }
+
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  UTILITY

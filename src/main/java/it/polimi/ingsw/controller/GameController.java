@@ -19,6 +19,12 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
+// === SPECTATOR ===
+// spectators: players who joined as read-only observers mid-game.
+// They receive onTurnSnapshot (and all public broadcast events) but never onYourTurn.
+// Their view references are stored separately so normal game logic is unaffected.
+// === END SPECTATOR ===
+
 /**
  * Controller MVC lato server.
  *
@@ -34,6 +40,11 @@ public class GameController implements GameObserver {
     private final List<String>      nicks     = new CopyOnWriteArrayList<>(); // indice parallelo a clients
     private int expectedPlayers = -1;
 
+    // === SPECTATOR ===
+    private final List<VirtualView> spectators     = new CopyOnWriteArrayList<>();
+    private final List<String>      spectatorNicks = new CopyOnWriteArrayList<>();
+    // === END SPECTATOR ===
+
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
 
     public GameController(Game game) {
@@ -48,20 +59,65 @@ public class GameController implements GameObserver {
     /**
      * True se la lobby accetta ancora giocatori (expectedPlayers non ancora
      * raggiunto e partita non ancora iniziata).
+     * synchronized: isOpen() reads fields written by loginFirstPlayer() (synchronized).
      */
-    public boolean isOpen() {
+    public synchronized boolean isOpen() {
         return expectedPlayers == -1
                 || (game.getNumberOfPlayers() < expectedPlayers
                 && game.getStatus() == GameState.LOGIN);
     }
 
-    public int getCurrentPlayers()  { return game.getNumberOfPlayers(); }
+    /** True se la partita è terminata (GameState.END). */
+    public synchronized boolean isFinished() {
+        return game.getStatus() == GameState.END;
+    }
+
+    /** True se la partita è in corso (non aperta e non terminata). */
+    public synchronized boolean isInProgress() {
+        return !isOpen() && !isFinished();
+    }
+
+    public synchronized int getCurrentPlayers()  { return game.getNumberOfPlayers(); }
     public int getExpectedPlayers() { return expectedPlayers; }
 
     /** True se un giocatore con quel nickname è registrato in questa lobby. */
-    public boolean hasPlayer(String nickname) {                           // <-- NEW
+    public boolean hasPlayer(String nickname) {
         return nicks.contains(nickname);
     }
+
+    // === SPECTATOR ===
+
+    /** True se uno spettatore con quel nickname è registrato in questa lobby. */
+    public boolean hasSpectator(String nickname) {
+        return spectatorNicks.contains(nickname);
+    }
+
+    /**
+     * Adds a spectator: receives all public broadcast events but never onYourTurn.
+     * Sends an immediate board snapshot so the spectator sees the current state.
+     */
+    public void addSpectator(String nick, VirtualView view) {
+        spectators.add(view);
+        spectatorNicks.add(nick);
+        try {
+            Player current = game.getCurrentPlayer();
+            String currentNick = (current != null) ? current.getNickname() : "";
+            view.onSpectatorJoined(currentNick, buildBoardSummaryForWatchers());
+        } catch (Exception e) {
+            System.err.println("[GameController] addSpectator initial snapshot: " + e.getMessage());
+        }
+    }
+
+    /** Removes a spectator by view reference. */
+    public void removeSpectator(String nick) {
+        int idx = spectatorNicks.indexOf(nick);
+        if (idx >= 0) {
+            spectators.remove(idx);
+            spectatorNicks.remove(idx);
+        }
+    }
+
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  LOBBY
@@ -262,6 +318,14 @@ public class GameController implements GameObserver {
                     }
                 }
             }
+            // === SPECTATOR: snapshot sent to all spectators at every turn ===
+            for (VirtualView spectator : spectators) {
+                try { spectator.onTurnSnapshot(nickname, boardSummary); }
+                catch (Exception e) {
+                    System.err.println("[Controller] onTurnSnapshot → spectator: " + e.getMessage());
+                }
+            }
+            // === END SPECTATOR ===
 
             // ── 2. Full action panel → active player only ─────────────────
             VirtualView target = viewOf(nickname);
@@ -618,5 +682,11 @@ public class GameController implements GameObserver {
             try { action.execute(v); }
             catch (Exception e) { System.err.println("[Controller] broadcast: " + e.getMessage()); }
         }
+        // === SPECTATOR: spectators receive all public game events ===
+        for (VirtualView v : spectators) {
+            try { action.execute(v); }
+            catch (Exception e) { System.err.println("[Controller] broadcast→spectator: " + e.getMessage()); }
+        }
+        // === END SPECTATOR ===
     }
 }

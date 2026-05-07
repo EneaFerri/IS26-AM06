@@ -13,6 +13,9 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * RMI client adapter.
@@ -21,24 +24,19 @@ import java.util.List;
  *   - {@link VirtualViewRmi} (receives server callbacks and forwards them to ClientModel)
  *   - {@link GameServerProxy} (sends player actions to the server via the RMI stub)
  *
- * The dual role is natural for RMI: the client object IS the remote callback endpoint,
- * and it also holds a reference to the server stub for outgoing calls.
- *
- * Login UI has been moved to {@link it.polimi.ingsw.view.cli.CLIView#doLoginCli()}.
+ * Heartbeat: a ScheduledExecutorService calls server.ping() every 10s.
+ * If RemoteException → server is gone → handleServerDisconnect().
+ * RMI is synchronous, so a successful ping() return IS the implicit pong.
  */
 public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, GameServerProxy {
 
-    private static final String SERVER_NAME = "GameServer";
-    private static final int    RMI_PORT    = 1099;
+    private static final String SERVER_NAME      = "GameServer";
+    private static final int    RMI_PORT         = 1099;
+    private static final int    HEARTBEAT_SEC    = 10;
 
     private final VirtualServerRmi server;
     private final ClientModel      model;
 
-    /**
-     * The scanner is obtained from CLIView and passed here to avoid creating
-     * a second Scanner on System.in. Only used if this class needs direct input
-     * (currently none — login UI is in CLIView).
-     */
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
         this.server = server;
@@ -46,18 +44,46 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     }
 
     /**
-     * Factory: looks up the RMI registry on the given host and creates an RmiClient
-     * connected to it.
+     * Factory: looks up the RMI registry on the given host, creates an RmiClient,
+     * and starts the client→server heartbeat.
      */
     public static RmiClient connect(String host, ClientModel model)
             throws RemoteException, NotBoundException {
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
         VirtualServerRmi serverStub = (VirtualServerRmi) registry.lookup(SERVER_NAME);
-        return new RmiClient(serverStub, model);
+        RmiClient client = new RmiClient(serverStub, model);
+        client.startHeartbeat();
+        return client;
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GameServerProxy  (CLIView calls these)
+    //  HEARTBEAT  (client → server)
+    // ─────────────────────────────────────────────────────────────────────
+
+    private void startHeartbeat() {
+        ScheduledExecutorService sched = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "rmi-client-heartbeat");
+            t.setDaemon(true);
+            return t;
+        });
+        sched.scheduleAtFixedRate(() -> {
+            try {
+                server.ping();
+            } catch (Exception e) {
+                System.err.println("[RmiClient] Server heartbeat failed: " + e.getMessage());
+                handleServerDisconnect();
+                sched.shutdown();
+            }
+        }, HEARTBEAT_SEC, HEARTBEAT_SEC, TimeUnit.SECONDS);
+    }
+
+    private synchronized void handleServerDisconnect() {
+        model.onError("Connessione al server persa. Chiudi e riavvia il client.");
+        System.exit(1);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  GameServerProxy  (CLIView/GUIView calls these)
     // ─────────────────────────────────────────────────────────────────────
 
     @Override
@@ -68,6 +94,11 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     @Override
     public void login(String nickname) throws RemoteException {
         server.login(nickname, this);
+    }
+
+    @Override
+    public void loginToLobby(String nickname, int lobbyId) throws RemoteException {
+        server.loginToLobby(nickname, lobbyId, this);
     }
 
     @Override
@@ -84,6 +115,18 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     public void pickCard(String nickname, int cardIndex, boolean fromTop) throws RemoteException {
         server.pickCard(nickname, cardIndex, fromTop);
     }
+
+    // === SPECTATOR ===
+    @Override
+    public void joinAsSpectator(String nickname, int lobbyId) throws RemoteException {
+        server.joinAsSpectator(nickname, lobbyId, this);
+    }
+
+    @Override
+    public void leaveSpectator(String nickname) throws RemoteException {
+        server.leaveSpectator(nickname, this);
+    }
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  VirtualViewRmi  (server calls these as callbacks)
@@ -142,5 +185,16 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     }
     @Override public void onPlayerDisconnected(String nickname) throws RemoteException {
         model.onPlayerDisconnected(nickname);
+    }
+
+    // === SPECTATOR ===
+    @Override public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws RemoteException {
+        model.onSpectatorJoined(currentPlayerNick, boardSummary);
+    }
+    // === END SPECTATOR ===
+
+    // --- HEARTBEAT ---
+    @Override public void ping() throws RemoteException {
+        // no-op: the successful return confirms this client is alive
     }
 }

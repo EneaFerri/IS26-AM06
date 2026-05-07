@@ -22,7 +22,10 @@ public interface GameServerProxy {
     /** Joins the first available open lobby. */
     void login(String nickname) throws Exception;
 
-    /** Asks the server for the list of open lobbies. */
+    /** Joins a specific lobby by ID (avoids landing in the wrong one). */
+    void loginToLobby(String nickname, int lobbyId) throws Exception;
+
+    /** Asks the server for the list of all active lobbies (open + in progress). */
     void requestLobbyList() throws Exception;
 
     // ── Phase 1 — totem placement ─────────────────────────────────────────
@@ -30,4 +33,12 @@ public interface GameServerProxy {
 
     // ── Phase 2 — card selection ──────────────────────────────────────────
     void pickCard(String nickname, int cardIndex, boolean fromTop) throws Exception;
+
+    // === SPECTATOR ===
+    /** Joins a game in progress as a read-only spectator. */
+    void joinAsSpectator(String nickname, int lobbyId) throws Exception;
+
+    /** Leaves spectator mode; the server replies with an updated onLobbyList. */
+    void leaveSpectator(String nickname) throws Exception;
+    // === END SPECTATOR ===
 }
