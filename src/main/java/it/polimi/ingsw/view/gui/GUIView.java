@@ -328,6 +328,7 @@ public class GUIView implements ModelObserver {
             gameScreen.updatePhase(phase, nickname);
             parseAndUpdateStats(extraInfo);
             parseAndUpdateAllStats(extraInfo);
+            gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(extraInfo));
 
             boolean myTurn  = nick.equals(nickname);
             boolean canPick = myTurn && phase == GameState.PICKING_CARD;
@@ -362,6 +363,7 @@ public class GUIView implements ModelObserver {
             // Passa sempre — updateBoardCards ignora le liste vuote internamente
             gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
+            gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
         });
     }
 
@@ -464,6 +466,37 @@ public class GUIView implements ModelObserver {
                     gameScreen.updateMyStats(food, prestige);
             } catch (NumberFormatException ignored) {}
         }
+    }
+
+    //Parso le carte possedute da ogni player per mostrarle nel pop_up
+    private Map<String, List<Integer>> parsePlayerOwnedCards(String text) {
+        Map<String, List<Integer>> cardsByPlayer = new java.util.HashMap<>();
+        if (text == null) return cardsByPlayer;
+
+        int start = text.indexOf("##PLAYER_CARDS_BEGIN##");
+        int end = text.indexOf("##PLAYER_CARDS_END##");
+        if (start < 0 || end < start) return cardsByPlayer;
+
+        String[] lines = text.substring(start, end).split("\n");
+        String currentPlayer = null;
+
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.startsWith("PLAYER=")) {
+                currentPlayer = line.substring("PLAYER=".length()).trim();
+                cardsByPlayer.putIfAbsent(currentPlayer, new ArrayList<>());
+            } else if (line.startsWith("CARD=") && currentPlayer != null) {
+                try {
+                    cardsByPlayer.get(currentPlayer).add(
+                            Integer.parseInt(line.substring("CARD=".length()).trim())
+                    );
+                } catch (NumberFormatException ignored) {}
+            } else if (line.equals("END_PLAYER")) {
+                currentPlayer = null;
+            }
+        }
+
+        return cardsByPlayer;
     }
 
     private HBox lobbyCard(LobbyManager.LobbyInfo lobby) {

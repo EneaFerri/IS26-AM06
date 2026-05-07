@@ -365,6 +365,7 @@ public class GameController implements GameObserver {
         if (phase == GameState.OFFER_SPACE_CHOOSE) {
             appendBoardDisplay(sb);
             appendPlayersSummary(sb);
+            appendAllPlayersCardsSummary(sb);
             appendPlayerCards(sb, player);
 
         } else if (phase == GameState.PICKING_CARD) {
@@ -402,6 +403,7 @@ public class GameController implements GameObserver {
             }
 
             appendPlayersSummary(sb);
+            appendAllPlayersCardsSummary(sb);
             appendPlayerCards(sb, player);
         }
 
@@ -417,6 +419,7 @@ public class GameController implements GameObserver {
         StringBuilder sb = new StringBuilder();
         appendBoardDisplay(sb);
         appendPlayersSummary(sb);
+        appendAllPlayersCardsSummary(sb);
         return sb.toString();
     }
 
@@ -517,6 +520,22 @@ public class GameController implements GameObserver {
                     turnMark));
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
+    }
+
+    //Legge le carte che ogni player ha: serve alla GUI per mostrare il pop_up con le carte di ciascun player
+    private void appendAllPlayersCardsSummary(StringBuilder sb) {
+        sb.append("\n##PLAYER_CARDS_BEGIN##\n");
+        for (Player p : game.getPlayers()) {
+            sb.append("PLAYER=").append(p.getNickname()).append("\n");
+            for (it.polimi.ingsw.model.cards.CharacterCard c : p.getCharacterCards()) {
+                sb.append("CARD=").append(c.getID()).append("\n");
+            }
+            for (it.polimi.ingsw.model.cards.BuildingCard c : p.getBuildingCards()) {
+                sb.append("CARD=").append(c.getID()).append("\n");
+            }
+            sb.append("END_PLAYER\n");
+        }
+        sb.append("##PLAYER_CARDS_END##\n");
     }
 
     /** Trova il nickname del giocatore che possiede quel totem. */

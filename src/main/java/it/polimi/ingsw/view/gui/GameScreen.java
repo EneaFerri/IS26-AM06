@@ -97,6 +97,8 @@ public class GameScreen {
     private final Map<String, Circle> playerTotemDots     = new HashMap<>();
     private final Map<String, TotemColor> playerTotemColors = new HashMap<>();
 
+    private final Map<String, List<Integer>> playerOwnedCards = new HashMap<>(); //per mostrare le carte di ogni player
+
     // ── Spazi offerta in ordine ───────────────────────────────────────────
     private static final List<String> SPACES = List.of("A","B","C","D","E","F","G");
 
@@ -134,6 +136,22 @@ public class GameScreen {
     private final Label cardDetailHint = new Label(
             "Click fuori, premi ESC o usa il bottone qui sotto per tornare alla partita."
     );
+
+    // PER IL POP-UP DELLE CARTE DEL SINGOLO GIOCATORE
+    private final StackPane playerCardsOverlay = new StackPane();
+    private final Rectangle playerCardsScrim = new Rectangle();
+    private final StackPane playerCardsGlass = new StackPane();
+    private final LiquidGlassPane playerCardsLiquidGlass = new LiquidGlassPane();
+    private final VBox playerCardsPanel = new VBox(10);
+    private final Label playerCardsTitle = new Label("CARTE GIOCATORE");
+    private final Label playerCardsSubtitle = new Label();
+    private final Label playerCardsHint = new Label(
+            "Scorri per vedere tutte le carte. Click su una carta per aprirne il dettaglio."
+    );
+    private final HBox playerCardsRow = new HBox(8);
+    private final ScrollPane playerCardsScroller = new ScrollPane(playerCardsRow);
+    private final javafx.scene.effect.GaussianBlur playerCardsBlur =
+            new javafx.scene.effect.GaussianBlur(0);
 
     private final javafx.scene.effect.GaussianBlur cardDetailBlur =
             new javafx.scene.effect.GaussianBlur(0);
@@ -376,6 +394,9 @@ public class GameScreen {
         rootWrapper.getChildren().add(eventOverlay);
         StackPane.setAlignment(eventOverlay, Pos.CENTER);
 
+        rootWrapper.getChildren().add(buildPlayerCardsOverlay());
+        StackPane.setAlignment(playerCardsOverlay, Pos.CENTER);
+
         // effetto per vedere i dettagli della carta
         rootWrapper.getChildren().add(buildCardDetailOverlay());
         StackPane.setAlignment(cardDetailOverlay, Pos.CENTER);
@@ -384,9 +405,11 @@ public class GameScreen {
 
         scene.setOnKeyPressed(e -> {
             // esc cosi si puo anche non smenare il mouse
-            if (cardDetailOverlay.isVisible()
-                    && e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+            if (e.getCode() != javafx.scene.input.KeyCode.ESCAPE) return;
+            if (cardDetailOverlay.isVisible()) {
                 hideCardDetail();
+            } else if (playerCardsOverlay.isVisible()) {
+                hidePlayerCardsOverlay();
             }
         });
 
@@ -558,6 +581,145 @@ public class GameScreen {
         return cardDetailOverlay;
     }
 
+    private Button buildGlassCloseButton(Runnable onClose) {
+        Button closeBtn = new Button("Chiudi");
+        closeBtn.setPrefHeight(40);
+        closeBtn.setPrefWidth(150);
+        closeBtn.setStyle("-fx-background-color:linear-gradient(to bottom, rgba(255,255,255,0.34), rgba(255,255,255,0.14));" +
+                "-fx-background-radius:18;" +
+                "-fx-text-fill:white;" +
+                "-fx-font-size:14;" +
+                "-fx-font-weight:bold;" +
+                "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-border-color:rgba(255,255,255,0.36);" +
+                "-fx-border-radius:18;" +
+                "-fx-border-width:1.1;" +
+                "-fx-cursor:hand;");
+        closeBtn.setOnAction(e -> onClose.run());
+        return closeBtn;
+    }
+
+    private StackPane buildPlayerCardsOverlay() {
+        playerCardsScrim.setFill(Color.rgb(10, 14, 20, 0.22));
+        playerCardsScrim.setOpacity(0.0);
+        playerCardsScrim.widthProperty().bind(rootWrapper.widthProperty());
+        playerCardsScrim.heightProperty().bind(rootWrapper.heightProperty());
+
+        playerCardsTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:17;-fx-font-weight:bold;-fx-text-fill:white;");
+
+        playerCardsSubtitle.setWrapText(true);
+        playerCardsSubtitle.setAlignment(Pos.CENTER_LEFT);
+        playerCardsSubtitle.setTextAlignment(TextAlignment.LEFT);
+        playerCardsSubtitle.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:11;-fx-text-fill:rgba(255,255,255,0.70);");
+
+        playerCardsHint.setWrapText(true);
+        playerCardsHint.setAlignment(Pos.CENTER_LEFT);
+        playerCardsHint.setTextAlignment(TextAlignment.LEFT);
+        playerCardsHint.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:10;-fx-text-fill:rgba(255,255,255,0.36);");
+
+        playerCardsRow.setAlignment(Pos.CENTER_LEFT);
+        playerCardsRow.setPadding(new Insets(2, 6, 10, 6));
+
+        playerCardsScroller.setContent(playerCardsRow);
+        playerCardsScroller.setFitToHeight(true);
+        playerCardsScroller.setPannable(true);
+        playerCardsScroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        playerCardsScroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        playerCardsScroller.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
+                "-fx-border-color:transparent;");
+        playerCardsScroller.setMinHeight(CARD_H * 1.5);
+        playerCardsScroller.setPrefViewportHeight(CARD_H * 1.55);
+        playerCardsScroller.setPrefViewportWidth(CARD_W * 5.0);
+        playerCardsScroller.viewportBoundsProperty().addListener((obs, oldVal, newVal) ->
+                playerCardsRow.setMinHeight(newVal.getHeight()));
+
+        Button closeBtn = buildGlassCloseButton(this::hidePlayerCardsOverlay);
+
+        closeBtn.setPrefHeight(34);
+        closeBtn.setPrefWidth(120);
+
+        playerCardsPanel.setAlignment(Pos.CENTER_LEFT);
+        playerCardsPanel.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        playerCardsPanel.setPadding(new Insets(18, 22, 14, 22));
+        playerCardsPanel.setStyle("-fx-background-color:transparent;");
+        playerCardsGlass.setOnMouseClicked(e -> e.consume());
+
+        playerCardsPanel.getChildren().setAll(
+                playerCardsTitle,
+                playerCardsSubtitle,
+                playerCardsScroller,
+                playerCardsHint,
+                closeBtn
+        );
+
+        Rectangle glassClip = new Rectangle();
+        glassClip.setArcWidth(64);
+        glassClip.setArcHeight(64);
+        glassClip.widthProperty().bind(playerCardsGlass.widthProperty());
+        glassClip.heightProperty().bind(playerCardsGlass.heightProperty());
+
+        Rectangle glassWash = new Rectangle();
+        glassWash.setArcWidth(64);
+        glassWash.setArcHeight(64);
+        glassWash.widthProperty().bind(playerCardsGlass.widthProperty());
+        glassWash.heightProperty().bind(playerCardsGlass.heightProperty());
+        glassWash.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 255, 255, 0.44)),
+                new Stop(0.24, Color.rgb(250, 252, 255, 0.18)),
+                new Stop(0.62, Color.rgb(196, 210, 228, 0.11)),
+                new Stop(1.00, Color.rgb(255, 255, 255, 0.16))
+        ));
+
+        Rectangle topGlint = new Rectangle();
+        topGlint.setHeight(2.0);
+        topGlint.setArcWidth(60);
+        topGlint.setArcHeight(60);
+        topGlint.widthProperty().bind(playerCardsGlass.widthProperty().multiply(0.88));
+        topGlint.setFill(new LinearGradient(
+                0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(255, 255, 255, 0.00)),
+                new Stop(0.5, Color.rgb(255, 255, 255, 0.92)),
+                new Stop(1.0, Color.rgb(255, 255, 255, 0.00))
+        ));
+        topGlint.setMouseTransparent(true);
+
+        playerCardsLiquidGlass.prefWidthProperty().bind(playerCardsGlass.widthProperty());
+        playerCardsLiquidGlass.prefHeightProperty().bind(playerCardsGlass.heightProperty());
+
+        playerCardsGlass.prefWidthProperty().bind(Bindings.min(
+                rootWrapper.widthProperty().multiply(0.60),
+                820
+        ));
+        playerCardsGlass.maxWidthProperty().bind(playerCardsGlass.prefWidthProperty());
+        playerCardsGlass.prefHeightProperty().bind(Bindings.min(
+                rootWrapper.heightProperty().multiply(0.50),
+                360
+        ));
+        playerCardsGlass.maxHeightProperty().bind(playerCardsGlass.prefHeightProperty());
+        playerCardsGlass.setMinSize(380, 230);
+        playerCardsGlass.setClip(glassClip);
+        playerCardsGlass.getChildren().setAll(glassWash, playerCardsLiquidGlass, playerCardsPanel, topGlint);
+        StackPane.setAlignment(topGlint, Pos.TOP_CENTER);
+        StackPane.setMargin(topGlint, new Insets(16, 0, 0, 0));
+        playerCardsGlass.setEffect(new DropShadow(54, Color.rgb(36, 48, 68, 0.24)));
+
+        StackPane panelHolder = new StackPane(playerCardsGlass);
+        panelHolder.setPadding(new Insets(28));
+        panelHolder.setPickOnBounds(false);
+
+        playerCardsOverlay.getChildren().setAll(playerCardsScrim, panelHolder);
+        playerCardsOverlay.setVisible(false);
+        playerCardsOverlay.setMouseTransparent(true);
+        playerCardsOverlay.setOpacity(1.0);
+        playerCardsOverlay.setOnMouseClicked(e -> hidePlayerCardsOverlay());
+
+        return playerCardsOverlay;
+    }
+
     private Image buildCardDetailImage(int cardId) {
         var url = getClass().getResource("/gui/cards/card_" + cardId + ".png");
         return url != null ? new Image(url.toExternalForm()) : null;
@@ -592,6 +754,155 @@ public class GameScreen {
                 ? Color.rgb(255, 255, 255, 0.92)
                 : Color.rgb(255, 255, 255, 0.28));
         dot.setStrokeWidth(color == TotemColor.WHITE ? 1.5 : 0.9);
+    }
+
+    private StackPane buildOwnedCardPreview(int cardId) {
+        Image img = buildCardDetailImage(cardId);
+        ImageView view = new ImageView(img);
+        view.setPreserveRatio(true);
+        view.setFitWidth(CARD_W * 1.25);
+        view.setFitHeight(CARD_H * 1.25);
+        view.setSmooth(true);
+
+        StackPane slot = new StackPane(view);
+        slot.setPadding(new Insets(3));
+        slot.setStyle("-fx-background-color:rgba(255,255,255,0.06);" +
+                "-fx-background-radius:14;" +
+                "-fx-border-color:rgba(255,255,255,0.12);" +
+                "-fx-border-radius:18;" +
+                "-fx-border-width:1;" +
+                "-fx-cursor:hand;");
+        slot.setEffect(new DropShadow(12, Color.rgb(0, 0, 0, 0.22)));
+        slot.setOnMouseEntered(e -> slot.setEffect(new DropShadow(20, Color.rgb(255, 255, 255, 0.20))));
+        slot.setOnMouseExited(e -> slot.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.22))));
+        slot.setOnMouseClicked(e -> {
+            e.consume();
+            showCardDetail(cardId);
+        });
+        return slot;
+    }
+
+    private void showPlayerCardsOverlay(String playerNick) {
+        List<Integer> cardIds = playerOwnedCards.getOrDefault(playerNick, List.of());
+        playerCardsRow.getChildren().clear();
+
+        for (Integer cardId : cardIds) {
+            if (cardId != null) {
+                playerCardsRow.getChildren().add(buildOwnedCardPreview(cardId));
+            }
+        }
+
+        if (playerCardsRow.getChildren().isEmpty()) {
+            Label empty = new Label("Questo giocatore non ha ancora carte.");
+            empty.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                    "-fx-font-size:14;-fx-text-fill:rgba(255,255,255,0.58);");
+            empty.setMinHeight(CARD_H * 1.25);
+            playerCardsRow.getChildren().add(empty);
+        }
+
+        playerCardsTitle.setText("CARTE DI " + playerNick.toUpperCase());
+        playerCardsSubtitle.setText(cardIds.isEmpty()
+                ? "Nessuna carta raccolta al momento."
+                : cardIds.size() == 1
+                  ? "1 carta posseduta"
+                  : cardIds.size() + " carte possedute");
+
+        playerCardsOverlay.setVisible(true);
+        playerCardsOverlay.setMouseTransparent(false);
+        playerCardsOverlay.toFront();
+
+        playerCardsGlass.setOpacity(0.0);
+        playerCardsGlass.setScaleX(0.94);
+        playerCardsGlass.setScaleY(0.94);
+        playerCardsGlass.setTranslateY(24);
+        playerCardsScrim.setOpacity(0.0);
+        playerCardsScroller.setHvalue(0.0);
+
+        mainRoot.setEffect(playerCardsBlur);
+        playerCardsBlur.setRadius(0.0);
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), playerCardsScrim);
+        scrimFade.setFromValue(0.0);
+        scrimFade.setToValue(1.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), playerCardsGlass);
+        panelFade.setFromValue(0.0);
+        panelFade.setToValue(1.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(260), playerCardsGlass);
+        panelScale.setFromX(0.94);
+        panelScale.setFromY(0.94);
+        panelScale.setToX(1.0);
+        panelScale.setToY(1.0);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(260), playerCardsGlass);
+        panelSlide.setFromY(24);
+        panelSlide.setToY(0);
+
+        javafx.animation.Timeline blurIn = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(260),
+                        new javafx.animation.KeyValue(
+                                playerCardsBlur.radiusProperty(), 22.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide, blurIn
+        ).play();
+    }
+
+    private void hidePlayerCardsOverlay() {
+        if (!playerCardsOverlay.isVisible()) return;
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), playerCardsScrim);
+        scrimFade.setFromValue(playerCardsScrim.getOpacity());
+        scrimFade.setToValue(0.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), playerCardsGlass);
+        panelFade.setFromValue(playerCardsGlass.getOpacity());
+        panelFade.setToValue(0.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(180), playerCardsGlass);
+        panelScale.setFromX(playerCardsGlass.getScaleX());
+        panelScale.setFromY(playerCardsGlass.getScaleY());
+        panelScale.setToX(0.96);
+        panelScale.setToY(0.96);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(180), playerCardsGlass);
+        panelSlide.setFromY(playerCardsGlass.getTranslateY());
+        panelSlide.setToY(18);
+
+        javafx.animation.Timeline blurOut = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(180),
+                        new javafx.animation.KeyValue(
+                                playerCardsBlur.radiusProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        javafx.animation.ParallelTransition close = new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide, blurOut
+        );
+
+        close.setOnFinished(e -> {
+            playerCardsOverlay.setVisible(false);
+            playerCardsOverlay.setMouseTransparent(true);
+            playerCardsRow.getChildren().clear();
+            mainRoot.setEffect(null);
+        });
+
+        close.play();
     }
 
     private void showCardDetail(int cardId) {
@@ -1131,7 +1442,9 @@ public class GameScreen {
                 "-fx-border-color:" + (isMe
                 ? "rgba(0,122,255,0.35)"
                 : "rgba(255,255,255,0.08)") + ";" +
-                "-fx-border-radius:12;-fx-border-width:1;");
+                "-fx-border-radius:12;-fx-border-width:1;" +
+                "-fx-cursor:hand;");
+        card.setOnMouseClicked(e -> showPlayerCardsOverlay(nick));
         return card;
     }
 
@@ -1244,6 +1557,14 @@ public class GameScreen {
         Label pl = playerPrestigeLabels.get(nick);
         if (fl != null) fl.setText("🍖 " + food);
         if (pl != null) pl.setText("★ " + prestige);
+    }
+
+    public void updatePlayerOwnedCards(Map<String, List<Integer>> cardsByPlayer) {
+        playerOwnedCards.clear();
+        for (String player : players) {
+            List<Integer> cards = cardsByPlayer.getOrDefault(player, List.of());
+            playerOwnedCards.put(player, new ArrayList<>(cards));
+        }
     }
 
     public void placeTotemOnSpace(String letter, TotemColor color, String nickname) {
