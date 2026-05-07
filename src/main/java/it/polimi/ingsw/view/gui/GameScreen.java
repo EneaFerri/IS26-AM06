@@ -22,11 +22,11 @@ import javafx.beans.binding.Bindings;
 
 import java.util.*;
 
-/**
- * Schermata principale di gioco.
- * Separata da GUIView per tenere il codice gestibile.
- * GUIView la chiama via  showGameScreen() e poi aggiorna
- * i binding tramite i metodi pubblici update*().
+/*
+  Schermata principale di gioco.
+  Separata da GUIView per tenere il codice gestibile.
+  GUIView la chiama via  showGameScreen() e poi aggiorna
+  i binding tramite i metodi pubblici update().
  */
 public class GameScreen {
 
