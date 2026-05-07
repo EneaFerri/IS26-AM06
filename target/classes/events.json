@@ -1,0 +1,87 @@
+[
+  {
+    "id": 200,
+    "era": "Era_I",
+    "eventType": "HUNT",
+    "prestigeBonus": 1
+  },
+  {
+    "id": 201,
+    "era": "Era_I",
+    "eventType": "PICTURES",
+    "minArtists": 1,
+    "prestigeMalus": 2,
+    "prestigeBonus": 1
+  },
+  {
+    "id": 202,
+    "era": "Era_I",
+    "eventType": "RITUAL",
+    "prestigeBonus": 5,
+    "prestigeMalus": 3
+  },
+  {
+    "id": 203,
+    "era": "Era_I",
+    "eventType": "SUSTENANCE",
+    "prestigeMalus": 1
+  },
+
+
+  {
+    "id": 204,
+    "era": "Era_II",
+    "eventType": "HUNT",
+    "prestigeBonus": 2
+  },
+  {
+    "id": 205,
+    "era": "Era_II",
+    "eventType": "PICTURES",
+    "minArtists": 2,
+    "prestigeMalus": 2,
+    "prestigeBonus": 2
+  },
+  {
+    "id": 206,
+    "era": "Era_II",
+    "eventType": "RITUAL",
+    "prestigeBonus": 10,
+    "prestigeMalus": 5
+  },
+  {
+    "id": 207,
+    "era": "Era_II",
+    "eventType": "SUSTENANCE",
+    "prestigeMalus": 2
+  },
+
+
+  {
+    "id": 208,
+    "era": "Era_III",
+    "eventType": "HUNT",
+    "prestigeBonus": 3
+  },
+  {
+    "id": 209,
+    "era": "Era_III",
+    "eventType": "PICTURES",
+    "minArtists": 3,
+    "prestigeMalus": 2,
+    "prestigeBonus": 3
+  },
+  {
+    "id": 210,
+    "era": "Last_Event",
+    "eventType": "RITUAL",
+    "prestigeBonus": 15,
+    "prestigeMalus": 7
+  },
+  {
+    "id": 211,
+    "era": "Last_Event",
+    "eventType": "SUSTENANCE",
+    "prestigeMalus": 3
+  }
+]

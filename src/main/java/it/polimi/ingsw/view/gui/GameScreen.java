@@ -18,6 +18,8 @@ import javafx.stage.Stage;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.effect.GaussianBlur;
 import javafx.beans.binding.Bindings;
+import javafx.scene.input.KeyCode;
+import java.util.List;
 
 
 import java.util.*;
@@ -37,6 +39,10 @@ public class GameScreen {
     private static final double BLOCK_H       = 125;
     private static final double CARD_W = 95;
     private static final double CARD_H = 134;
+    // il totem sugli spazi offerta stava troppo in basso. primo try 32 troppo sopra i segni delle carte sopra e sotto
+    // 72 ci siamo quasi 90 praticamente perfetto 95 siiiiiiii perfetto
+    private static final double TOTEM_SLOT_LIFT_Y = 95;
+
 
     private AnimatedBackground animatedBg;
 
@@ -52,6 +58,27 @@ public class GameScreen {
             TotemColor.BLUE,   "#00A8C6",
             TotemColor.BLACK,  "#3D0C2A",
             TotemColor.WHITE,  "#E8E8E8"
+    );
+
+    // larghezza sidebar destra fissa così non balla troppo tra full-hd e 2k che mi dava problemi sui due monitor
+    private static final double RIGHT_SIDEBAR_W = 248;
+
+    // le riepilogo sono miniature cliccabili nella sidebar
+    // mentre le regole complete verranno aperte nello stesso viewer riusabile
+    private static final List<String> SUMMARY_CARD_RESOURCES = List.of(
+            "/gui/cards/card_300.png"
+    //       "/gui/cards/card_301.png" nulla scherzavo sono tutte uguali da 300 a 305. è solo una la carta ma per 5 giocatori nella realtà
+    );
+
+    private static final List<String> RULES_PAGE_RESOURCES = List.of(
+            "/gui/rules/regole_01.png",
+            "/gui/rules/regole_02.png",
+            "/gui/rules/regole_03.png",
+            "/gui/rules/regole_04.png",
+            "/gui/rules/regole_05.png",
+            "/gui/rules/regole_06.png",
+            "/gui/rules/regole_07.png",
+            "/gui/rules/regole_08.png"
     );
 
     // ── Riferimenti UI aggiornabili ───────────────────────────────────────
@@ -155,6 +182,30 @@ public class GameScreen {
 
     private final javafx.scene.effect.GaussianBlur cardDetailBlur =
             new javafx.scene.effect.GaussianBlur(0);
+
+    //  riusabile per carte riepilogo sia per regolamento multi-pagina
+    private final StackPane referenceOverlay = new StackPane();
+    private final Rectangle referenceScrim = new Rectangle();
+    private final StackPane referenceGlass = new StackPane();
+    private final LiquidGlassPane referenceLiquidGlass = new LiquidGlassPane();
+
+    private final VBox referencePanel = new VBox(14);
+    private final Label referenceTitle = new Label("REFERENCE");
+    private final Label referenceSubtitle = new Label();
+    private final Label referenceHint = new Label();
+    private final Label referencePageCounter = new Label();
+
+    private final ImageView referenceImage = new ImageView();
+
+    private final Button referencePrevBtn = new Button("◀");
+    private final Button referenceNextBtn = new Button("▶");
+    private final Button referenceCloseBtn = new Button("Chiudi");
+
+    private final javafx.scene.effect.GaussianBlur referenceBlur =
+            new javafx.scene.effect.GaussianBlur(0);
+
+    private List<String> currentReferencePages = List.of();
+    private int currentReferenceIndex = 0;
 
 
     private static final class LiquidGlassPane extends Pane {
@@ -317,7 +368,7 @@ public class GameScreen {
 
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setRight(buildPlayersPanel());
+        root.setRight(buildRightSidebar());
         root.setBottom(buildHandPanel());
 
         animatedBg = new AnimatedBackground();
@@ -420,6 +471,10 @@ public class GameScreen {
         rootWrapper.getChildren().add(buildCardDetailOverlay());
         StackPane.setAlignment(cardDetailOverlay, Pos.CENTER);
 
+        // viewer dedicato a carte riepilogo e regolamento riuso la tua grafica Filo
+        rootWrapper.getChildren().add(buildReferenceOverlay());
+        StackPane.setAlignment(referenceOverlay, Pos.CENTER);
+
         // === SPECTATOR: overlay button to leave spectator mode ===
         if (isSpectator) {
             Label spectatorBadge = new Label("MODALITÀ SPETTATORE");
@@ -453,7 +508,26 @@ public class GameScreen {
 
         scene.setOnKeyPressed(e -> {
             // esc cosi si puo anche non smenare il mouse
-            if (e.getCode() != javafx.scene.input.KeyCode.ESCAPE) return;
+            // AGGIORNO gestisco gli overlay con priorità se il regolamento è aperto, le frecce devono andare lì
+
+            if (referenceOverlay.isVisible()) {
+                if (e.getCode() == KeyCode.ESCAPE) {
+                    hideReferenceOverlay();
+                    return;
+                }
+                if (e.getCode() == KeyCode.LEFT) {
+                    moveReferencePage(-1);
+                    return;
+                }
+                if (e.getCode() == KeyCode.RIGHT) {
+                    moveReferencePage(1);
+                    return;
+                }
+            }
+
+            // gli altri popup mantengono la scorciatoia ESC come prima
+            if (e.getCode() != KeyCode.ESCAPE) return;
+
             if (cardDetailOverlay.isVisible()) {
                 hideCardDetail();
             } else if (playerCardsOverlay.isVisible()) {
@@ -766,6 +840,347 @@ public class GameScreen {
         playerCardsOverlay.setOnMouseClicked(e -> hidePlayerCardsOverlay());
 
         return playerCardsOverlay;
+    }
+
+
+    // viewer vetroso riusabile rubato da filo rubato da apple per reference e regolamento.
+    // Quindi La struttura è la stessa dei popup nuovi: scrim dietro, glass panel davanti,
+    // blur sul contenuto del gioco e contenuto centrale responsivo.
+
+    private StackPane buildReferenceOverlay() {
+        referenceScrim.setFill(Color.rgb(10, 14, 20, 0.22));
+        referenceScrim.setOpacity(0.0);
+        referenceScrim.widthProperty().bind(rootWrapper.widthProperty());
+        referenceScrim.heightProperty().bind(rootWrapper.heightProperty());
+
+        referenceTitle.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:17;-fx-font-weight:bold;-fx-text-fill:white;");
+
+        referenceSubtitle.setWrapText(true);
+        referenceSubtitle.setAlignment(Pos.CENTER_LEFT);
+        referenceSubtitle.setTextAlignment(TextAlignment.LEFT);
+        referenceSubtitle.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:11;-fx-text-fill:rgba(255,255,255,0.70);");
+
+        referenceHint.setWrapText(true);
+        referenceHint.setAlignment(Pos.CENTER_LEFT);
+        referenceHint.setTextAlignment(TextAlignment.LEFT);
+        referenceHint.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:10;-fx-text-fill:rgba(255,255,255,0.36);");
+
+        referencePageCounter.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:11;-fx-font-weight:bold;" +
+                "-fx-text-fill:rgba(255,255,255,0.62);");
+
+        // in 2k non voglio che l'immagine diventi gigantesca, che mi è esploso il primo monitor
+        // la lego al viewport ma con cap massimo ragionevole
+        referenceImage.setPreserveRatio(true);
+        referenceImage.fitWidthProperty().bind(Bindings.min(
+                rootWrapper.widthProperty().multiply(0.62),
+                1100
+        ));
+        referenceImage.fitHeightProperty().bind(Bindings.min(
+                rootWrapper.heightProperty().multiply(0.68),
+                760
+        ));
+        referenceImage.setSmooth(true);
+        referenceImage.setCache(true);
+        referenceImage.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.38)));
+
+        configureGlassNavButton(referencePrevBtn, this::showPreviousReferencePage);
+        configureGlassNavButton(referenceNextBtn, this::showNextReferencePage);
+        referenceCloseBtn.setGraphic(null);
+        referenceCloseBtn.setText("Chiudi");
+        referenceCloseBtn.setPrefWidth(140);
+        referenceCloseBtn.setOnAction(e -> hideReferenceOverlay());
+
+        HBox controls = new HBox(10, referencePrevBtn, referencePageCounter, referenceNextBtn, referenceCloseBtn);
+        controls.setAlignment(Pos.CENTER);
+
+        referencePanel.setAlignment(Pos.CENTER);
+        referencePanel.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        referencePanel.setPadding(new Insets(18, 22, 14, 22));
+        referencePanel.setStyle("-fx-background-color:transparent;");
+
+        // fermo i click qui dentro così non chiudo il viewer per errore
+        referenceGlass.setOnMouseClicked(e -> e.consume());
+
+        referencePanel.getChildren().setAll(
+                referenceTitle,
+                referenceSubtitle,
+                referenceImage,
+                controls,
+                referenceHint
+        );
+
+        Rectangle glassClip = new Rectangle();
+        glassClip.setArcWidth(64);
+        glassClip.setArcHeight(64);
+        glassClip.widthProperty().bind(referenceGlass.widthProperty());
+        glassClip.heightProperty().bind(referenceGlass.heightProperty());
+
+        Rectangle glassWash = new Rectangle();
+        glassWash.setArcWidth(64);
+        glassWash.setArcHeight(64);
+        glassWash.widthProperty().bind(referenceGlass.widthProperty());
+        glassWash.heightProperty().bind(referenceGlass.heightProperty());
+        glassWash.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 255, 255, 0.44)),
+                new Stop(0.24, Color.rgb(250, 252, 255, 0.18)),
+                new Stop(0.62, Color.rgb(196, 210, 228, 0.11)),
+                new Stop(1.00, Color.rgb(255, 255, 255, 0.16))
+        ));
+
+        Rectangle topGlint = new Rectangle();
+        topGlint.setHeight(2.0);
+        topGlint.setArcWidth(60);
+        topGlint.setArcHeight(60);
+        topGlint.widthProperty().bind(referenceGlass.widthProperty().multiply(0.88));
+        topGlint.setFill(new LinearGradient(
+                0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(255, 255, 255, 0.00)),
+                new Stop(0.5, Color.rgb(255, 255, 255, 0.92)),
+                new Stop(1.0, Color.rgb(255, 255, 255, 0.00))
+        ));
+        topGlint.setMouseTransparent(true);
+
+        referenceLiquidGlass.prefWidthProperty().bind(referenceGlass.widthProperty());
+        referenceLiquidGlass.prefHeightProperty().bind(referenceGlass.heightProperty());
+
+        referenceGlass.prefWidthProperty().bind(Bindings.min(
+                rootWrapper.widthProperty().multiply(0.76),
+                1280
+        ));
+        referenceGlass.maxWidthProperty().bind(referenceGlass.prefWidthProperty());
+
+        referenceGlass.prefHeightProperty().bind(Bindings.min(
+                rootWrapper.heightProperty().multiply(0.84),
+                900
+        ));
+        referenceGlass.maxHeightProperty().bind(referenceGlass.prefHeightProperty());
+
+        referenceGlass.setMinSize(520, 420);
+        referenceGlass.setClip(glassClip);
+        referenceGlass.getChildren().setAll(glassWash, referenceLiquidGlass, referencePanel, topGlint);
+        StackPane.setAlignment(topGlint, Pos.TOP_CENTER);
+        StackPane.setMargin(topGlint, new Insets(16, 0, 0, 0));
+        referenceGlass.setEffect(new DropShadow(54, Color.rgb(36, 48, 68, 0.24)));
+
+        StackPane panelHolder = new StackPane(referenceGlass);
+        panelHolder.setPadding(new Insets(28));
+        panelHolder.setPickOnBounds(false);
+
+        referenceOverlay.getChildren().setAll(referenceScrim, panelHolder);
+        referenceOverlay.setVisible(false);
+        referenceOverlay.setMouseTransparent(true);
+        referenceOverlay.setOpacity(1.0);
+
+    // come gli altri uscita con click al di fuori
+        referenceOverlay.setOnMouseClicked(e -> hideReferenceOverlay());
+
+        return referenceOverlay;
+
+    }
+
+
+    // Configura i bottoni vetrosi di navigazione del viewer reference.
+
+    private void configureGlassNavButton(Button button, Runnable action) {
+        button.setPrefHeight(40);
+        button.setPrefWidth(56);
+        button.setStyle("-fx-background-color:linear-gradient(to bottom, rgba(255,255,255,0.34), rgba(255,255,255,0.14));" +
+                "-fx-background-radius:18;" +
+                "-fx-text-fill:white;" +
+                "-fx-font-size:14;" +
+                "-fx-font-weight:bold;" +
+                "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-border-color:rgba(255,255,255,0.36);" +
+                "-fx-border-radius:18;" +
+                "-fx-border-width:1.1;" +
+                "-fx-cursor:hand;");
+        button.setOnAction(e -> action.run());
+    }
+
+    /**
+     * Apre una sequenza di immagini nel viewer.
+     * È il punto unico da usare sia per una carta riepilogo singola
+     * sia per un documento a pagine come il regolamento.
+     */
+    private void showReferencePages(String title, String subtitle, List<String> pages, int startIndex, String hint) {
+        if (pages == null || pages.isEmpty()) {
+            showErrorMessage("Reference non disponibile.");
+            return;
+        }
+
+        currentReferencePages = new ArrayList<>(pages);
+        currentReferenceIndex = Math.max(0, Math.min(startIndex, currentReferencePages.size() - 1));
+
+        referenceTitle.setText(title);
+        referenceSubtitle.setText(subtitle);
+        referenceHint.setText(hint);
+
+        renderCurrentReferencePage();
+
+        referenceOverlay.setVisible(true);
+        referenceOverlay.setMouseTransparent(false);
+        referenceOverlay.toFront();
+
+        referenceGlass.setOpacity(0.0);
+        referenceGlass.setScaleX(0.94);
+        referenceGlass.setScaleY(0.94);
+        referenceGlass.setTranslateY(24);
+        referenceScrim.setOpacity(0.0);
+
+        mainRoot.setEffect(referenceBlur);
+        referenceBlur.setRadius(0.0);
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), referenceScrim);
+        scrimFade.setFromValue(0.0);
+        scrimFade.setToValue(1.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(220), referenceGlass);
+        panelFade.setFromValue(0.0);
+        panelFade.setToValue(1.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(260), referenceGlass);
+        panelScale.setFromX(0.94);
+        panelScale.setFromY(0.94);
+        panelScale.setToX(1.0);
+        panelScale.setToY(1.0);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(260), referenceGlass);
+        panelSlide.setFromY(24);
+        panelSlide.setToY(0);
+
+        javafx.animation.Timeline blurIn = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(260),
+                        new javafx.animation.KeyValue(
+                                referenceBlur.radiusProperty(), 22.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide, blurIn
+        ).play();
+    }
+
+
+    // ricarica immagine corrente, contatore pagina e stato dei pulsanti
+    // qui centralizzo tutto così qualsiasi cambio pagina resta coerente
+
+    private void renderCurrentReferencePage() {
+        if (currentReferencePages.isEmpty()) return;
+
+        String resourcePath = currentReferencePages.get(currentReferenceIndex);
+        Image img = loadRawImage(resourcePath);
+
+        if (img == null) {
+            showErrorMessage("Immagine reference non trovata: " + resourcePath);
+            return;
+        }
+
+        referenceImage.setImage(img);
+        referencePageCounter.setText((currentReferenceIndex + 1) + " / " + currentReferencePages.size());
+
+        referencePrevBtn.setDisable(currentReferenceIndex == 0);
+        referenceNextBtn.setDisable(currentReferenceIndex == currentReferencePages.size() - 1);
+    }
+
+
+    // sposta il viewer avanti o indietro di una pagina.
+    // Lo uso sia da tastiera sia dai bottoni per non duplicare la logica
+    private void moveReferencePage(int delta) {
+        if (currentReferencePages.isEmpty()) return;
+
+        int nextIndex = currentReferenceIndex + delta;
+        if (nextIndex < 0 || nextIndex >= currentReferencePages.size()) return;
+
+        currentReferenceIndex = nextIndex;
+        renderCurrentReferencePage();
+    }
+
+    private void showPreviousReferencePage() {
+        moveReferencePage(-1);
+    }
+
+    private void showNextReferencePage() {
+        moveReferencePage(1);
+    }
+
+    /**
+     * Chiude il viewer reference e ripulisce il blur.
+     * Non azzero la lista per paranoia: la azzero per evitare che un riuso successivo
+     * si porti dietro stato sporco.
+     */
+    private void hideReferenceOverlay() {
+        if (!referenceOverlay.isVisible()) return;
+
+        javafx.animation.FadeTransition scrimFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), referenceScrim);
+        scrimFade.setFromValue(referenceScrim.getOpacity());
+        scrimFade.setToValue(0.0);
+
+        javafx.animation.FadeTransition panelFade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), referenceGlass);
+        panelFade.setFromValue(referenceGlass.getOpacity());
+        panelFade.setToValue(0.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(180), referenceGlass);
+        panelScale.setFromX(referenceGlass.getScaleX());
+        panelScale.setFromY(referenceGlass.getScaleY());
+        panelScale.setToX(0.96);
+        panelScale.setToY(0.96);
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(180), referenceGlass);
+        panelSlide.setFromY(referenceGlass.getTranslateY());
+        panelSlide.setToY(18);
+
+        javafx.animation.Timeline blurOut = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        javafx.util.Duration.millis(180),
+                        new javafx.animation.KeyValue(
+                                referenceBlur.radiusProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH
+                        )
+                )
+        );
+
+        javafx.animation.ParallelTransition close = new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide, blurOut
+        );
+
+        close.setOnFinished(e -> {
+            referenceOverlay.setVisible(false);
+            referenceOverlay.setMouseTransparent(true);
+            referenceImage.setImage(null);
+            currentReferencePages = List.of();
+            currentReferenceIndex = 0;
+            mainRoot.setEffect(null);
+        });
+
+        close.play();
+    }
+
+    /**
+     * Carica un'immagine dalle risorse e la restituisce "grezza".
+     * Mi serve quando non voglio un ImageView già costruito, ma voglio gestire io il fit.
+     */
+    private Image loadRawImage(String path) {
+        try {
+            var url = getClass().getResource(path);
+            if (url != null) {
+                return new Image(url.toExternalForm());
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private Image buildCardDetailImage(int cardId) {
@@ -1371,9 +1786,20 @@ public class GameScreen {
                 BOARD_TILE_W, BOARD_TILE_H);
 
         VBox totemSlot = new VBox(2);
+        // il totem lo alzo parecchio per centrarlo meglio sulla tessera posizione,
+        // ultime parole famose, avevo rovinato gli hit box delle carte
         totemSlot.setAlignment(Pos.BOTTOM_CENTER);
         totemSlot.setMaxWidth(BOARD_TILE_W - 8);
+        totemSlot.setTranslateY(-TOTEM_SLOT_LIFT_Y);
+
+
+        // i click devono continuare a passare sotto, anche se il totem invade visivamente la zona delle carte centrali.
+        totemSlot.setMouseTransparent(true);
+        totemSlot.setPickOnBounds(false);
+
         spaceTotemSlots.put(letter, totemSlot);
+
+
 
         Label letterLbl = new Label(letter);
         letterLbl.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
@@ -1381,10 +1807,18 @@ public class GameScreen {
                 "-fx-text-fill:rgba(255,255,255,0.70);");
 
         StackPane tile = new StackPane(bg, totemSlot, letterLbl);
+        // clippo la tile alla sua dimensione reale:
+        // il totem può uscire visivamente verso l'alto, ma l'area interattiva della tessera
+        // deve restare solo quella del board space, altrimenti sposta la hitbox sopra le carte.
+        Rectangle tileClip = new Rectangle(BOARD_TILE_W, BOARD_TILE_H);
+        tile.setClip(tileClip);
+
         StackPane.setAlignment(letterLbl, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(letterLbl, new Insets(0, 4, 4, 0));
         StackPane.setAlignment(totemSlot, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(totemSlot, new Insets(0, 0, 6, 0));
+        // margine quasi neutro: la correzione vera la faccio col translateY qui sopra
+        StackPane.setMargin(totemSlot, new Insets(0, 0, 0, 0));
+
 
         tile.setPrefSize(BOARD_TILE_W, BOARD_TILE_H);
         tile.setCursor(javafx.scene.Cursor.HAND);
@@ -1431,6 +1865,127 @@ public class GameScreen {
     //  PANNELLO GIOCATORI (right)
     // ─────────────────────────────────────────────────────────────────────
 
+
+    // tutta la colonna destra.
+    //Sopra tengo l'elenco dinamico dei giocatori, sotto i contenuti di supporto
+    //che devono restare raggiungibili durante la partita senza cambiare schermata.
+
+    private VBox buildRightSidebar() {
+        ScrollPane playersScroll = buildPlayersPanel();
+        VBox referenceBox = buildReferenceSidebarSection();
+
+        VBox sidebar = new VBox(12, playersScroll, referenceBox);
+        sidebar.setPrefWidth(RIGHT_SIDEBAR_W);
+        sidebar.setMinWidth(RIGHT_SIDEBAR_W);
+        sidebar.setMaxWidth(RIGHT_SIDEBAR_W);
+        sidebar.setStyle("-fx-background-color:rgba(0,0,0,0.28);" +
+                "-fx-border-color:rgba(255,255,255,0.07);" +
+                "-fx-border-width:0 0 0 1;");
+
+        VBox.setVgrow(playersScroll, Priority.ALWAYS);
+        return sidebar;
+    }
+
+
+    // sezione bassa della sidebar con le miniature riepilogo
+    // parto dalle carte riepilogo perché sono il supporto più rapido in partita.
+
+    private VBox buildReferenceSidebarSection() {
+        Label title = new Label("CARTA RIEPILOGO");
+        title.setStyle(labelStyle(10, "rgba(255,255,255,0.40)"));
+
+        HBox row = new HBox(10);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        // per ora abbiamo una sola carta riepilogo pronta nelle risorse,
+        // quindi la sezione resta pulita e non mostro placeholder finti
+        row.getChildren().add(
+                buildReferenceThumb(SUMMARY_CARD_RESOURCES.get(0), "Carta info")
+        );
+
+
+        Button rulesBtn = new Button("Regolamento");
+        rulesBtn.setMaxWidth(Double.MAX_VALUE);
+        rulesBtn.setPrefHeight(38);
+        rulesBtn.setStyle("-fx-background-color:linear-gradient(to bottom, rgba(255,255,255,0.24), rgba(255,255,255,0.10));" +
+                "-fx-background-radius:14;" +
+                "-fx-text-fill:white;" +
+                "-fx-font-size:13;" +
+                "-fx-font-weight:bold;" +
+                "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-border-color:rgba(255,255,255,0.18);" +
+                "-fx-border-radius:14;" +
+                "-fx-border-width:1;" +
+                "-fx-cursor:hand;");
+
+        rulesBtn.setOnAction(e ->
+                showReferencePages(
+                        "REGOLAMENTO",
+                        "Versione in-game del regolamento: 8 pagine consultabili senza uscire dalla partita.",
+                        RULES_PAGE_RESOURCES,
+                        0,
+                        "Usa ◀ ▶ oppure le frecce sinistra/destra della tastiera. ESC chiude."
+                )
+        );
+
+        VBox box = new VBox(10, title, row, rulesBtn);
+
+        box.setPadding(new Insets(12, 12, 14, 12));
+        box.setStyle("-fx-background-color:rgba(255,255,255,0.04);" +
+                "-fx-border-color:rgba(255,255,255,0.08);" +
+                "-fx-border-width:1 0 0 0;");
+
+        return box;
+    }
+
+    //  miniatura cliccabile di supporto, La tengo piccola perché in sidebar deve solo suggerire "apri il dettaglio",
+    // senza rubare spazio
+
+    private StackPane buildReferenceThumb(String resourcePath, String labelText) {
+        Image img = loadRawImage(resourcePath);
+
+        ImageView iv = new ImageView();
+        if (img != null) {
+            iv.setImage(img);
+        }
+        iv.setFitWidth(76);
+        iv.setFitHeight(118);
+        iv.setPreserveRatio(true);
+        iv.setSmooth(true);
+
+        Label badge = new Label(labelText);
+        badge.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:10;-fx-font-weight:bold;-fx-text-fill:white;" +
+                "-fx-background-color:rgba(0,0,0,0.72);" +
+                "-fx-background-radius:10;" +
+                "-fx-padding:3 8 3 8;");
+
+        StackPane thumb = new StackPane(iv, badge);
+        thumb.setPrefSize(76, 118);
+        thumb.setStyle("-fx-background-color:rgba(255,255,255,0.06);" +
+                "-fx-background-radius:12;" +
+                "-fx-border-color:rgba(255,255,255,0.10);" +
+                "-fx-border-radius:12;" +
+                "-fx-border-width:1;" +
+                "-fx-cursor:hand;");
+        thumb.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.24)));
+
+        StackPane.setAlignment(badge, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(badge, new Insets(0, 0, 6, 0));
+
+        thumb.setOnMouseClicked(e ->
+                showReferencePages(
+                        "CARTA RIEPILOGO",
+                        labelText + "  •  guida rapida sempre visibile durante la partita",
+                        List.of(resourcePath),
+                        0,
+                        "Usa Chiudi o ESC per tornare subito alla partita."
+                )
+        );
+
+        return thumb;
+    }
+
     private ScrollPane buildPlayersPanel() {
         Label title = new Label("GIOCATORI");
         title.setStyle(labelStyle(10, "rgba(255,255,255,0.40)"));
@@ -1444,11 +1999,11 @@ public class GameScreen {
         playersPanel.setStyle("-fx-background-color:rgba(0,0,0,0.30);" +
                 "-fx-border-color:rgba(255,255,255,0.07);" +
                 "-fx-border-width:0 0 0 1;");
-        playersPanel.setPrefWidth(200);
+        playersPanel.setPrefWidth(RIGHT_SIDEBAR_W);
 
         ScrollPane sp = new ScrollPane(playersPanel);
         sp.setFitToWidth(true);
-        sp.setPrefWidth(200);
+        sp.setPrefWidth(RIGHT_SIDEBAR_W);
         sp.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
                 "-fx-border-color:transparent;");
         return sp;
