@@ -53,7 +53,7 @@ public class GameController implements GameObserver {
     }
 
     // ================================================================== //
-    //  STATO LOBBY  <-- NEW (usati da LobbyManager)                     //
+    //  STATO LOBBY
     // ================================================================== //
 
     /**
@@ -99,13 +99,19 @@ public class GameController implements GameObserver {
     public void addSpectator(String nick, VirtualView view) {
         spectators.add(view);
         spectatorNicks.add(nick);
-        try {
-            Player current = game.getCurrentPlayer();
-            String currentNick = (current != null) ? current.getNickname() : "";
-            view.onSpectatorJoined(currentNick, buildBoardSummaryForWatchers());
-        } catch (Exception e) {
-            System.err.println("[GameController] addSpectator initial snapshot: " + e.getMessage());
-        }
+        // Build snapshot synchronously, then send it in a separate thread.
+        // This prevents the caller (LobbyManager, which is synchronized) from
+        // holding its lock while waiting on a blocking network call → no deadlock.
+        Player current = game.getCurrentPlayer();
+        String currentNick = (current != null) ? current.getNickname() : "";
+        String snapshot = buildBoardSummaryForWatchers();
+        new Thread(() -> {
+            try {
+                view.onSpectatorJoined(currentNick, snapshot);
+            } catch (Exception e) {
+                System.err.println("[GameController] addSpectator initial snapshot: " + e.getMessage());
+            }
+        }, "spectator-snapshot-" + nick).start();
     }
 
     /** Removes a spectator by view reference. */

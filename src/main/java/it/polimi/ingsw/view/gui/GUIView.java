@@ -210,12 +210,15 @@ public class GUIView implements ModelObserver {
      * Leaves spectator mode and requests a fresh lobby list.
      */
     public void leaveSpectatorView() {
+        // This runs on the FX thread (button action), so showLobbyScreen() is safe here.
+        // We rebuild the lobby UI immediately so that when onLobbyList arrives from the
+        // server it finds lobbyListBox already initialized and just updates the list.
         isSpectator = false;
         gameScreen = null;
+        showLobbyScreen();
         new Thread(() -> {
             try {
                 server.leaveSpectator(nick);
-                // Server replies with onLobbyList which triggers showLobbyScreen()
             } catch (Exception e) {
                 System.err.println("[GUIView] leaveSpectator error: " + e.getMessage());
             }
@@ -319,11 +322,8 @@ public class GUIView implements ModelObserver {
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
         Platform.runLater(() -> {
             // === SPECTATOR: returning from spectator mode — rebuild lobby screen first ===
-            if (isSpectator) {
-                isSpectator = false;
-                gameScreen = null;
+            if (lobbyListBox == null) {
                 showLobbyScreen();
-                // showLobbyScreen() re-creates lobbyListBox/lobbyStatusLabel; update them now
             }
             // === END SPECTATOR ===
 
@@ -510,12 +510,53 @@ public class GUIView implements ModelObserver {
     // === SPECTATOR ===
     @Override
     public void onSpectatorJoined(String currentPlayerNick, String boardSummary) {
+        // Parse player names before entering the FX thread.
+        List<String> parsedPlayers = parsePlayerNamesFromSummary(boardSummary);
+
         Platform.runLater(() -> {
             isSpectator = true;
-            showGameScreen(true);
+
+            // Spectators never receive onGameStarting, so players/totemColors are empty.
+            // Populate them now from the board summary.
+            if (!parsedPlayers.isEmpty()) {
+                this.players = new ArrayList<>(parsedPlayers);
+                it.polimi.ingsw.model.enums.TotemColor[] colors =
+                        it.polimi.ingsw.model.enums.TotemColor.values();
+                for (int i = 0; i < parsedPlayers.size(); i++) {
+                    totemColors.put(parsedPlayers.get(i), colors[i % colors.length]);
+                }
+            }
+
+            showGameScreen(true); // now builds with correct players list + spaces
+
+            // Apply the board snapshot the server sent at entry time.
+            if (gameScreen != null && boardSummary != null) {
+                gameScreen.setOtherPlayerTurn(currentPlayerNick);
+                List<Integer> top = parseTopCards(boardSummary);
+                List<Integer> bot = parseBotCards(boardSummary);
+                gameScreen.updateBoardCards(top, bot, false, false);
+                parseAndUpdateAllStats(boardSummary);
+                gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
+            }
         });
     }
-    // === END SPECTATOR ===
+
+    /**
+     * Parses ordered player nicknames from the ##PLAYER_CARDS_BEGIN## block.
+     * Spectators use this because they never receive onGameStarting().
+     */
+    private List<String> parsePlayerNamesFromSummary(String boardSummary) {
+        List<String> names = new ArrayList<>();
+        if (boardSummary == null) return names;
+        for (String line : boardSummary.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("PLAYER=")) {
+                names.add(trimmed.substring("PLAYER=".length()).trim());
+            }
+        }
+        return names;
+    }
+// === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  UI helpers

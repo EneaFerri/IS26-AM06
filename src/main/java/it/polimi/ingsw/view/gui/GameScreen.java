@@ -495,12 +495,12 @@ public class GameScreen {
                 if (guiView != null) guiView.leaveSpectatorView();
             });
 
-            VBox spectatorBar = new VBox(6, spectatorBadge, backBtn);
+            VBox spectatorBar = new VBox(10, spectatorBadge, backBtn);
             spectatorBar.setAlignment(Pos.CENTER_RIGHT);
-            spectatorBar.setPadding(new Insets(12, 16, 0, 0));
+            spectatorBar.setPadding(new Insets(0, 16, 0, 0));
             spectatorBar.setMouseTransparent(false);
             rootWrapper.getChildren().add(spectatorBar);
-            StackPane.setAlignment(spectatorBar, Pos.TOP_RIGHT);
+            StackPane.setAlignment(spectatorBar, Pos.CENTER_RIGHT);
         }
         // === END SPECTATOR ===
 
@@ -2056,6 +2056,14 @@ public class GameScreen {
     // ─────────────────────────────────────────────────────────────────────
 
     private HBox buildHandPanel() {
+
+        if (isSpectator) {
+            HBox placeholder = new HBox();
+            placeholder.setVisible(false);
+            placeholder.setManaged(false);
+            return placeholder;
+        }
+
         Label title = new Label("LA TUA TRIBÙ");
         title.setStyle(labelStyle(10, "rgba(255,255,255,0.40)"));
 
