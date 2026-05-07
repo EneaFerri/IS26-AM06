@@ -15,7 +15,9 @@ public enum MessageType {
     LOGIN_FIRST,
     /** Join the first available open lobby.           Payload: nickname              */
     LOGIN,
-    /** Request the list of open lobbies.              Payload: (none)               */
+    /** Join a specific lobby by ID.                   Payload: nickname, lobbyId     */
+    LOGIN_TO_LOBBY,
+    /** Request the list of active lobbies.            Payload: (none)                */
     REQUEST_LOBBY_LIST,
 
     // ── C→S  game actions ─────────────────────────────────────────────────
@@ -78,5 +80,16 @@ public enum MessageType {
 
     // ── ↔  heartbeat ──────────────────────────────────────────────────────
     PING,
-    PONG
+    PONG,
+
+    // === SPECTATOR ===
+    // ── C→S  spectator ────────────────────────────────────────────────────
+    /** Join a game in progress as read-only spectator. Payload: nickname, lobbyId */
+    JOIN_AS_SPECTATOR,
+    /** Leave spectator mode and return to lobby.       Payload: nickname           */
+    LEAVE_SPECTATOR,
+    // ── S→C  spectator ────────────────────────────────────────────────────
+    /** Initial snapshot sent when spectator joins. Payload: currentPlayerNick, boardSummary */
+    ON_SPECTATOR_JOINED
+    // === END SPECTATOR ===
 }

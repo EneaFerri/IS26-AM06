@@ -139,7 +139,8 @@ public class SocketClient {
                         .map(m -> new LobbyManager.LobbyInfo(
                                 ((Number) m.get("id")).intValue(),
                                 ((Number) m.get("currentPlayers")).intValue(),
-                                ((Number) m.get("expectedPlayers")).intValue()))
+                                ((Number) m.get("expectedPlayers")).intValue(),
+                                Boolean.TRUE.equals(m.get("inProgress"))))
                         .collect(Collectors.toList());
                 model.onLobbyList(lobbies);
             }
@@ -199,6 +200,11 @@ public class SocketClient {
             // ── Disconnection ─────────────────────────────────────────────
             case ON_PLAYER_DISCONNECTED ->
                     model.onPlayerDisconnected(msg.str("nickname"));
+
+            // === SPECTATOR ===
+            case ON_SPECTATOR_JOINED ->
+                    model.onSpectatorJoined(msg.str("currentPlayerNick"), msg.str("boardSummary"));
+            // === END SPECTATOR ===
 
             // ── Heartbeat ─────────────────────────────────────────────────
             case PING -> {

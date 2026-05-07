@@ -58,4 +58,13 @@ public interface VirtualView {
     // --- DISCONNESSIONE ---
     /** Broadcast to all remaining clients when a player disconnects mid-game. */
     void onPlayerDisconnected(String nickname)                           throws Exception;
+
+    // === SPECTATOR ===
+    /**
+     * Sent to a client that has just joined a game in progress as a spectator.
+     * Provides an immediate board snapshot so the spectator can see the current state.
+     * After this callback, the spectator receives onTurnSnapshot for every subsequent turn.
+     */
+    void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception;
+    // === END SPECTATOR ===
 }

@@ -40,6 +40,12 @@ public class SocketServerProxy implements GameServerProxy {
     }
 
     @Override
+    public void loginToLobby(String nickname, int lobbyId) throws Exception {
+        send(new NetworkMessage(MessageType.LOGIN_TO_LOBBY,
+                Map.of("nickname", nickname, "lobbyId", lobbyId)));
+    }
+
+    @Override
     public void requestLobbyList() throws Exception {
         send(new NetworkMessage(MessageType.REQUEST_LOBBY_LIST));
     }
@@ -57,6 +63,22 @@ public class SocketServerProxy implements GameServerProxy {
         send(new NetworkMessage(MessageType.PICK_CARD,
                 Map.of("nickname", nickname, "cardIndex", cardIndex, "fromTop", fromTop)));
     }
+
+    // === SPECTATOR ===
+
+    @Override
+    public void joinAsSpectator(String nickname, int lobbyId) throws Exception {
+        send(new NetworkMessage(MessageType.JOIN_AS_SPECTATOR,
+                Map.of("nickname", nickname, "lobbyId", lobbyId)));
+    }
+
+    @Override
+    public void leaveSpectator(String nickname) throws Exception {
+        send(new NetworkMessage(MessageType.LEAVE_SPECTATOR,
+                Map.of("nickname", nickname)));
+    }
+
+    // === END SPECTATOR ===
 
     // ── Heartbeat ─────────────────────────────────────────────────────────
 

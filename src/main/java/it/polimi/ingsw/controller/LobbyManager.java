@@ -12,8 +12,9 @@ import java.util.List;
  *
  * Responsabilità:
  *  - createLobby()         → crea una nuova lobby (client è il primo)
- *  - joinOrCreateLobby()   → trova la prima lobby aperta; se non c'è → notifica il client
- *  - getOpenLobbies()      → snapshot delle lobby con posti disponibili
+ *  - joinLobby()           → trova la prima lobby aperta; se non c'è → notifica il client
+ *  - joinSpecificLobby()   → entra in una lobby specifica per ID
+ *  - getActiveLobbies()    → snapshot di tutte le lobby attive (aperte + in corso)
  *  - placeTotem/pickCard   → trova la lobby del giocatore e delega
  *
  * È posseduto da RmiServer (uno solo per server).
@@ -28,9 +29,10 @@ public class LobbyManager {
 
     /**
      * Crea una lobby nuova e registra il primo giocatore.
-     * Chiamato quando il client risponde "sì" a "Vuoi creare una nuova lobby?".
+     * Pulisce le lobby terminate prima di creare (fix memory leak).
      */
     public synchronized void createLobby(String nickname, int numPlayers, VirtualView caller) {
+        cleanFinishedLobbies();
         GameController lobby = new GameController(new Game(1));
         lobbies.add(lobby);
         System.out.println("[LobbyManager] Lobby #" + lobbies.size()
@@ -41,7 +43,6 @@ public class LobbyManager {
     /**
      * Unisce il client alla prima lobby aperta.
      * Se non ce ne sono, notifica il client tramite onNoLobbyAvailable().
-     * Chiamato quando il client risponde "no" a "Vuoi creare una nuova lobby?".
      */
     public synchronized void joinLobby(String nickname, VirtualView caller) {
         GameController available = findOpenLobby();
@@ -59,20 +60,42 @@ public class LobbyManager {
     }
 
     /**
-     * Restituisce snapshot delle lobby ancora aperte (posti disponibili, partita non iniziata).
-     * Usato da requestLobbyList() per mostrare le opzioni al client.
+     * Unisce il client a una lobby specifica per ID.
+     * Usato da CLI (lista numerata) e GUI (bottone con ID).
      */
-    public synchronized List<LobbyInfo> getOpenLobbies() {
+    public synchronized void joinSpecificLobby(String nickname, int lobbyId, VirtualView caller) {
+        GameController lobby = findLobbyById(lobbyId);
+        if (lobby == null) {
+            try { caller.onError("Lobby #" + lobbyId + " non trovata."); }
+            catch (Exception e) { System.err.println("[LobbyManager] joinSpecificLobby error: " + e.getMessage()); }
+            return;
+        }
+        if (!lobby.isOpen()) {
+            try { caller.onError("Lobby #" + lobbyId + " non è più aperta."); }
+            catch (Exception e) { System.err.println("[LobbyManager] joinSpecificLobby error: " + e.getMessage()); }
+            return;
+        }
+        System.out.println("[LobbyManager] " + nickname + " → Lobby #" + lobbyId + " (scelta)");
+        lobby.login(nickname, caller);
+    }
+
+    /**
+     * Restituisce snapshot di tutte le lobby attive:
+     *  - inProgress=false → lobby aperta (accetta nuovi giocatori)
+     *  - inProgress=true  → partita in corso (accessibile come spettatore)
+     * Le lobby terminate vengono ripulite.
+     */
+    public synchronized List<LobbyInfo> getActiveLobbies() {
+        cleanFinishedLobbies();
         List<LobbyInfo> result = new ArrayList<>();
         for (int i = 0; i < lobbies.size(); i++) {
             GameController lobby = lobbies.get(i);
             if (lobby.isOpen()) {
-                result.add(new LobbyInfo(
-                        i + 1,
-                        lobby.getCurrentPlayers(),
-                        lobby.getExpectedPlayers()
-                ));
+                result.add(new LobbyInfo(i + 1, lobby.getCurrentPlayers(), lobby.getExpectedPlayers(), false));
+            } else if (lobby.isInProgress()) {
+                result.add(new LobbyInfo(i + 1, lobby.getCurrentPlayers(), lobby.getExpectedPlayers(), true));
             }
+            // lobby terminate escluse
         }
         return result;
     }
@@ -94,25 +117,74 @@ public class LobbyManager {
     }
 
     /**
-     * Called by SocketClientHandler (and any future transport) when a client's
+     * Called by SocketClientHandler (and RmiServer heartbeat) when a client's
      * connection is lost unexpectedly.
-     *
-     * Finds the lobby the player belongs to and broadcasts an onPlayerDisconnected
-     * notification to all remaining client so they are aware of the situation.
      */
     public synchronized void handleDisconnect(String nickname) {
         GameController lobby = findLobbyOf(nickname);
         if (lobby == null) {
-            System.err.println("[LobbyManager] handleDisconnect: no lobby found for " + nickname);
+            // Potrebbe essere uno spettatore
+            handleSpectatorDisconnect(nickname);
             return;
         }
         System.out.println("[LobbyManager] Broadcasting disconnect of: " + nickname);
         lobby.onPlayerDisconnected(nickname);
     }
 
+    // === SPECTATOR ===
+
+    /**
+     * Aggiunge uno spettatore alla lobby in corso specificata per ID.
+     * Lo spettatore riceve subito uno snapshot e poi tutti gli eventi broadcast.
+     */
+    public synchronized void joinAsSpectator(String nickname, int lobbyId, VirtualView caller) {
+        GameController lobby = findLobbyById(lobbyId);
+        if (lobby == null || !lobby.isInProgress()) {
+            try { caller.onError("Lobby #" + lobbyId + " non trovata o non in corso."); }
+            catch (Exception e) { System.err.println("[LobbyManager] joinAsSpectator error: " + e.getMessage()); }
+            return;
+        }
+        System.out.println("[LobbyManager] " + nickname + " → Lobby #" + lobbyId + " (spettatore)");
+        lobby.addSpectator(nickname, caller);
+    }
+
+    /**
+     * Rimuove lo spettatore e invia lista lobby aggiornata al caller (per tornare alla lobby).
+     */
+    public synchronized void leaveSpectator(String nickname, VirtualView caller) {
+        for (GameController lobby : lobbies) {
+            if (lobby.hasSpectator(nickname)) {
+                lobby.removeSpectator(nickname);
+                System.out.println("[LobbyManager] " + nickname + " ha lasciato la partita come spettatore");
+                break;
+            }
+        }
+        // Rimanda la lista lobby aggiornata così il client può tornare alla schermata di selezione
+        try { caller.onLobbyList(getActiveLobbies()); }
+        catch (Exception e) { System.err.println("[LobbyManager] leaveSpectator callback: " + e.getMessage()); }
+    }
+
+    private void handleSpectatorDisconnect(String nickname) {
+        for (GameController lobby : lobbies) {
+            if (lobby.hasSpectator(nickname)) {
+                lobby.removeSpectator(nickname);
+                System.out.println("[LobbyManager] Spectator disconnected: " + nickname);
+                return;
+            }
+        }
+        System.err.println("[LobbyManager] handleDisconnect: no lobby found for " + nickname);
+    }
+
+    // === END SPECTATOR ===
+
     // ================================================================== //
     //  UTILITY                                                            //
     // ================================================================== //
+
+    /** Rimuove le lobby terminate (fix memory leak). */
+    private void cleanFinishedLobbies() {
+        lobbies.removeIf(GameController::isFinished);
+    }
 
     /** Prima lobby con posti liberi e partita non ancora iniziata. */
     private GameController findOpenLobby() {
@@ -130,20 +202,29 @@ public class LobbyManager {
                 .orElse(null);
     }
 
+    /** Lobby con un ID specifico (1-based). */
+    private GameController findLobbyById(int lobbyId) {
+        int idx = lobbyId - 1;
+        if (idx < 0 || idx >= lobbies.size()) return null;
+        return lobbies.get(idx);
+    }
+
     // ================================================================== //
     //  DTO — info lobby inviata ai client                                //
     // ================================================================== //
 
     /**
-     * Snapshot serializzabile di una lobby aperta.
-     * Implementa Serializable perché viaggia via RMI come parametro di onLobbyList().
+     * Snapshot serializzabile di una lobby attiva.
+     * inProgress=true  → partita in corso (solo spettatori)
+     * inProgress=false → lobby aperta (accetta giocatori)
      */
-    public record LobbyInfo(int id, int currentPlayers, int expectedPlayers)
+    public record LobbyInfo(int id, int currentPlayers, int expectedPlayers, boolean inProgress)
             implements Serializable {
 
         @Override
         public String toString() {
-            return "Lobby #" + id
+            String status = inProgress ? "[IN CORSO]" : "[APERTA]  ";
+            return "Lobby #" + id + "  " + status
                     + "  [" + currentPlayers + "/" + expectedPlayers + " giocatori]";
         }
     }

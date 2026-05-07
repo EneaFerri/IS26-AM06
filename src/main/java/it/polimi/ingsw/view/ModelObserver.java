@@ -60,4 +60,12 @@ public interface ModelObserver {
     // --- DISCONNESSIONE ---
     /** Called when another player disconnects mid-game. */
     void onPlayerDisconnected(String nickname);
+
+    // === SPECTATOR ===
+    /**
+     * Called when this client has successfully joined a game as a spectator.
+     * Provides the current player's nick and an initial board snapshot.
+     */
+    void onSpectatorJoined(String currentPlayerNick, String boardSummary);
+    // === END SPECTATOR ===
 }

@@ -35,6 +35,10 @@ public class GUIView implements ModelObserver {
 
     private final Map<String, TotemColor> totemColors = new java.util.HashMap<>();
 
+    // === SPECTATOR ===
+    private volatile boolean isSpectator = false;
+    // === END SPECTATOR ===
+
     public GUIView(Stage stage, ClientModel model) {
         this.stage = stage;
         this.model = model;
@@ -189,14 +193,35 @@ public class GUIView implements ModelObserver {
     private GameScreen gameScreen;
 
     public void showGameScreen() {
-        // Ricava gli spazi attivi dal boardSummary (arriva presto)
-        // Per ora usiamo la lista players per dedurre gli spazi attivi
+        showGameScreen(false);
+    }
+
+    // === SPECTATOR ===
+    private void showGameScreen(boolean spectator) {
         List<String> activeSpaces = getActiveSpaces(players.size());
-        gameScreen = new GameScreen(server, model, nick, players, activeSpaces);
+        gameScreen = new GameScreen(server, model, nick, players, activeSpaces, spectator, this);
         Scene scene = gameScreen.build(stage);
         stage.setScene(scene);
         stage.setResizable(true);
     }
+
+    /**
+     * Called by GameScreen's "Torna alla Lobby" button when in spectator mode.
+     * Leaves spectator mode and requests a fresh lobby list.
+     */
+    public void leaveSpectatorView() {
+        isSpectator = false;
+        gameScreen = null;
+        new Thread(() -> {
+            try {
+                server.leaveSpectator(nick);
+                // Server replies with onLobbyList which triggers showLobbyScreen()
+            } catch (Exception e) {
+                System.err.println("[GUIView] leaveSpectator error: " + e.getMessage());
+            }
+        }, "gui-leave-spectator").start();
+    }
+    // === END SPECTATOR ===
 
     private List<String> getActiveSpaces(int numPlayers) {
         // Specchio esatto di Board.prepareGameBoardSpace
@@ -279,7 +304,7 @@ public class GUIView implements ModelObserver {
                 it.polimi.ingsw.model.enums.TotemColor.values();
         for (int i = 0; i < playerNicknames.size(); i++)
             totemColors.put(playerNicknames.get(i), colors[i % colors.length]);
-        Platform.runLater(this::showGameScreen);
+        Platform.runLater(() -> showGameScreen(false));
     }
 
     @Override
@@ -293,15 +318,47 @@ public class GUIView implements ModelObserver {
     @Override
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
         Platform.runLater(() -> {
+            // === SPECTATOR: returning from spectator mode — rebuild lobby screen first ===
+            if (isSpectator) {
+                isSpectator = false;
+                gameScreen = null;
+                showLobbyScreen();
+                // showLobbyScreen() re-creates lobbyListBox/lobbyStatusLabel; update them now
+            }
+            // === END SPECTATOR ===
+
             lobbyListBox.getChildren().clear();
-            if (lobbies.isEmpty()) {
+
+            List<LobbyManager.LobbyInfo> open = lobbies.stream()
+                    .filter(l -> !l.inProgress()).collect(java.util.stream.Collectors.toList());
+            List<LobbyManager.LobbyInfo> inProgress = lobbies.stream()
+                    .filter(LobbyManager.LobbyInfo::inProgress).collect(java.util.stream.Collectors.toList());
+
+            if (open.isEmpty() && inProgress.isEmpty()) {
                 lobbyStatusLabel.setText("Nessuna lobby disponibile.");
                 return;
             }
-            lobbyStatusLabel.setText("Lobby disponibili — scegli una o creane una nuova:");
-            for (LobbyManager.LobbyInfo l : lobbies) {
-                lobbyListBox.getChildren().add(lobbyCard(l));
+
+            if (!open.isEmpty()) {
+                lobbyStatusLabel.setText("Lobby disponibili — scegli una o creane una nuova:");
+                for (LobbyManager.LobbyInfo l : open) {
+                    lobbyListBox.getChildren().add(lobbyCard(l, false));
+                }
+            } else {
+                lobbyStatusLabel.setText("Nessuna lobby aperta.");
             }
+
+            // === SPECTATOR: show in-progress lobbies ===
+            if (!inProgress.isEmpty()) {
+                Label inProgressLabel = new Label("PARTITE IN CORSO");
+                inProgressLabel.setStyle(styleSmallCaps());
+                inProgressLabel.setPadding(new Insets(12, 0, 4, 0));
+                lobbyListBox.getChildren().add(inProgressLabel);
+                for (LobbyManager.LobbyInfo l : inProgress) {
+                    lobbyListBox.getChildren().add(lobbyCard(l, true));
+                }
+            }
+            // === END SPECTATOR ===
         });
     }
 
@@ -437,7 +494,28 @@ public class GUIView implements ModelObserver {
     @Override public void onGameOver(String results) {
         Platform.runLater(() -> System.out.println("[GUI] Fine partita: " + results));
     }
-    @Override public void onPlayerDisconnected(String nickname) {}
+    // === TASK F: disconnection banner ===
+    @Override
+    public void onPlayerDisconnected(String nickname) {
+        Platform.runLater(() -> {
+            if (gameScreen != null) {
+                gameScreen.showToast("⚠  " + nickname + " si è disconnesso.");
+            } else if (lobbyStatusLabel != null) {
+                lobbyStatusLabel.setText("⚠  " + nickname + " si è disconnesso.");
+            }
+        });
+    }
+    // === END TASK F ===
+
+    // === SPECTATOR ===
+    @Override
+    public void onSpectatorJoined(String currentPlayerNick, String boardSummary) {
+        Platform.runLater(() -> {
+            isSpectator = true;
+            showGameScreen(true);
+        });
+    }
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  UI helpers
@@ -499,7 +577,7 @@ public class GUIView implements ModelObserver {
         return cardsByPlayer;
     }
 
-    private HBox lobbyCard(LobbyManager.LobbyInfo lobby) {
+    private HBox lobbyCard(LobbyManager.LobbyInfo lobby, boolean spectate) {
         Label info = new Label("Lobby #" + lobby.id() +
                 "   —   " + lobby.currentPlayers() +
                 " / " + lobby.expectedPlayers() + " giocatori");
@@ -507,24 +585,32 @@ public class GUIView implements ModelObserver {
                 "-fx-font-size:14;-fx-text-fill:white;");
         HBox.setHgrow(info, Priority.ALWAYS);
 
-        Button joinBtn = new Button("Unisciti");
-        joinBtn.setPrefHeight(36);
-        joinBtn.setStyle(styleSecondaryButton());
-        joinBtn.setOnAction(e -> {
-            joinBtn.setDisable(true);
-            joinBtn.setText("…");
+        String btnLabel = spectate ? "Guarda" : "Unisciti";
+        Button actionBtn = new Button(btnLabel);
+        actionBtn.setPrefHeight(36);
+        actionBtn.setStyle(styleSecondaryButton());
+        actionBtn.setOnAction(e -> {
+            actionBtn.setDisable(true);
+            actionBtn.setText("…");
             new Thread(() -> {
-                try { server.login(nick); }
-                catch (Exception ex) {
+                try {
+                    // === SPECTATOR ===
+                    if (spectate) {
+                        server.joinAsSpectator(nick, lobby.id());
+                    } else {
+                        server.loginToLobby(nick, lobby.id());
+                    }
+                    // === END SPECTATOR ===
+                } catch (Exception ex) {
                     Platform.runLater(() -> {
-                        joinBtn.setDisable(false);
-                        joinBtn.setText("Unisciti");
+                        actionBtn.setDisable(false);
+                        actionBtn.setText(btnLabel);
                     });
                 }
-            }, "gui-join").start();
+            }, spectate ? "gui-spectate" : "gui-join").start();
         });
 
-        HBox row = new HBox(16, info, joinBtn);
+        HBox row = new HBox(16, info, actionBtn);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(16, 20, 16, 20));
         row.setStyle("-fx-background-color:rgba(255,255,255,0.06);" +

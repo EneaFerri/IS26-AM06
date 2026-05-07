@@ -106,12 +106,30 @@ public class SocketClientHandler implements VirtualView, Runnable {
             case LOGIN -> lobbyManager.joinLobby(
                     msg.str("nickname"), this);
 
+            case LOGIN_TO_LOBBY -> lobbyManager.joinSpecificLobby(
+                    msg.str("nickname"), msg.num("lobbyId"), this);
+
             case REQUEST_LOBBY_LIST -> {
-                try { onLobbyList(lobbyManager.getOpenLobbies()); }
+                try { onLobbyList(lobbyManager.getActiveLobbies()); }
                 catch (Exception e) {
                     System.err.println("[SocketHandler] requestLobbyList: " + e.getMessage());
                 }
             }
+
+            // === SPECTATOR ===
+            case JOIN_AS_SPECTATOR -> {
+                String spectatorNick = msg.str("nickname");
+                this.nickname = spectatorNick; // capture so handleDisconnect works
+                lobbyManager.joinAsSpectator(spectatorNick, msg.num("lobbyId"), this);
+            }
+
+            case LEAVE_SPECTATOR -> {
+                if (nickname != null) {
+                    lobbyManager.leaveSpectator(nickname, this);
+                    this.nickname = null; // no longer associated with a game
+                }
+            }
+            // === END SPECTATOR ===
 
             case PLACE_TOTEM -> {
                 String letter = msg.str("letter");
@@ -175,6 +193,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
                     m.put("id", l.id());
                     m.put("currentPlayers", l.currentPlayers());
                     m.put("expectedPlayers", l.expectedPlayers());
+                    m.put("inProgress", l.inProgress());
                     return m;
                 })
                 .toList();
@@ -248,6 +267,14 @@ public class SocketClientHandler implements VirtualView, Runnable {
         send(new NetworkMessage(MessageType.ON_PLAYER_DISCONNECTED,
                 Map.of("nickname", disconnectedNick)));
     }
+
+    // === SPECTATOR ===
+    @Override
+    public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception {
+        send(new NetworkMessage(MessageType.ON_SPECTATOR_JOINED,
+                Map.of("currentPlayerNick", currentPlayerNick, "boardSummary", boardSummary)));
+    }
+    // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
     //  SEND  (synchronised — multiple server threads may call VirtualView)
