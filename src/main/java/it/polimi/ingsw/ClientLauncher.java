@@ -5,67 +5,90 @@ import it.polimi.ingsw.network.socket.client.SocketClient;
 import it.polimi.ingsw.network.socket.client.SocketServerProxy;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.cli.CLIView;
+import it.polimi.ingsw.view.gui.ClientLauncherGUI;
+import javafx.application.Application;
 
 import java.util.Scanner;
 
 import static it.polimi.ingsw.network.utils.NetworkUtils.resolveLocalIp;
 
 /**
- * Client entry point.
+ * Unified client entry point — unico launcher per TUI e GUI.
  *
- * Asks the user which network transport to use (RMI or Socket), then wires
- * up the chosen implementation.  The {@link CLIView} and {@link ClientModel}
- * are identical in both paths — only the network adapter differs.
+ * Avvio da terminale (IntelliJ o riga di comando):
+ *   1 → TUI : tutta l'interazione rimane nel terminale (CLIView).
+ *   2 → GUI : avvia JavaFX tramite Application.launch() e apre la finestra grafica.
  *
- * ── Strategy pattern ───────────────────────────────────────────────────────
- *   Both RmiClient and SocketServerProxy implement {@link it.polimi.ingsw.network.GameServerProxy}.
- *   CLIView holds a GameServerProxy reference and never cares about the transport.
+ * ── Note architetturali ────────────────────────────────────────────────────
+ *  • Lo Scanner viene ottenuto da CLIView (getScanner()) in modo che esista
+ *    UN SOLO Scanner su System.in per tutta la vita del processo TUI.
+ *  • Application.launch() blocca il thread main fino alla chiusura della
+ *    finestra JavaFX — comportamento corretto e atteso.
+ *  • ClientLauncherGUI mantiene il proprio main() per poter essere avviato
+ *    anche in standalone (es. run configuration JavaFX dedicata).
  */
 public class ClientLauncher {
 
     public static void main(String[] args) throws Exception {
 
-        // ── Shared components ─────────────────────────────────────────────
-        CLIView     view  = new CLIView();
+        // ── Scelta interfaccia ────────────────────────────────────────────
+        //    Usiamo lo scanner di CLIView per non aprire mai due Scanner su
+        //    System.in contemporaneamente nel percorso TUI.
+        CLIView     view    = new CLIView();
+        Scanner     scanner = view.getScanner();
+
+        System.out.println("╔══════════════════════════════════════╗");
+        System.out.println("║        Benvenuto in  M E S O S       ║");
+        System.out.println("╠══════════════════════════════════════╣");
+        System.out.println("║   Seleziona interfaccia di gioco:    ║");
+        System.out.println("║   1 → TUI  (solo terminale)          ║");
+        System.out.println("║   2 → GUI  (finestra grafica JavaFX) ║");
+        System.out.println("╚══════════════════════════════════════╝");
+        System.out.print("Scelta: ");
+        String uiChoice = scanner.nextLine().trim();
+
+        // ── Percorso GUI ──────────────────────────────────────────────────
+        if (uiChoice.equals("2")) {
+            // Application.launch() deve essere chiamato dal thread main ed è
+            // bloccante: ritorna solo quando la finestra JavaFX viene chiusa.
+            Application.launch(ClientLauncherGUI.class, args);
+            return;
+        }
+
+        // ── Percorso TUI ──────────────────────────────────────────────────
         ClientModel model = new ClientModel();
         model.registerObserver(view);
 
-        Scanner scanner = view.getScanner();   // single scanner on System.in
-
-        // ── Transport choice ──────────────────────────────────────────────
+        // Scelta trasporto
+        System.out.println();
         System.out.println("╔══════════════════════════════════════╗");
         System.out.println("║   Seleziona tipo di connessione:     ║");
         System.out.println("║   1 → RMI                            ║");
         System.out.println("║   2 → Socket                         ║");
         System.out.println("╚══════════════════════════════════════╝");
         System.out.print("Scelta: ");
-        String choice = scanner.nextLine().trim();
+        String netChoice = scanner.nextLine().trim();
 
-        // ── Server IP ─────────────────────────────────────────────────────
+        // IP server
         System.out.print("IP del server (INVIO = localhost): ");
         String input = scanner.nextLine().trim();
         String host  = input.isEmpty() ? "localhost" : input;
 
-        // ── Wire-up ───────────────────────────────────────────────────────
-        if (choice.equals("1")) {
-            // RMI path
-            System.setProperty("java.rmi.server.hostname",
-                    resolveLocalIp());
-
-            RmiClient rmiClient = RmiClient.connect(host, model); // factory: looks up registry + wraps stub
+        // Wire-up
+        if (netChoice.equals("1")) {
+            // Percorso RMI
+            System.setProperty("java.rmi.server.hostname", resolveLocalIp());
+            RmiClient rmiClient = RmiClient.connect(host, model);
             view.setServer(rmiClient);
             view.doLoginCli();
-
         } else {
-            // Socket path
-            SocketClient socketClient = new SocketClient(model);
-            SocketServerProxy proxy   = socketClient.connect(host);
-            view.setServer(proxy);                // SocketServerProxy implements GameServerProxy
+            // Percorso Socket (default)
+            SocketClient      socketClient = new SocketClient(model);
+            SocketServerProxy proxy        = socketClient.connect(host);
+            view.setServer(proxy);
             view.doLoginCli();
         }
 
-        // Block the main thread — all further interaction is event-driven.
-        try { Thread.currentThread().join(); }
-        catch (InterruptedException e) { System.out.println("Client terminato."); }
+        // Il thread main rimane vivo; tutta l'interazione successiva è event-driven.
     }
 }
