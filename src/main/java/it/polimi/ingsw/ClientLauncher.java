@@ -90,5 +90,7 @@ public class ClientLauncher {
         }
 
         // Il thread main rimane vivo; tutta l'interazione successiva è event-driven.
+        try { Thread.currentThread().join(); }
+        catch (InterruptedException e) { System.out.println("Client terminato."); }
     }
 }
