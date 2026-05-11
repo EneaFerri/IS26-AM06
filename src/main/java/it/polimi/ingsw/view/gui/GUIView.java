@@ -7,14 +7,23 @@ import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.network.GameServerProxy;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.ModelObserver;
+import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.*;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -492,7 +501,14 @@ public class GUIView implements ModelObserver {
         Platform.runLater(() -> { if (gameScreen != null) gameScreen.updateEra(newEra); });
     }
     @Override public void onGameOver(String results) {
-        Platform.runLater(() -> System.out.println("[GUI] Fine partita: " + results));
+        Platform.runLater(() -> {
+            if (gameScreen != null) {
+                Map<String, List<Integer>> cards = gameScreen.getPlayerOwnedCards();
+                gameScreen.runWhenAnimationsDone(() -> showEndGameScreen(results, cards));
+            } else {
+                showEndGameScreen(results, Map.of());
+            }
+        });
     }
     // === TASK F: disconnection banner ===
     @Override
@@ -775,4 +791,305 @@ public class GUIView implements ModelObserver {
         return stats;
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  SCHERMATA FINE PARTITA
+    // ─────────────────────────────────────────────────────────────────────
+
+    private void showEndGameScreen(String results, Map<String, List<Integer>> cardsByPlayer) {
+        AnimatedBackground animBg = new AnimatedBackground();
+
+        Label title = new Label("FINE PARTITA!");
+        title.setStyle(styleTitle());
+
+        Label subtitle = new Label("Il punteggio finale è stato calcolato.");
+        subtitle.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:14;-fx-text-fill:rgba(255,255,255,0.50);");
+
+        Label rankLabel = new Label("CLASSIFICA FINALE");
+        rankLabel.setStyle(styleSmallCaps());
+
+        VBox rankingBox = new VBox(10);
+        rankingBox.setFillWidth(true);
+
+        String[] entries = (results != null && !results.isEmpty())
+                ? results.split(",") : new String[0];
+        String[] medals = {"🏆", "🥈", "🥉"};
+
+        // Overlay container — inizialmente trasparente ai click, riempito al click
+        StackPane overlayContainer = new StackPane();
+        overlayContainer.setPickOnBounds(false);
+        overlayContainer.setMouseTransparent(true);
+
+        for (int i = 0; i < entries.length; i++) {
+            String[] parts = entries[i].split(":");
+            String name  = parts.length > 0 ? parts[0] : "?";
+            String pts   = parts.length > 1 ? parts[1] : "?";
+            String medal = i < medals.length ? medals[i] : String.valueOf(i + 1);
+            Node row = buildPlayerRow(name, pts, medal, i == 0);
+            List<Integer> playerCards = cardsByPlayer.getOrDefault(name, List.of());
+            row.setOnMouseClicked(e -> showCardsOverlay(overlayContainer, name, playerCards));
+            row.setCursor(Cursor.HAND);
+            rankingBox.getChildren().add(row);
+        }
+
+        Button exitBtn = new Button("Esci");
+        exitBtn.setPrefHeight(48);
+        exitBtn.setMaxWidth(Double.MAX_VALUE);
+        exitBtn.setStyle(stylePrimaryButton());
+        exitBtn.setOnAction(e -> Platform.exit());
+
+        VBox card = new VBox(20, title, subtitle, separator(), rankLabel, rankingBox, separator(), exitBtn);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPadding(new Insets(44, 40, 44, 40));
+        card.setMaxWidth(520);
+        card.setStyle(styleGlassCard());
+
+        StackPane cardWrapper = new StackPane(card);
+        cardWrapper.setPadding(new Insets(60));
+
+        StackPane root = new StackPane(animBg, cardWrapper, overlayContainer);
+        animBg.prefWidthProperty().bind(root.widthProperty());
+        animBg.prefHeightProperty().bind(root.heightProperty());
+
+        stage.setScene(new Scene(root, 640, 680));
+        stage.setResizable(false);
+    }
+
+    private Node buildPlayerRow(String name, String pts, String medal, boolean winner) {
+        Label medalLbl = new Label(medal);
+        medalLbl.setMinWidth(36);
+        medalLbl.setStyle("-fx-font-size:" + (winner ? 24 : 18) + ";-fx-text-fill:white;");
+
+        Region dot = new Region();
+        dot.setPrefSize(10, 10);
+        dot.setMaxSize(10, 10);
+        dot.setStyle("-fx-background-radius:5;-fx-background-color:" +
+                totemHex(totemColors.get(name)) + ";");
+
+        Label nameLbl = new Label(name);
+        nameLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:" + (winner ? 18 : 15) + ";" +
+                (winner ? "-fx-font-weight:bold;" : "") +
+                "-fx-text-fill:white;");
+
+        HBox nameBox = new HBox(6, dot, nameLbl);
+        nameBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(nameBox, Priority.ALWAYS);
+
+        Label cardsIcon = new Label("🃏");
+        cardsIcon.setStyle("-fx-font-size:14;-fx-opacity:0.60;");
+
+        Label scoreLbl = new Label(pts + " pt");
+        scoreLbl.setStyle(winner
+                ? "-fx-background-color:#FFD700;-fx-background-radius:8;" +
+                  "-fx-text-fill:#3D2A00;-fx-font-weight:bold;-fx-font-size:14;" +
+                  "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;-fx-padding:4 10 4 10;"
+                : "-fx-background-color:rgba(255,255,255,0.12);-fx-background-radius:8;" +
+                  "-fx-text-fill:rgba(255,255,255,0.85);-fx-font-size:13;" +
+                  "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;-fx-padding:4 10 4 10;");
+
+        HBox inner = new HBox(10, medalLbl, nameBox, cardsIcon, scoreLbl);
+        inner.setAlignment(Pos.CENTER_LEFT);
+        inner.setPadding(new Insets(winner ? 18 : 14, 20, winner ? 18 : 14, 20));
+        inner.setMaxWidth(Double.MAX_VALUE);
+
+        if (winner) {
+            GoldGlassPane glass = new GoldGlassPane();
+            StackPane row = new StackPane(glass, inner);
+            row.setMaxWidth(Double.MAX_VALUE);
+            row.setStyle("-fx-background-color:rgba(255,200,50,0.10);" +
+                    "-fx-background-radius:18;" +
+                    "-fx-border-color:rgba(255,215,0,0.45);" +
+                    "-fx-border-radius:18;-fx-border-width:1.5;");
+            glass.prefWidthProperty().bind(row.widthProperty());
+            glass.prefHeightProperty().bind(row.heightProperty());
+            return row;
+        } else {
+            inner.setStyle("-fx-background-color:rgba(255,255,255,0.06);" +
+                    "-fx-background-radius:14;" +
+                    "-fx-border-color:rgba(255,255,255,0.09);" +
+                    "-fx-border-radius:14;-fx-border-width:1;");
+            return inner;
+        }
+    }
+
+    private void showCardsOverlay(StackPane overlay, String playerName, List<Integer> cardIds) {
+        Rectangle scrim = new Rectangle();
+        scrim.setFill(Color.rgb(0, 0, 0, 0.72));
+        scrim.widthProperty().bind(overlay.widthProperty());
+        scrim.heightProperty().bind(overlay.heightProperty());
+
+        Label titleLbl = new Label("Carte di " + playerName);
+        titleLbl.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:20;-fx-font-weight:bold;-fx-text-fill:white;");
+        HBox.setHgrow(titleLbl, Priority.ALWAYS);
+
+        Button closeBtn = new Button("Chiudi");
+        closeBtn.setStyle(styleSecondaryButton());
+
+        HBox titleRow = new HBox(16, titleLbl, closeBtn);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
+        HBox cardsRow = new HBox(10);
+        cardsRow.setAlignment(Pos.CENTER_LEFT);
+        cardsRow.setPadding(new Insets(4));
+
+        if (cardIds.isEmpty()) {
+            Label empty = new Label("Nessuna carta raccolta.");
+            empty.setStyle("-fx-font-size:14;-fx-text-fill:rgba(255,255,255,0.50);" +
+                    "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;");
+            cardsRow.getChildren().add(empty);
+        } else {
+            for (int cardId : cardIds) {
+                var url = getClass().getResource("/gui/cards/card_" + cardId + ".png");
+                if (url != null) {
+                    ImageView iv = new ImageView(new Image(url.toExternalForm()));
+                    iv.setFitWidth(95);
+                    iv.setFitHeight(134);
+                    iv.setPreserveRatio(true);
+                    iv.setSmooth(true);
+                    StackPane cardPane = new StackPane(iv);
+                    cardPane.setStyle("-fx-effect:dropshadow(gaussian,rgba(0,0,0,0.40),8,0,0,2);");
+                    cardsRow.getChildren().add(cardPane);
+                }
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(cardsRow);
+        scroll.setFitToHeight(true);
+        scroll.setPrefHeight(160);
+        scroll.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
+                "-fx-border-color:transparent;");
+
+        VBox panel = new VBox(16, titleRow, separator(), scroll);
+        panel.setPadding(new Insets(28, 28, 28, 28));
+        panel.setMaxWidth(560);
+        panel.setStyle(styleGlassCard());
+
+        StackPane panelWrapper = new StackPane(panel);
+        panelWrapper.setPadding(new Insets(40));
+
+        overlay.getChildren().addAll(scrim, panelWrapper);
+        overlay.setMouseTransparent(false);
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(200), overlay);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+        overlay.setOpacity(0);
+        fadeIn.play();
+
+        Runnable dismiss = () -> hideCardsOverlay(overlay);
+        scrim.setOnMouseClicked(e -> dismiss.run());
+        closeBtn.setOnAction(e -> dismiss.run());
+    }
+
+    private void hideCardsOverlay(StackPane overlay) {
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(160), overlay);
+        fadeOut.setFromValue(1);
+        fadeOut.setToValue(0);
+        fadeOut.setOnFinished(e -> {
+            overlay.getChildren().clear();
+            overlay.setMouseTransparent(true);
+        });
+        fadeOut.play();
+    }
+
+    private String totemHex(TotemColor tc) {
+        if (tc == null) return "rgba(255,255,255,0.40)";
+        return switch (tc) {
+            case RED    -> "#E8472A";
+            case YELLOW -> "#F5C518";
+            case BLUE   -> "#00A8C6";
+            case BLACK  -> "#9B4F6F";
+            case WHITE  -> "#C8C8C8";
+        };
+    }
+
+}
+
+// ── Effetto liquid glass color oro per il vincitore ──────────────────────────
+class GoldGlassPane extends Pane {
+
+    private final Canvas canvas = new Canvas();
+    private final AnimationTimer timer;
+    private double t = 0.0;
+
+    GoldGlassPane() {
+        setMouseTransparent(true);
+        setOpacity(0.88);
+        getChildren().add(canvas);
+        canvas.widthProperty().bind(widthProperty());
+        canvas.heightProperty().bind(heightProperty());
+        widthProperty().addListener((obs, o, n) -> paint());
+        heightProperty().addListener((obs, o, n) -> paint());
+        timer = new AnimationTimer() {
+            @Override public void handle(long now) { t += 0.010; paint(); }
+        };
+        timer.start();
+    }
+
+    private void paint() {
+        double w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) return;
+        var g = canvas.getGraphicsContext2D();
+        g.clearRect(0, 0, w, h);
+
+        // Warm-gold radial glow
+        g.setGlobalAlpha(0.50);
+        g.setFill(new RadialGradient(
+                0, 0,
+                0.28 + 0.05 * Math.sin(t * 0.38), 0.20 + 0.04 * Math.cos(t * 0.30),
+                0.90, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 220, 60, 0.80)),
+                new Stop(0.40, Color.rgb(255, 180, 30, 0.30)),
+                new Stop(1.00, Color.rgb(255, 140,  0, 0.00))
+        ));
+        g.fillRect(0, 0, w, h);
+
+        // Diagonal shimmer fill
+        g.setGlobalAlpha(0.36);
+        g.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 245, 150, 0.60)),
+                new Stop(0.22, Color.rgb(255, 220,  80, 0.24)),
+                new Stop(0.60, Color.rgb(255, 190,  40, 0.08)),
+                new Stop(1.00, Color.rgb(255, 140,   0, 0.00))
+        ));
+        g.fillRoundRect(0, 0, w, h, 18, 18);
+
+        // Moving highlight streak (top-left specular)
+        g.setGlobalAlpha(0.42);
+        g.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 255, 200, 0.76)),
+                new Stop(0.12, Color.rgb(255, 250, 160, 0.34)),
+                new Stop(0.36, Color.rgb(255, 220,  80, 0.06)),
+                new Stop(1.00, Color.rgb(255, 255, 255, 0.00))
+        ));
+        g.save();
+        g.translate(Math.sin(t * 0.20) * w * 0.010, Math.cos(t * 0.14) * h * 0.008);
+        g.rotate(-8.0);
+        g.fillRoundRect(w * -0.04, 0, w * 0.68, h * 0.30, 48, 48);
+        g.restore();
+
+        // Secondary right-side glow
+        g.setGlobalAlpha(0.16);
+        g.setFill(new RadialGradient(
+                0, 0,
+                0.72 + 0.02 * Math.cos(t * 0.26), 0.50 + 0.02 * Math.sin(t * 0.22),
+                0.46, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(255, 200, 50, 0.28)),
+                new Stop(0.60, Color.rgb(255, 160, 20, 0.06)),
+                new Stop(1.00, Color.rgb(255, 140,  0, 0.00))
+        ));
+        g.fillOval(w * 0.42, h * 0.10, w * 0.52, h * 0.70);
+
+        // Gold border
+        g.setGlobalAlpha(0.32);
+        g.setStroke(Color.rgb(255, 200, 50));
+        g.setLineWidth(1.0);
+        g.strokeRoundRect(1.0, 1.0, w - 2.0, h - 2.0, 18, 18);
+
+        g.setGlobalAlpha(1.0);
+    }
 }

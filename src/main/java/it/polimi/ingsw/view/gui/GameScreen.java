@@ -136,6 +136,7 @@ public class GameScreen {
 
     private final Queue<EventAnimationRequest> eventQueue = new ArrayDeque<>();
     private boolean eventAnimationRunning = false;
+    private Runnable onAllAnimationsDone = null;
 
     private final StackPane eventOverlay = new StackPane();
     private final Rectangle eventFlash = new Rectangle();
@@ -1546,10 +1547,23 @@ public class GameScreen {
         }
     }
 
+    public void runWhenAnimationsDone(Runnable r) {
+        if (!eventAnimationRunning && eventQueue.isEmpty()) {
+            r.run();
+        } else {
+            onAllAnimationsDone = r;
+        }
+    }
+
     private void playNextEventAnimation() {
         EventAnimationRequest req = eventQueue.poll();
         if (req == null) {
             eventAnimationRunning = false;
+            if (onAllAnimationsDone != null) {
+                Runnable cb = onAllAnimationsDone;
+                onAllAnimationsDone = null;
+                cb.run();
+            }
             return;
         }
 
@@ -2176,6 +2190,10 @@ public class GameScreen {
             List<Integer> cards = cardsByPlayer.getOrDefault(player, List.of());
             playerOwnedCards.put(player, new ArrayList<>(cards));
         }
+    }
+
+    public Map<String, List<Integer>> getPlayerOwnedCards() {
+        return new java.util.HashMap<>(playerOwnedCards);
     }
 
     public void placeTotemOnSpace(String letter, TotemColor color, String nickname) {
