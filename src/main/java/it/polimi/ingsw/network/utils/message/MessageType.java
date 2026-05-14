@@ -74,6 +74,10 @@ public enum MessageType {
     /** Payload: results (comma-separated "nick:points") */
     ON_GAME_OVER,
 
+    // ── S→C  database ranking ─────────────────────────────────────────────
+    /** Payload: myRank (int), totalEntries (int), ranking (List<Map>) */
+    ON_RANKING_DATA,
+
     // ── S→C  disconnection ────────────────────────────────────────────────
     /** Broadcast when a player disconnects. Payload: nickname */
     ON_PLAYER_DISCONNECTED,

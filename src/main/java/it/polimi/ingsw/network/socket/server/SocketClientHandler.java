@@ -8,12 +8,14 @@ import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
+import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /*
  * Handles one Socket client connection on the server side.
@@ -257,6 +259,24 @@ public class SocketClientHandler implements VirtualView, Runnable {
     @Override
     public void onGameOver(String results) throws Exception {
         send(new NetworkMessage(MessageType.ON_GAME_OVER, Map.of("results", results)));
+    }
+
+    @Override
+    public void onRankingData(int myRank, int totalEntries,
+                              List<RankingEntry> fullRanking) throws Exception {
+        List<Map<String, Object>> list = fullRanking.stream()
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("rank",       e.rank());
+                    m.put("nickname",   e.nickname());
+                    m.put("score",      e.score());
+                    m.put("date",       e.date().toString()); // ISO-8601: "2025-05-14"
+                    m.put("numPlayers", e.numPlayers());
+                    return m;
+                })
+                .collect(Collectors.toList());
+        send(new NetworkMessage(MessageType.ON_RANKING_DATA,
+                Map.of("myRank", myRank, "totalEntries", totalEntries, "ranking", list)));
     }
 
     @Override

@@ -47,6 +47,9 @@ public class BuildingEvent extends BuildingCard {
 
     }
 
+    public EventType getEventToRespond()          { return eventToRespond; }
+    public CharacterType getCharacterToConsider() { return characterToConsider; }
+
     public String toString(){
         return " { BUILDING_EVENT, " + super.toString() + ", event to respond: " + eventToRespond + ", character to consider: " + characterToConsider + "} ";
     }

@@ -5,6 +5,7 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.network.GameServerProxy;
+import it.polimi.ingsw.persistence.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.ModelObserver;
 import javafx.animation.AnimationTimer;
@@ -47,6 +48,14 @@ public class GUIView implements ModelObserver {
     // === SPECTATOR ===
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
+
+    // === DB RANKING ===
+    private StackPane      endgameOverlayContainer;
+    private Button         globalRankingBtn;
+    private int            pendingMyRank;
+    private int            pendingTotal;
+    private List<RankingEntry> pendingRanking;
+    // === END DB RANKING ===
 
     public GUIView(Stage stage, ClientModel model) {
         this.stage = stage;
@@ -507,6 +516,144 @@ public class GUIView implements ModelObserver {
             }
         });
     }
+
+    // === DB RANKING ===
+    @Override
+    public void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
+        Platform.runLater(() -> {
+            pendingMyRank  = myRank;
+            pendingTotal   = totalEntries;
+            pendingRanking = fullRanking;
+            if (globalRankingBtn != null) {
+                globalRankingBtn.setText("Classifica Globale");
+                globalRankingBtn.setDisable(false);
+            }
+        });
+    }
+
+    private void showRankingOverlay(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
+        if (endgameOverlayContainer == null) return;
+
+        Rectangle scrim = new Rectangle();
+        scrim.setFill(Color.rgb(0, 0, 0, 0.72));
+        scrim.widthProperty().bind(endgameOverlayContainer.widthProperty());
+        scrim.heightProperty().bind(endgameOverlayContainer.heightProperty());
+
+        Label titleLbl = new Label("Classifica Globale");
+        titleLbl.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:20;-fx-font-weight:bold;-fx-text-fill:white;");
+        HBox.setHgrow(titleLbl, Priority.ALWAYS);
+
+        Button closeBtn = new Button("Chiudi");
+        closeBtn.setStyle(styleSecondaryButton());
+
+        HBox titleRow = new HBox(16, titleLbl, closeBtn);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
+        int numPlayers = fullRanking.isEmpty() ? 0 : fullRanking.get(0).numPlayers();
+        Label subtitleLbl = new Label("Partite da " + numPlayers + " giocatori  —  " +
+                "La tua posizione: #" + myRank + " su " + totalEntries);
+        subtitleLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:13;-fx-text-fill:rgba(255,255,255,0.60);");
+
+        VBox rows = new VBox(6);
+        rows.setFillWidth(true);
+        for (RankingEntry e : fullRanking) {
+            boolean isMe = e.nickname().equals(nick) && e.rank() == myRank;
+            rows.getChildren().add(buildRankingRow(e, isMe));
+        }
+
+        ScrollPane scroll = new ScrollPane(rows);
+        scroll.setFitToWidth(true);
+        scroll.setPrefHeight(280);
+        scroll.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
+                "-fx-border-color:transparent;");
+
+        VBox panel = new VBox(16, titleRow, subtitleLbl, separator(), scroll);
+        panel.setPadding(new Insets(28, 28, 28, 28));
+        panel.setMaxWidth(580);
+        panel.setStyle(styleGlassCard());
+
+        StackPane wrapper = new StackPane(panel);
+        wrapper.setPadding(new Insets(40));
+
+        endgameOverlayContainer.getChildren().addAll(scrim, wrapper);
+        endgameOverlayContainer.setMouseTransparent(false);
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(200), endgameOverlayContainer);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+        endgameOverlayContainer.setOpacity(0);
+        fadeIn.play();
+
+        Runnable dismiss = () -> {
+            FadeTransition fo = new FadeTransition(Duration.millis(160), endgameOverlayContainer);
+            fo.setFromValue(1);
+            fo.setToValue(0);
+            fo.setOnFinished(ev -> {
+                endgameOverlayContainer.getChildren().clear();
+                endgameOverlayContainer.setMouseTransparent(true);
+            });
+            fo.play();
+        };
+        scrim.setOnMouseClicked(e -> dismiss.run());
+        closeBtn.setOnAction(e -> dismiss.run());
+    }
+
+    private HBox buildRankingRow(RankingEntry e, boolean isMe) {
+        Label rankLbl = new Label("#" + e.rank());
+        rankLbl.setMinWidth(36);
+        rankLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:13;-fx-font-weight:bold;" +
+                "-fx-text-fill:" + (isMe ? "#FFD700" : "rgba(255,255,255,0.55)") + ";");
+
+        Label nickLbl = new Label(e.nickname());
+        nickLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:" + (isMe ? 15 : 13) + ";" +
+                (isMe ? "-fx-font-weight:bold;" : "") +
+                "-fx-text-fill:white;");
+        HBox.setHgrow(nickLbl, Priority.ALWAYS);
+
+        Label scoreLbl = new Label(e.score() + " pt");
+        scoreLbl.setStyle(isMe
+                ? "-fx-background-color:#FFD700;-fx-background-radius:6;" +
+                  "-fx-text-fill:#3D2A00;-fx-font-weight:bold;-fx-font-size:12;" +
+                  "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;-fx-padding:3 8 3 8;"
+                : "-fx-background-color:rgba(255,255,255,0.10);-fx-background-radius:6;" +
+                  "-fx-text-fill:rgba(255,255,255,0.75);-fx-font-size:12;" +
+                  "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;-fx-padding:3 8 3 8;");
+
+        Label dateLbl = new Label(e.date().toString());
+        dateLbl.setMinWidth(90);
+        dateLbl.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                "-fx-font-size:11;-fx-text-fill:rgba(255,255,255,0.38);");
+
+        HBox row = new HBox(10, rankLbl, nickLbl, scoreLbl, dateLbl);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(isMe ? 12 : 9, 16, isMe ? 12 : 9, 16));
+        row.setMaxWidth(Double.MAX_VALUE);
+
+        if (isMe) {
+            GoldGlassPane glass = new GoldGlassPane();
+            StackPane rowPane = new StackPane(glass, row);
+            rowPane.setMaxWidth(Double.MAX_VALUE);
+            rowPane.setStyle("-fx-background-color:rgba(255,200,50,0.10);" +
+                    "-fx-background-radius:14;" +
+                    "-fx-border-color:rgba(255,215,0,0.45);" +
+                    "-fx-border-radius:14;-fx-border-width:1.5;");
+            glass.prefWidthProperty().bind(rowPane.widthProperty());
+            glass.prefHeightProperty().bind(rowPane.heightProperty());
+            return new HBox(rowPane); // wrap in HBox to satisfy return type
+        } else {
+            row.setStyle("-fx-background-color:rgba(255,255,255,0.05);" +
+                    "-fx-background-radius:10;" +
+                    "-fx-border-color:rgba(255,255,255,0.08);" +
+                    "-fx-border-radius:10;-fx-border-width:1;");
+            return row;
+        }
+    }
+    // === END DB RANKING ===
+
     // === TASK F: disconnection banner ===
     @Override
     public void onPlayerDisconnected(String nickname) {
@@ -829,13 +976,30 @@ public class GUIView implements ModelObserver {
             rankingBox.getChildren().add(row);
         }
 
+        Button rankBtn = new Button("Caricamento classifica…");
+        rankBtn.setPrefHeight(44);
+        rankBtn.setMaxWidth(Double.MAX_VALUE);
+        rankBtn.setDisable(true);
+        rankBtn.setStyle(styleSecondaryButton());
+        rankBtn.setOnAction(e -> showRankingOverlay(pendingMyRank, pendingTotal, pendingRanking));
+        this.globalRankingBtn = rankBtn;
+
         Button exitBtn = new Button("Esci");
         exitBtn.setPrefHeight(48);
         exitBtn.setMaxWidth(Double.MAX_VALUE);
         exitBtn.setStyle(stylePrimaryButton());
         exitBtn.setOnAction(e -> Platform.exit());
 
-        VBox card = new VBox(20, title, subtitle, separator(), rankLabel, rankingBox, separator(), exitBtn);
+        VBox card = new VBox(20, title, subtitle, separator(), rankLabel, rankingBox,
+                separator(), rankBtn, separator(), exitBtn);
+
+        // === DB RANKING: wire up so onRankingData() can enable the button ===
+        endgameOverlayContainer = overlayContainer;
+        if (pendingRanking != null) {
+            globalRankingBtn.setText("Classifica Globale");
+            globalRankingBtn.setDisable(false);
+        }
+        // === END DB RANKING ===
         card.setAlignment(Pos.TOP_LEFT);
         card.setPadding(new Insets(44, 40, 44, 40));
         card.setMaxWidth(520);

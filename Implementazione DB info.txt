@@ -1,0 +1,569 @@
+================================================================================
+  FA1 — CLASSIFICA SU DATABASE
+  Documentazione tecnica dell'implementazione
+  Progetto: Mesos IS26-AM6
+================================================================================
+
+
+--------------------------------------------------------------------------------
+0. PREREQUISITI E SETUP MANUALE (una tantum per ogni sviluppatore)
+--------------------------------------------------------------------------------
+
+Questa funzionalità usa MySQL (versione 8+). Ogni sviluppatore deve:
+
+  1. Installare MySQL in locale (se non già presente).
+
+  2. Creare il database e la tabella eseguendo schema.sql:
+       mysql -u root -p < schema.sql
+
+     Contenuto di schema.sql:
+       CREATE DATABASE IF NOT EXISTS mesos;
+       USE mesos;
+       CREATE TABLE IF NOT EXISTS game_results (
+           id          INT AUTO_INCREMENT PRIMARY KEY,
+           nickname    VARCHAR(50) NOT NULL,
+           score       INT NOT NULL,
+           game_date   DATE NOT NULL,
+           num_players INT NOT NULL
+       );
+       CREATE INDEX IF NOT EXISTS idx_num_players_score
+           ON game_results (num_players, score DESC);
+
+  3. Copiare il file delle credenziali:
+       cp src/main/resources/db.properties.example \
+          src/main/resources/db.properties
+
+     Aprire db.properties e inserire le credenziali reali:
+       db.url=jdbc:mysql://localhost:3306/mesos
+       db.user=TUO_UTENTE
+       db.password=TUA_PASSWORD
+
+  IMPORTANTE: db.properties è nel .gitignore — NON viene committato su git.
+              db.properties.example (con valori placeholder) SI viene committato.
+              schema.sql viene committato così i compagni sanno come creare il DB.
+
+
+--------------------------------------------------------------------------------
+1. PERCHE' IL DB E' SOLO LATO SERVER (e non è un problema di collaborazione)
+--------------------------------------------------------------------------------
+
+Il database è una responsabilità del SERVER, non del client.
+
+In produzione/valutazione esiste UN solo server che gira su UNA macchina.
+Il DB gira su quella stessa macchina. I client non toccano mai il DB direttamente.
+
+In sviluppo: ogni sviluppatore fa girare il server sulla propria macchina,
+con il proprio MySQL locale. I dati di test non vengono condivisi tra i compagni,
+ma questo è normale e non è un problema — ogni dev testa in isolamento.
+
+Per la demo di valutazione: basta che la macchina che presenta abbia MySQL
+installato e il db.properties corretto. Tutto il resto funziona automaticamente.
+
+
+--------------------------------------------------------------------------------
+2. COME FUNZIONA IL DB A RUNTIME (flusso completo)
+--------------------------------------------------------------------------------
+
+Quando una partita termina, il flusso è questo:
+
+  Game.notifyGameOver()
+      |
+      v
+  GameController.onGameOver()    [src/main/java/.../controller/GameController.java]
+      |
+      |-- (1) buildFinalResults() --> stringa "nick1:punti1,nick2:punti2,..."
+      |-- (2) broadcast onGameOver(results) --> tutti i client vedono la classifica
+      |                                         finale della partita corrente
+      |
+      |-- (3) DatabaseManager.saveGameResults(players, numPlayers, oggi)
+      |        --> INSERT INTO game_results per ogni giocatore della partita
+      |            (salva nickname, punteggio, data, numero giocatori)
+      |
+      |-- (4) DatabaseManager.getRanking(numPlayers)
+      |        --> SELECT storico globale, filtrato per stesso numero giocatori,
+      |            ordinato per punteggio decrescente (con rank assegnato via
+      |            funzione SQL RANK() OVER)
+      |
+      |-- (5) Per ogni giocatore (NON per gli spettatori):
+               DatabaseManager.getPlayerRank(nick, myScore, numPlayers)
+               --> restituisce la posizione storica di quel giocatore
+               --> il server invia v.onRankingData(myRank, total, fullRanking)
+                   individualmente a ogni client
+
+I client ricevono in ordine:
+  - onGameOver(results)    --> mostra schermata finale con classifica della partita
+  - onRankingData(...)     --> mostra overlay con classifica globale storica
+
+
+La tabella game_results accumula dati partita dopo partita. Alla terza partita,
+la classifica mostra i migliori punteggi di TUTTE le partite giocate con quel
+numero di giocatori (non solo l'ultima).
+
+
+--------------------------------------------------------------------------------
+3. FILE NUOVI DA CREARE (3 file)
+--------------------------------------------------------------------------------
+
+FILE 1: src/main/resources/db.properties.example
+--------------------------------------------------
+Template con valori placeholder. Viene committato su git in modo che i compagni
+sappiano quale formato usare. Non contiene credenziali reali.
+
+  db.url=jdbc:mysql://localhost:3306/mesos
+  db.user=INSERISCI_UTENTE
+  db.password=INSERISCI_PASSWORD
+
+
+FILE 2: src/main/java/it/polimi/ingsw/persistence/RankingEntry.java
+--------------------------------------------------------------------
+Record Java 21 che rappresenta una singola riga della classifica storica.
+E' un DTO (Data Transfer Object) condiviso tra server e client.
+
+Deve implementare Serializable perche' viene passato direttamente tramite RMI
+(su RMI gli oggetti vengono serializzati automaticamente da Java).
+Per Socket viene invece serializzato manualmente come Map<String,Object>
+in SocketClientHandler e ricostruito in SocketClient.
+
+  Campi:
+    int       rank        -- posizione nella classifica (1 = primo)
+    String    nickname    -- nickname del giocatore
+    int       score       -- punteggio finale (getTotalPoints())
+    LocalDate date        -- data della partita (LocalDate.now() al momento del salvataggio)
+    int       numPlayers  -- numero di giocatori della partita
+
+
+FILE 3: src/main/java/it/polimi/ingsw/persistence/DatabaseManager.java
+-----------------------------------------------------------------------
+Singleton che gestisce l'intera interazione con il database.
+Carica le credenziali da db.properties (via ClassLoader.getResourceAsStream).
+Crea la tabella automaticamente al primo avvio se non esiste.
+
+  Pattern Singleton: DatabaseManager.getInstance() restituisce sempre
+  la stessa istanza. Se la connessione e' chiusa, ne apre una nuova.
+
+  Metodi pubblici:
+
+    void saveGameResults(List<Player> players, int numPlayers, LocalDate date)
+      Esegue un INSERT batch: una riga per ogni giocatore della partita.
+      Usa PreparedStatement con addBatch()/executeBatch() per efficienza.
+
+    List<RankingEntry> getRanking(int numPlayers)
+      Esegue:
+        SELECT nickname, score, game_date, num_players,
+               RANK() OVER (ORDER BY score DESC) AS rnk
+        FROM game_results
+        WHERE num_players = ?
+        ORDER BY score DESC
+      Ritorna la classifica storica completa per quella categoria di partite.
+
+    int getPlayerRank(String nickname, int score, int numPlayers)
+      Esegue:
+        SELECT COUNT(*) + 1 FROM game_results
+        WHERE num_players = ? AND score > ?
+      Quante partite hanno un punteggio strettamente superiore + 1
+      = posizione del giocatore in quella classifica.
+
+    void close()
+      Chiude la connessione JDBC. Chiamato dallo shutdown hook in CombinedServer.
+
+  Graceful degradation: tutti i metodi lanciano eccezioni che GameController
+  cattura in un try/catch. Se il DB e' offline, la partita termina normalmente
+  e appare solo un log "[DB] Ranking unavailable: ..." sul server.
+  I client vedono la schermata finale della partita ma non il ranking storico.
+
+
+--------------------------------------------------------------------------------
+4. FILE ESISTENTI DA MODIFICARE (13 file)
+--------------------------------------------------------------------------------
+
+
+MODIFICA 1 — pom.xml
+---------------------
+Aggiungere la dipendenza del driver JDBC MySQL all'interno di <dependencies>.
+
+  Prima: mancante
+  Dopo:
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <version>8.3.0</version>
+    </dependency>
+
+Senza questo il progetto non trova le classi java.sql.DriverManager
+specifiche per MySQL.
+
+
+MODIFICA 2 — VirtualView.java
+------------------------------
+File: src/main/java/it/polimi/ingsw/VirtualView.java
+
+Aggiungere il nuovo metodo callback dopo onGameOver():
+
+  void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking)
+       throws Exception;
+
+VirtualView e' l'interfaccia che il server usa per comunicare con i client.
+Tutti i callback server->client passano da qui (onYourTurn, onGameOver, ecc.).
+Aggiungere un metodo qui obbliga TUTTI gli implementatori a implementarlo,
+garantendo che sia supportato su entrambi i trasporti (RMI e Socket).
+
+
+MODIFICA 3 — ModelObserver.java
+--------------------------------
+File: src/main/java/it/polimi/ingsw/view/ModelObserver.java
+
+Aggiungere lo stesso metodo specchiato per il lato client:
+
+  void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking);
+
+ModelObserver e' l'interfaccia che le viste (GUIView, CLIView) implementano
+per ricevere aggiornamenti da ClientModel. Ogni metodo di VirtualView ha il
+suo corrispettivo in ModelObserver (tranne i dettagli di trasporto).
+
+
+MODIFICA 4 — MessageType.java
+------------------------------
+File: src/main/java/it/polimi/ingsw/network/utils/message/MessageType.java
+
+Aggiungere la costante del nuovo tipo messaggio nel protocollo Socket:
+
+  ON_RANKING_DATA,   // S->C: payload = myRank, totalEntries, ranking (List<Map>)
+
+Ogni messaggio Socket ha un tipo definito qui. Senza questa costante,
+SocketClientHandler non sa come serializzare il messaggio e SocketClient
+non sa come deserializzarlo nel dispatch.
+
+
+MODIFICA 5 — SocketClientHandler.java
+--------------------------------------
+File: src/main/java/it/polimi/ingsw/network/socket/server/SocketClientHandler.java
+
+Implementare onRankingData() come metodo di VirtualView.
+Serializza List<RankingEntry> come List<Map<String,Object>> (stesso pattern
+usato da onLobbyList() per serializzare List<LobbyInfo>).
+
+  @Override
+  public void onRankingData(int myRank, int totalEntries,
+                            List<RankingEntry> fullRanking) throws Exception {
+      List<Map<String,Object>> list = fullRanking.stream()
+          .map(e -> Map.of(
+              "rank",       e.rank(),
+              "nickname",   e.nickname(),
+              "score",      e.score(),
+              "date",       e.date().toString(),   // ISO-8601: "2025-05-14"
+              "numPlayers", e.numPlayers()
+          )).toList();
+      send(new NetworkMessage(MessageType.ON_RANKING_DATA,
+          Map.of("myRank", myRank, "totalEntries", totalEntries, "ranking", list)));
+  }
+
+LocalDate viene serializzato come stringa ISO-8601 perche' JSON non ha
+un tipo Date nativo. SocketClient la riconvertira' con LocalDate.parse().
+
+
+MODIFICA 6 — VirtualViewRmi.java
+---------------------------------
+File: src/main/java/it/polimi/ingsw/network/rmi/server/VirtualViewRmi.java
+
+Dichiarare il nuovo metodo come metodo remoto RMI:
+
+  @Override void onRankingData(int myRank, int totalEntries,
+                               List<RankingEntry> fullRanking)
+      throws RemoteException;
+
+VirtualViewRmi estende Remote e VirtualView. Per RMI ogni metodo remoto
+deve essere dichiarato esplicitamente con throws RemoteException, anche se
+e' gia' in VirtualView. Senza questa dichiarazione, RMI non esporrebbe
+il metodo correttamente.
+
+Per RMI la serializzazione di List<RankingEntry> avviene automaticamente
+via Java Serialization — ecco perche' RankingEntry implementa Serializable.
+
+
+MODIFICA 7 — RmiClient.java
+----------------------------
+File: src/main/java/it/polimi/ingsw/network/rmi/client/RmiClient.java
+
+Implementare il metodo ricevuto dal server e delegarlo a ClientModel:
+
+  @Override
+  public void onRankingData(int myRank, int totalEntries,
+                            List<RankingEntry> fullRanking)
+      throws RemoteException {
+      model.onRankingData(myRank, totalEntries, fullRanking);
+  }
+
+RmiClient implementa VirtualViewRmi (riceve le callback dal server via RMI)
+e le relay a ClientModel. Ogni altro callback (onGameOver, onTurnSnapshot,
+ecc.) segue questo stesso pattern identico.
+
+
+MODIFICA 8 — SocketClient.java
+--------------------------------
+File: src/main/java/it/polimi/ingsw/network/socket/client/SocketClient.java
+
+Aggiungere il case ON_RANKING_DATA nel metodo dispatch() (switch sul tipo
+del messaggio in arrivo). Deserializza List<Map> -> List<RankingEntry>
+(stesso pattern del case ON_LOBBY_LIST che ricostruisce List<LobbyInfo>).
+
+  case ON_RANKING_DATA -> {
+      int myRank       = msg.num("myRank");
+      int totalEntries = msg.num("totalEntries");
+      List<RankingEntry> ranking = msg.mapList("ranking").stream()
+          .map(m -> new RankingEntry(
+              ((Number) m.get("rank")).intValue(),
+              (String) m.get("nickname"),
+              ((Number) m.get("score")).intValue(),
+              LocalDate.parse((String) m.get("date")),
+              ((Number) m.get("numPlayers")).intValue()
+          )).toList();
+      model.onRankingData(myRank, totalEntries, ranking);
+  }
+
+LocalDate.parse() ricostruisce la data dalla stringa ISO-8601 serializzata
+da SocketClientHandler. msg.mapList() e' gia' disponibile in NetworkMessage.
+
+
+MODIFICA 9 — ClientModel.java
+------------------------------
+File: src/main/java/it/polimi/ingsw/view/ClientModel.java
+
+Aggiungere il metodo relay onRankingData() che fa fanout a tutti gli observer:
+
+  public void onRankingData(int myRank, int totalEntries,
+                            List<RankingEntry> fullRanking) {
+      observers.forEach(o -> o.onRankingData(myRank, totalEntries, fullRanking));
+  }
+
+ClientModel riceve i callback da RmiClient (via VirtualViewRmi) o da
+SocketClient (via dispatch) e li propaga a tutti i ModelObserver registrati
+(GUIView, CLIView). Ogni metodo del model segue questo stesso pattern.
+
+
+MODIFICA 10 — GameController.java (MODIFICA PRINCIPALE)
+---------------------------------------------------------
+File: src/main/java/it/polimi/ingsw/controller/GameController.java
+
+Modificare il metodo onGameOver() (attualmente alle righe 394-398):
+
+  // PRIMA:
+  @Override
+  public void onGameOver() {
+      String results = buildFinalResults();
+      broadcast(v -> v.onGameOver(results));
+  }
+
+  // DOPO:
+  @Override
+  public void onGameOver() {
+      String results = buildFinalResults();
+      broadcast(v -> v.onGameOver(results));         // invariato
+
+      // FA: salvataggio DB e invio classifica storica
+      try {
+          DatabaseManager db = DatabaseManager.getInstance();
+          int numPlayers = game.getNumberOfPlayers();
+          db.saveGameResults(game.getPlayers(), numPlayers, LocalDate.now());
+          List<RankingEntry> ranking = db.getRanking(numPlayers);
+
+          // onRankingData e' inviato individualmente (non tramite broadcast)
+          // perche' ogni giocatore ha una posizione diversa (myRank diverso).
+          // Gli spettatori (lista spectators) NON ricevono onRankingData.
+          for (int i = 0; i < clients.size(); i++) {
+              String nick = nicks.get(i);
+              VirtualView v = clients.get(i);
+              int myScore = game.getPlayers().stream()
+                  .filter(p -> p.getNickname().equals(nick))
+                  .mapToInt(Player::getTotalPoints)
+                  .findFirst().orElse(0);
+              int myRank = db.getPlayerRank(nick, myScore, numPlayers);
+              try { v.onRankingData(myRank, ranking.size(), ranking); }
+              catch (Exception e) {
+                  System.err.println("[Controller] onRankingData to " + nick + ": " + e.getMessage());
+              }
+          }
+      } catch (Exception e) {
+          System.err.println("[DB] Ranking unavailable: " + e.getMessage());
+          // graceful degradation: la partita e' terminata normalmente.
+          // Il ranking storico semplicemente non viene mostrato ai client.
+      }
+  }
+
+Nota: clients e nicks sono liste parallele (CopyOnWriteArrayList) definite
+in GameController: clients.get(i) corrisponde a nicks.get(i).
+game.getNumberOfPlayers() ritorna il numero di giocatori della partita.
+
+
+MODIFICA 11 — CombinedServer.java
+-----------------------------------
+File: src/main/java/it/polimi/ingsw/CombinedServer.java
+
+Aggiungere uno shutdown hook nel main() dopo la creazione di sharedLobbyManager:
+
+  Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      try {
+          DatabaseManager.getInstance().close();
+      } catch (Exception ignored) {}
+  }, "db-shutdown"));
+
+Questo garantisce che la connessione JDBC venga chiusa correttamente quando
+il server viene terminato (Ctrl+C, SIGTERM, ecc.), liberando le risorse
+sul lato MySQL senza aspettare il timeout automatico.
+
+
+MODIFICA 12 — GUIView.java
+----------------------------
+File: src/main/java/it/polimi/ingsw/view/gui/GUIView.java
+
+Implementare onRankingData() per la visualizzazione grafica.
+
+Problema di timing: onRankingData() arriva poco dopo onGameOver().
+onGameOver() chiama showEndGameScreen() in modo asincrono (Platform.runLater
++ attesa animazioni via runWhenAnimationsDone). C'e' il rischio che
+onRankingData() arrivi prima che la schermata finale sia pronta.
+
+Soluzione: due campi aggiuntivi in GUIView:
+  private StackPane endgameOverlayContainer;  // popolato da showEndGameScreen()
+  private Runnable  pendingRankingAction;      // accodato se arriva troppo presto
+
+In showEndGameScreen() (riga 795): dopo aver creato overlayContainer,
+assegnarlo a endgameOverlayContainer e, se c'e' un pendingRankingAction,
+eseguirlo subito.
+
+onRankingData() (nuovo metodo):
+  @Override
+  public void onRankingData(int myRank, int totalEntries,
+                            List<RankingEntry> fullRanking) {
+      Platform.runLater(() -> {
+          Runnable show = () -> showRankingOverlay(myRank, totalEntries, fullRanking);
+          if (endgameOverlayContainer != null) {
+              show.run();
+          } else {
+              pendingRankingAction = show;
+          }
+      });
+  }
+
+showRankingOverlay() (nuovo metodo privato):
+  Apre un overlay (stessa tecnica di showCardsOverlay(), riga 913) con:
+  - Header: "Classifica Globale" + numero giocatori
+  - Riga evidenziata: "La tua posizione: #N su M partite storiche"
+  - ScrollPane con tabella: Pos / Nickname / Punti / Data
+  - Riga del giocatore corrente evidenziata con GoldGlassPane (gia' disponibile)
+  - Fade-in 200ms (stesso pattern di showCardsOverlay)
+  - Dismiss: click sullo scrim o pulsante "Chiudi"
+
+
+MODIFICA 13 — CLIView.java
+----------------------------
+File: src/main/java/it/polimi/ingsw/view/cli/CLIView.java
+
+Implementare onRankingData() per la visualizzazione testuale.
+Aggiungere dopo onGameOver() (riga 423):
+
+  @Override
+  public void onRankingData(int myRank, int totalEntries,
+                            List<RankingEntry> fullRanking) {
+      System.out.println();
+      int np = fullRanking.isEmpty() ? 0 : fullRanking.get(0).numPlayers();
+      printBanner("CLASSIFICA GLOBALE (" + np + " GIOCATORI)");
+      System.out.printf("  La tua posizione: #%d su %d partite storiche%n",
+                        myRank, totalEntries);
+      System.out.println("  ┌─────┬──────────────────────────┬────────┬────────────┐");
+      System.out.println("  │ Pos │ Nickname                 │ Punti  │ Data       │");
+      System.out.println("  ├─────┼──────────────────────────┼────────┼────────────┤");
+      for (RankingEntry e : fullRanking) {
+          String marker = e.nickname().equals(myNick) ? " ◄" : "  ";
+          System.out.printf("  │ %3d │ %-24s │ %6d │ %s%s%n",
+              e.rank(), e.nickname(), e.score(), e.date(), marker);
+      }
+      System.out.println("  └─────┴──────────────────────────┴────────┴────────────┘");
+      printLine();
+  }
+
+Il simbolo ◄ evidenzia la riga del giocatore corrente.
+myNick e' gia' un campo privato di CLIView (String myNick).
+
+
+--------------------------------------------------------------------------------
+5. ORDINE DI IMPLEMENTAZIONE CONSIGLIATO
+--------------------------------------------------------------------------------
+
+Seguire questo ordine garantisce che il progetto compili ad ogni passo:
+
+  1. RankingEntry.java         (nessuna dipendenza)
+  2. DatabaseManager.java      (dipende solo da Player, java.sql)
+  3. db.properties.example     (file di testo)
+  4. schema.sql                (file SQL da committare)
+  5. pom.xml                   (aggiungere driver MySQL)
+  6. VirtualView.java          (interfaccia: aggiunge metodo)
+  7. ModelObserver.java        (interfaccia: specchia il metodo)
+  8. MessageType.java          (enum: aggiunge costante)
+  9. SocketClientHandler.java  (server Socket: implementa VirtualView)
+  10. VirtualViewRmi.java      (interfaccia RMI: dichiara il metodo)
+  11. RmiClient.java           (client RMI: implementa il metodo)
+  12. SocketClient.java        (client Socket: aggiunge case al dispatch)
+  13. ClientModel.java         (relay: aggiunge metodo)
+  14. GameController.java      (logica principale: salva + invia ranking)
+  15. CombinedServer.java      (shutdown hook)
+  16. CLIView.java             (vista testo: implementa ModelObserver)
+  17. GUIView.java             (vista grafica: implementa ModelObserver)
+
+Dopo il passo 8 il progetto NON compila (le interfacce hanno un nuovo metodo
+senza implementazione). Dal passo 9 in poi le implementazioni vengono aggiunte
+una alla volta. Il progetto torna a compilare dopo il passo 13 (tutti gli
+implementatori di VirtualView e ModelObserver sono aggiornati).
+
+
+--------------------------------------------------------------------------------
+6. COSA VA SU GIT E COSA NO
+--------------------------------------------------------------------------------
+
+  COMMITTARE:
+    schema.sql
+    src/main/resources/db.properties.example
+    src/main/java/it/polimi/ingsw/persistence/RankingEntry.java
+    src/main/java/it/polimi/ingsw/persistence/DatabaseManager.java
+    tutte le modifiche ai file Java descritti sopra
+    pom.xml aggiornato
+
+  NON COMMITTARE (aggiungere a .gitignore):
+    src/main/resources/db.properties   (contiene credenziali reali)
+
+
+--------------------------------------------------------------------------------
+7. VERIFICA E TEST
+--------------------------------------------------------------------------------
+
+  1. mvn clean compile                 --> nessun errore di compilazione
+
+  2. Avviare MySQL, eseguire schema.sql, configurare db.properties
+
+  3. Avviare il server:
+       java -cp target/classes it.polimi.ingsw.CombinedServer
+     Verificare nel log: nessun errore di connessione DB
+
+  4. Completare una partita (2 client) e verificare:
+     - Tabella game_results: 2 righe inserite (SELECT * FROM game_results)
+     - GUI: overlay classifica compare dopo la schermata finale
+     - CLI: tabella ASCII stampata dopo "PARTITA TERMINATA!"
+
+  5. Completare una seconda partita (stesso numero di giocatori):
+     - Tabella game_results: 4 righe totali
+     - Il ranking mostra le migliori performance storiche
+     - Le posizioni cambiano correttamente rispetto alla prima partita
+
+  6. Test graceful degradation:
+     - Fermare MySQL prima di una partita
+     - La partita termina normalmente
+     - Il server logga: "[DB] Ranking unavailable: ..."
+     - I client vedono la schermata finale ma NON il ranking storico
+     - Nessun crash
+
+  7. Test con numero di giocatori diverso:
+     - Giocare una partita 2p e una 3p
+     - Il ranking della partita 2p mostra solo partite 2p
+     - Il ranking della partita 3p mostra solo partite 3p
+
+
+================================================================================

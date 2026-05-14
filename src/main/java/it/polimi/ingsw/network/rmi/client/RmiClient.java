@@ -5,6 +5,7 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.GameServerProxy;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
+import it.polimi.ingsw.persistence.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 
 import java.rmi.NotBoundException;
@@ -182,6 +183,10 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     }
     @Override public void onGameOver(String results) throws RemoteException {
         model.onGameOver(results);
+    }
+    @Override public void onRankingData(int myRank, int totalEntries,
+                                        List<RankingEntry> fullRanking) throws RemoteException {
+        model.onRankingData(myRank, totalEntries, fullRanking);
     }
     @Override public void onPlayerDisconnected(String nickname) throws RemoteException {
         model.onPlayerDisconnected(nickname);

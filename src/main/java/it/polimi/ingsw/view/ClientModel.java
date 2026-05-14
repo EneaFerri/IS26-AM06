@@ -3,6 +3,7 @@ package it.polimi.ingsw.view;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
+import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,6 +105,12 @@ public class ClientModel {
 
     public void onGameOver(String results) {
         observers.forEach(o -> o.onGameOver(results));
+    }
+
+    // --- CLASSIFICA DB ---
+
+    public void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
+        observers.forEach(o -> o.onRankingData(myRank, totalEntries, fullRanking));
     }
 
     // --- DISCONNESSIONE ---

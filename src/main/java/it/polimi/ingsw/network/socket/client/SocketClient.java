@@ -7,10 +7,12 @@ import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
+import it.polimi.ingsw.persistence.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 
 import java.io.*;
 import java.net.Socket;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -196,6 +198,22 @@ public class SocketClient {
             // ── End of game ───────────────────────────────────────────────
             case ON_GAME_OVER ->
                     model.onGameOver(msg.str("results"));
+
+            // ── Database ranking ──────────────────────────────────────────
+            case ON_RANKING_DATA -> {
+                int myRank       = msg.num("myRank");
+                int totalEntries = msg.num("totalEntries");
+                List<RankingEntry> ranking = msg.mapList("ranking").stream()
+                        .map(m -> new RankingEntry(
+                                ((Number) m.get("rank")).intValue(),
+                                (String)  m.get("nickname"),
+                                ((Number) m.get("score")).intValue(),
+                                LocalDate.parse((String) m.get("date")),
+                                ((Number) m.get("numPlayers")).intValue()
+                        ))
+                        .collect(Collectors.toList());
+                model.onRankingData(myRank, totalEntries, ranking);
+            }
 
             // ── Disconnection ─────────────────────────────────────────────
             case ON_PLAYER_DISCONNECTED ->

@@ -4,6 +4,7 @@ import it.polimi.ingsw.VirtualView;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
+import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -47,6 +48,9 @@ public interface VirtualViewRmi extends Remote, VirtualView {
 
     // --- FINE PARTITA ---
     @Override void onGameOver(String results)                                       throws RemoteException;
+
+    // --- CLASSIFICA DB ---
+    @Override void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) throws RemoteException;
 
     // --- DISCONNESSIONE ---
     @Override void onPlayerDisconnected(String nickname)                             throws RemoteException;

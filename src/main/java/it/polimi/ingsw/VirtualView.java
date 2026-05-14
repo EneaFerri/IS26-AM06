@@ -3,6 +3,7 @@ package it.polimi.ingsw;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
+import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.util.List;
 
@@ -54,6 +55,14 @@ public interface VirtualView {
 
     // --- FINE PARTITA ---
     void onGameOver(String results)                                      throws Exception;
+
+    // --- CLASSIFICA DB ---
+    /**
+     * Sent individually to each player (not spectators) after game end.
+     * Contains the player's rank in the global historical leaderboard for
+     * games with the same number of players.
+     */
+    void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) throws Exception;
 
     // --- DISCONNESSIONE ---
     /** Broadcast to all remaining clients when a player disconnects mid-game. */

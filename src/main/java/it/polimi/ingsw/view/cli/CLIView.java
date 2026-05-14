@@ -4,6 +4,7 @@ import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.GameServerProxy;
+import it.polimi.ingsw.persistence.RankingEntry;
 import it.polimi.ingsw.view.ModelObserver;
 
 import java.util.List;
@@ -42,6 +43,7 @@ public class CLIView implements ModelObserver {
     private final LinkedBlockingQueue<String> actionResultQueue = new LinkedBlockingQueue<>(1);
 
     private volatile String  myNick      = "";
+    private volatile Thread  inputThread = null;
     // === SPECTATOR ===
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
@@ -230,7 +232,7 @@ public class CLIView implements ModelObserver {
         if (currentPlayerNick.equals(myNick)) return; // active player: skip, onYourTurn handles it
         System.out.println();
         printBanner("⟳ Turno di " + currentPlayerNick.toUpperCase());
-        System.out.println(boardSummary);
+        System.out.println(stripMachineBlock(boardSummary));
         System.out.println("  (In attesa che " + currentPlayerNick + " concluda il suo turno...)");
         printLine();
     }
@@ -239,6 +241,10 @@ public class CLIView implements ModelObserver {
     public void onYourTurn(String nickname, GameState phase, String extraInfo) {
         System.out.println();
         printBanner("★ TOCCA A TE, " + nickname.toUpperCase() + "!");
+
+        // Interrompe l'eventuale thread di input del turno precedente
+        Thread prev = inputThread;
+        if (prev != null) prev.interrupt();
 
         Thread t = new Thread(() -> {
             try {
@@ -252,6 +258,7 @@ public class CLIView implements ModelObserver {
             }
         }, "input-thread");
         t.setDaemon(true);
+        inputThread = t;
         t.start();
     }
 
@@ -260,11 +267,13 @@ public class CLIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     private void runPlaceTotemLoop(String nickname, String extraInfo) throws InterruptedException {
-        System.out.println(extraInfo);
+        System.out.println(stripMachineBlock(extraInfo));
 
         while (true) {
             System.out.print("\n  Lettera spazio [es. B]: ");
-            String raw = scanner.nextLine().trim().toUpperCase();
+            String raw;
+            try { raw = scanner.nextLine().trim().toUpperCase(); }
+            catch (Exception e) { Thread.currentThread().interrupt(); return; }
 
             if (raw.length() != 1 || !Character.isLetter(raw.charAt(0))) {
                 System.out.println("  Inserisci una singola lettera.");
@@ -307,6 +316,7 @@ public class CLIView implements ModelObserver {
 
         // Strip machine markers before printing
         String display = extraInfo.replace("##HAS_TOP##", "").replace("##HAS_BOT##", "");
+        display = stripMachineBlock(display);
         System.out.println(display);
 
         while (true) {
@@ -318,7 +328,9 @@ public class CLIView implements ModelObserver {
             boolean fromTop;
             if (hasTop && hasBot) {
                 System.out.print("  Riga [S=superiore / I=inferiore]: ");
-                String r = scanner.nextLine().trim().toUpperCase();
+                String r;
+                try { r = scanner.nextLine().trim().toUpperCase(); }
+                catch (Exception e) { Thread.currentThread().interrupt(); return; }
                 if      (r.equals("S")) fromTop = true;
                 else if (r.equals("I")) fromTop = false;
                 else { System.out.println("  Digita S o I."); continue; }
@@ -330,10 +342,14 @@ public class CLIView implements ModelObserver {
             System.out.print("  Indice carta: ");
             int index;
             try {
-                index = Integer.parseInt(scanner.nextLine().trim());
+                String rawIdx = scanner.nextLine().trim();
+                index = Integer.parseInt(rawIdx);
             } catch (NumberFormatException e) {
                 System.out.println("  Inserisci un numero intero.");
                 continue;
+            } catch (Exception e) {
+                Thread.currentThread().interrupt();
+                return;
             }
 
             try {
@@ -439,6 +455,24 @@ public class CLIView implements ModelObserver {
     }
 
     @Override
+    public void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
+        System.out.println();
+        int np = fullRanking.isEmpty() ? 0 : fullRanking.get(0).numPlayers();
+        printBanner("CLASSIFICA GLOBALE (" + np + " GIOCATORI)");
+        System.out.printf("  La tua posizione: #%d su %d partite storiche%n", myRank, totalEntries);
+        System.out.println("  ┌─────┬──────────────────────────┬────────┬────────────┐");
+        System.out.println("  │ Pos │ Nickname                 │ Punti  │ Data       │");
+        System.out.println("  ├─────┼──────────────────────────┼────────┼────────────┤");
+        for (RankingEntry e : fullRanking) {
+            String marker = e.nickname().equals(myNick) ? " ◄" : "  ";
+            System.out.printf("  │ %3d │ %-24s │ %6d │ %s%s%n",
+                    e.rank(), e.nickname(), e.score(), e.date(), marker);
+        }
+        System.out.println("  └─────┴──────────────────────────┴────────┴────────────┘");
+        printLine();
+    }
+
+    @Override
     public void onPlayerDisconnected(String nickname) {
         System.out.println();
         printBanner("⚠ DISCONNESSIONE: " + nickname.toUpperCase());
@@ -455,7 +489,7 @@ public class CLIView implements ModelObserver {
         printBanner("MODALITÀ SPETTATORE");
         System.out.println("  Stai guardando la partita in sola lettura. Nessuna azione disponibile.");
         System.out.println("  Turno corrente: " + currentPlayerNick);
-        System.out.println(boardSummary);
+        System.out.println(stripMachineBlock(boardSummary));
         printLine();
         System.out.println("  Digita 'esci' per tornare alla schermata lobby.");
 
@@ -485,6 +519,15 @@ public class CLIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
     //  UTILITY
     // ─────────────────────────────────────────────────────────────────────
+
+    private String stripMachineBlock(String text) {
+        if (text == null) return "";
+        int start = text.indexOf("##PLAYER_CARDS_BEGIN##");
+        int end   = text.indexOf("##PLAYER_CARDS_END##");
+        if (start < 0 || end < start) return text;
+        return text.substring(0, start)
+                 + text.substring(end + "##PLAYER_CARDS_END##".length());
+    }
 
     private void printBanner(String title) {
         String line = "═".repeat(46);

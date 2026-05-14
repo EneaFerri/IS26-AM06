@@ -6,14 +6,23 @@ import it.polimi.ingsw.model.GameObserver;
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.cards.BuildingCard;
 import it.polimi.ingsw.model.cards.Card;
+import it.polimi.ingsw.model.cards.CharacterCard;
 import it.polimi.ingsw.model.cards.EventCard;
 import it.polimi.ingsw.model.cards.TribeCard;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEachTurn;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEnd;
+import it.polimi.ingsw.model.cards.Buildings.BuildingEvent;
 import it.polimi.ingsw.model.enums.Age;
+import it.polimi.ingsw.model.enums.CharacterType;
+import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.model.enums.TotemColor;
+import it.polimi.ingsw.persistence.DatabaseManager;
+import it.polimi.ingsw.persistence.RankingEntry;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -395,6 +404,31 @@ public class GameController implements GameObserver {
     public void onGameOver() {
         String results = buildFinalResults();
         broadcast(v -> v.onGameOver(results));
+
+        // FA1: save to DB and send individual ranking to each player (not spectators)
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            int numPlayers = game.getNumberOfPlayers();
+            db.saveGameResults(game.getPlayers(), numPlayers, LocalDate.now());
+            List<RankingEntry> ranking = db.getRanking(numPlayers);
+
+            for (int i = 0; i < clients.size(); i++) {
+                String nick = nicks.get(i);
+                VirtualView v = clients.get(i);
+                int myScore = game.getPlayers().stream()
+                        .filter(p -> p.getNickname().equals(nick))
+                        .mapToInt(Player::getTotalPoints)
+                        .findFirst().orElse(0);
+                int myRank = db.getPlayerRank(nick, myScore, numPlayers);
+                try {
+                    v.onRankingData(myRank, ranking.size(), ranking);
+                } catch (Exception e) {
+                    System.err.println("[Controller] onRankingData to " + nick + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DB] Ranking unavailable: " + e.getMessage());
+        }
     }
 
     /**
@@ -429,6 +463,7 @@ public class GameController implements GameObserver {
     private String buildExtraInfo(String nickname, GameState phase) {
         Player player = findPlayer(nickname);
         if (player == null) return "";
+
 
         StringBuilder sb = new StringBuilder();
 
@@ -538,20 +573,6 @@ public class GameController implements GameObserver {
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
-        // ── Riga inferiore carte ──────────────────────────────────────────
-        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
-
-        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
-        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
-
-        if (botTribe.isEmpty() && botBld.isEmpty()) {
-            sb.append("  │  (vuota)\n");
-        } else {
-            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
-            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
-        }
-        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
-
         // ── BoardSpaces ───────────────────────────────────────────────────
         sb.append("  ┌── Spazi Offerta ─────────────────────────────────────────────────┐\n");
         sb.append(String.format("  │  %-4s  %-6s  %-6s  %-6s  %-18s%n",
@@ -569,11 +590,29 @@ public class GameController implements GameObserver {
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
+
+        // ── Riga inferiore carte ──────────────────────────────────────────
+        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
+
+        List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
+        List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
+
+        if (botTribe.isEmpty() && botBld.isEmpty()) {
+            sb.append("  │  (vuota)\n");
+        } else {
+            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
+            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
+        }
+        sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
+
         // ── Spazi liberi (sintesi rapida) ─────────────────────────────────
         List<String> free = game.getBoard().getFreeBoardSpaces().stream()
                 .map(s -> String.valueOf(s.getLetter()))
                 .toList();
         sb.append("  Spazi liberi: ").append(String.join(", ", free)).append("\n");
+
+
+
     }
 
     /** Sezione "STATO GIOCATORI" con cibo e prestige. */
@@ -592,20 +631,96 @@ public class GameController implements GameObserver {
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
     }
 
-    //Legge le carte che ogni player ha: serve alla GUI per mostrare il pop_up con le carte di ciascun player
     private void appendAllPlayersCardsSummary(StringBuilder sb) {
+        // Blocco machine-readable — la GUI cerca PLAYER= / CARD= / END_PLAYER
         sb.append("\n##PLAYER_CARDS_BEGIN##\n");
         for (Player p : game.getPlayers()) {
             sb.append("PLAYER=").append(p.getNickname()).append("\n");
-            for (it.polimi.ingsw.model.cards.CharacterCard c : p.getCharacterCards()) {
+            for (CharacterCard c : p.getCharacterCards())
                 sb.append("CARD=").append(c.getID()).append("\n");
-            }
-            for (it.polimi.ingsw.model.cards.BuildingCard c : p.getBuildingCards()) {
+            for (BuildingCard c : p.getBuildingCards())
                 sb.append("CARD=").append(c.getID()).append("\n");
-            }
             sb.append("END_PLAYER\n");
         }
         sb.append("##PLAYER_CARDS_END##\n");
+
+        // Sezione human-readable — solo per TUI; la GUI ignora questo testo
+        sb.append("\n┌── Riepilogo carte giocatori ─────────────────────────────\n");
+        for (Player p : game.getPlayers()) {
+            sb.append("│\n│  ").append(p.getNickname()).append("\n");
+            appendCharTypeLine(sb, p, CharacterType.SHAMAN,
+                    "Sciamani",     "→  " + p.getStarsFromShamans() + " stelle totali");
+            appendCharTypeLine(sb, p, CharacterType.BUILDER,
+                    "Costruttori",  "→  sconto build: -" + p.foodDiscountToBuyBuildings() + " cibo");
+            appendCharTypeLine(sb, p, CharacterType.COLLECTOR,
+                    "Raccoglitori", "→  sconto cibo: -" + p.getCollectorsFoodDiscount());
+            appendCharTypeLine(sb, p, CharacterType.INVENTOR,
+                    "Inventori",    "→  " + p.getNumInventions() + " invenzioni diverse");
+            appendCharTypeLine(sb, p, CharacterType.ARTIST,    "Artisti",    null);
+            appendCharTypeLine(sb, p, CharacterType.HUNTER,    "Cacciatori", null);
+            List<? extends BuildingCard> bList = p.getBuildingCards();
+            if (!bList.isEmpty()) {
+                sb.append("│    Costruzioni (").append(bList.size()).append("):\n");
+                for (BuildingCard b : bList)
+                    sb.append("│      · ").append(buildingLabel(b)).append("\n");
+            }
+        }
+        sb.append("└──────────────────────────────────────────────────────────\n");
+    }
+
+    private void appendCharTypeLine(StringBuilder sb, Player p,
+                                    CharacterType type, String label, String extra) {
+        long count = p.getCharacterCards().stream()
+                .filter(c -> c.getCharacterType() == type).count();
+        if (count == 0) return;
+        sb.append("│    ").append(label).append(": ").append(count);
+        if (extra != null) sb.append("  ").append(extra);
+        sb.append("\n");
+    }
+
+    private String buildingLabel(BuildingCard b) {
+        if (b instanceof BuildingEachTurn bet) {
+            return switch (bet.getBType()) {
+                case BUILDER_DOUBLEPOINTS   -> "×2 punti Costruttori";
+                case RITUAL_DOUBLEPOINTS    -> "×2 punti Rituali";
+                case RITUAL_THREEEXTRASTARS -> "+3 stelle extra (Rituali)";
+                case RITUAL_NOMALUS         -> "Rituali: no malus";
+                case EXTRAFOOD_SET          -> "Cibo bonus per set completo";
+                case EXTRAFOOD_INVENTORS    -> "Cibo bonus per Inventori doppi";
+                case EXTRAFOOD_TURNORDER    -> "Cibo bonus posizione turno";
+                case EXTRACARD              -> "Carta extra dalla riga superiore";
+            };
+        }
+        if (b instanceof BuildingEnd be)
+            return "Fine partita: +" + be.getPrestigeEndEffect()
+                    + " per ogni " + charTypeName(be.getCharacterToConsider());
+        if (b instanceof BuildingEvent bev)
+            return "Evento " + eventTypeName(bev.getEventToRespond())
+                    + ": bonus su " + charTypeName(bev.getCharacterToConsider());
+        return b.getClass().getSimpleName();
+    }
+
+    private String charTypeName(CharacterType t) {
+        if (t == null) return "?";
+        return switch (t) {
+            case ARTIST     -> "Artisti";
+            case BUILDER    -> "Costruttori";
+            case COLLECTOR  -> "Raccoglitori";
+            case HUNTER     -> "Cacciatori";
+            case INVENTOR   -> "Inventori";
+            case SHAMAN     -> "Sciamani";
+            case SET_OF_CHAR -> "Set completi";
+        };
+    }
+
+    private String eventTypeName(EventType t) {
+        if (t == null) return "?";
+        return switch (t) {
+            case HUNT       -> "Caccia";
+            case PICTURES   -> "Pitture";
+            case RITUAL     -> "Rituali";
+            case SUSTENANCE -> "Sostentamento";
+        };
     }
 
     /** Trova il nickname del giocatore che possiede quel totem. */

@@ -38,6 +38,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- FA1: Database ranking -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.3.0</version>
+        </dependency>
+
         <!-- JavaFX (NUOVE) -->
         <dependency>
             <groupId>org.openjfx</groupId>

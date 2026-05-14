@@ -4,6 +4,7 @@ import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.network.rmi.server.RmiServer;
 import it.polimi.ingsw.network.utils.NetworkUtils;
 import it.polimi.ingsw.network.socket.server.SocketServer;
+import it.polimi.ingsw.persistence.DatabaseManager;
 
 import java.rmi.RemoteException;
 
@@ -24,6 +25,11 @@ public class CombinedServer {
         System.setProperty("java.rmi.server.hostname", ip);
 
         LobbyManager sharedLobbyManager = new LobbyManager();
+
+        // FA1: close DB connection on server shutdown (Ctrl+C / SIGTERM)
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try { DatabaseManager.getInstance().close(); } catch (Exception ignored) {}
+        }, "db-shutdown"));
 
         // ── RMI server ────────────────────────────────────────────────────
         try {

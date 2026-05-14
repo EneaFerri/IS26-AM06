@@ -3,6 +3,7 @@ package it.polimi.ingsw.view;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
+import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.util.List;
 
@@ -56,6 +57,10 @@ public interface ModelObserver {
 
     // --- FINE PARTITA ---
     void onGameOver(String results);
+
+    // --- CLASSIFICA DB ---
+    /** Sent individually to each player after game end with their global rank and the full leaderboard. */
+    void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking);
 
     // --- DISCONNESSIONE ---
     /** Called when another player disconnects mid-game. */
