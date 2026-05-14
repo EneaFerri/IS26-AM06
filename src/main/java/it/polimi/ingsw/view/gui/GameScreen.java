@@ -48,6 +48,10 @@ public class GameScreen {
     private static final int CARD_COLLAPSE_DURATION_MS = 340;
     private static final int CARD_TO_HAND_DURATION_MS = 540;
     private static final double CARD_SLOT_SPAN = CARD_W + 8;
+
+    private static final int EVENT_TRANSFER_STAGGER_MS  = 85;
+    private static final int EVENT_TRANSFER_DURATION_MS = 740;
+
     // il totem sugli spazi offerta stava troppo in basso. primo try 32 troppo sopra i segni delle carte sopra e sotto
     // 72 ci siamo quasi 90 praticamente perfetto 95 siiiiiiii perfetto
     private static final double TOTEM_SLOT_LIFT_Y = 95;
@@ -2532,6 +2536,7 @@ public class GameScreen {
 
         List<javafx.animation.Animation> animations = new ArrayList<>();
         int dealIndex = 0;
+        int movedEventIndex = 0;
         int maxCards = Math.max(newTopIds.size(), newBotIds.size());
 
         for (int i = 0; i < maxCards; i++) {
@@ -2551,7 +2556,12 @@ public class GameScreen {
                     StackPane node = findCardNodeInRow(botRowBox, cardId);
                     CardFlightSnapshot snapshot = movedSnapshots.get(cardId);
                     if (node != null && snapshot != null) {
-                        animations.add(buildRowTransferAnimation(node, snapshot));
+                        animations.add(buildRowTransferAnimation(
+                                node,
+                                snapshot,
+                                movedEventIndex++,
+                                movedTopToBot.size()
+                        ));
                     }
                 } else if (freshBotIds.contains(cardId)) {
                     StackPane node = findCardNodeInRow(botRowBox, cardId);
@@ -2938,10 +2948,20 @@ public class GameScreen {
         applyPendingBoardUpdateIfAny();
     }
 
-    private javafx.animation.Animation buildRowTransferAnimation(StackPane targetNode, CardFlightSnapshot snapshot) {
+    private javafx.animation.Animation buildRowTransferAnimation(StackPane targetNode, CardFlightSnapshot snapshot,
+                                                                 int transferIndex, int transferCount) {
         Bounds targetBoundsScene = targetNode.localToScene(targetNode.getBoundsInLocal());
         Point2D sourceInRoot = rootWrapper.sceneToLocal(snapshot.sceneBounds.getMinX(), snapshot.sceneBounds.getMinY());
         Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+
+        double spreadIndex = transferIndex - (transferCount - 1) / 2.0;
+        double arcLift     = 38.0;
+        double midX = (sourceInRoot.getX() + targetInRoot.getX()) / 2.0 + spreadIndex * 14.0;
+        double midY = (sourceInRoot.getY() + targetInRoot.getY()) / 2.0 - arcLift;
+        double overshootY  = targetInRoot.getY() + 5.0;
+
+        javafx.animation.Interpolator smooth  = javafx.animation.Interpolator.SPLINE(0.37, 0.0, 0.63, 1.0);
+        javafx.animation.Interpolator easeOut = javafx.animation.Interpolator.SPLINE(0.0, 0.0, 0.2, 1.0);
 
         ImageView flyer = new ImageView(snapshot.image);
         flyer.setFitWidth(snapshot.sceneBounds.getWidth());
@@ -2951,54 +2971,78 @@ public class GameScreen {
         flyer.setMouseTransparent(true);
         flyer.setTranslateX(sourceInRoot.getX());
         flyer.setTranslateY(sourceInRoot.getY());
-        flyer.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.36)));
+        flyer.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.40)));
 
         rootWrapper.getChildren().add(flyer);
+        StackPane.setAlignment(flyer, Pos.TOP_LEFT);
         flyer.toFront();
 
         double finalOpacity = targetNode.getOpacity();
         targetNode.setOpacity(0.0);
-        targetNode.setScaleX(0.96);
-        targetNode.setScaleY(0.96);
+
+        long delay = (long) transferIndex * EVENT_TRANSFER_STAGGER_MS;
+        int  dur   = EVENT_TRANSFER_DURATION_MS;
 
         javafx.animation.Timeline move = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
                         new javafx.animation.KeyValue(flyer.translateXProperty(), sourceInRoot.getX()),
                         new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0),
                         new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
                         new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0)
                 ),
-                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
-                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, snapshot.sceneBounds.getWidth()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, snapshot.sceneBounds.getHeight()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0))
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(dur * 0.48),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), midX, smooth),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), midY, smooth),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), spreadIndex * 3.5,
+                                javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.05,
+                                javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.05,
+                                javafx.animation.Interpolator.EASE_BOTH)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(dur * 0.86),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(), smooth),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), overshootY, smooth),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0,
+                                javafx.animation.Interpolator.EASE_OUT),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0,
+                                javafx.animation.Interpolator.EASE_OUT),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0,
+                                javafx.animation.Interpolator.EASE_OUT)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(dur),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(), easeOut),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(), easeOut),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0)
+                )
+        );
+        move.setDelay(javafx.util.Duration.millis(delay));
+
+        javafx.animation.Timeline crossFade = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(targetNode.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(delay + dur * 0.70),
+                        new javafx.animation.KeyValue(targetNode.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(delay + dur),
+                        new javafx.animation.KeyValue(targetNode.opacityProperty(), finalOpacity,
+                                javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 0.0,
+                                javafx.animation.Interpolator.EASE_BOTH)
                 )
         );
 
-        javafx.animation.FadeTransition reveal = new javafx.animation.FadeTransition(
-                javafx.util.Duration.millis(170), targetNode);
-        reveal.setFromValue(0.0);
-        reveal.setToValue(finalOpacity);
-
-        javafx.animation.ScaleTransition settle = new javafx.animation.ScaleTransition(
-                javafx.util.Duration.millis(170), targetNode);
-        settle.setFromX(0.96);
-        settle.setFromY(0.96);
-        settle.setToX(1.0);
-        settle.setToY(1.0);
-
-        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
-                move,
-                new javafx.animation.ParallelTransition(reveal, settle)
-        );
-        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
-        return seq;
+        javafx.animation.ParallelTransition landing = new javafx.animation.ParallelTransition(move, crossFade);
+        landing.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
+        return landing;
     }
+
 
     private void clearPendingPick(int cardId) {
         if (Objects.equals(pendingPickedCardId, cardId)) {
