@@ -44,6 +44,10 @@ public class GameScreen {
     private static final int GAME_INTRO_FADE_MS = 900;
     private static final int CARD_DEAL_STAGGER_MS = 180;
     private static final int CARD_DEAL_DURATION_MS = 700;
+
+    private static final int CARD_COLLAPSE_DURATION_MS = 340;
+    private static final int CARD_TO_HAND_DURATION_MS = 540;
+    private static final double CARD_SLOT_SPAN = CARD_W + 8;
     // il totem sugli spazi offerta stava troppo in basso. primo try 32 troppo sopra i segni delle carte sopra e sotto
     // 72 ci siamo quasi 90 praticamente perfetto 95 siiiiiiii perfetto
     private static final double TOTEM_SLOT_LIFT_Y = 95;
@@ -101,10 +105,16 @@ public class GameScreen {
     private boolean canPickTop = false;
     private boolean canPickBot = false;
 
+    private Integer pendingPickedCardId = null;
+    private Boolean pendingPickedFromTop = null;
+
+    private PendingBoardUpdate pendingBoardUpdate = null;
+
     private boolean gameIntroFinished = false;
     private boolean initialBoardDealPlayed = false;
     private boolean initialBoardDealPending = false;
     private boolean initialBoardDealRunning = false;
+    private boolean boardTakeAnimationRunning = false;
 
     // spazio → lista ImageView dei totem sovrapposti
     private final Map<String, VBox> spaceTotemSlots = new HashMap<>();
@@ -335,6 +345,30 @@ public class GameScreen {
             this.eventName = eventName;
             this.cardId = cardId;
             this.stats = stats;
+        }
+    }
+
+    private static final class PendingBoardUpdate {
+        final List<Integer> topIds;
+        final List<Integer> botIds;
+        final boolean canPick;
+        final boolean pickFromTop;
+
+        PendingBoardUpdate(List<Integer> topIds, List<Integer> botIds, boolean canPick, boolean pickFromTop) {
+            this.topIds = new ArrayList<>(topIds);
+            this.botIds = new ArrayList<>(botIds);
+            this.canPick = canPick;
+            this.pickFromTop = pickFromTop;
+        }
+    }
+
+    private static final class CardFlightSnapshot {
+        final Image image;
+        final Bounds sceneBounds;
+
+        CardFlightSnapshot(Image image, Bounds sceneBounds) {
+            this.image = image;
+            this.sceneBounds = sceneBounds;
         }
     }
 
@@ -617,6 +651,68 @@ public class GameScreen {
             }
         }
         return null;
+    }
+
+    private StackPane findCardNodeInRow(HBox row, int cardId) {
+        for (javafx.scene.Node n : row.getChildren()) {
+            if (n instanceof StackPane sp && Integer.valueOf(cardId).equals(sp.getUserData())) {
+                return sp;
+            }
+        }
+        return null;
+    }
+
+    private CardFlightSnapshot captureCardSnapshot(StackPane cardNode) {
+        if (cardNode == null) return null;
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        return new CardFlightSnapshot(
+                cardNode.snapshot(params, null),
+                cardNode.localToScene(cardNode.getBoundsInLocal())
+        );
+    }
+
+    private Map<Integer, Double> captureRowSceneXPositions(HBox row, int excludedCardId) {
+        Map<Integer, Double> positions = new HashMap<>();
+        for (javafx.scene.Node n : row.getChildren()) {
+            if (n instanceof StackPane sp) {
+                Object userData = sp.getUserData();
+                if (userData instanceof Integer id && id != excludedCardId) {
+                    Bounds bounds = sp.localToScene(sp.getBoundsInLocal());
+                    positions.put(id, bounds.getMinX());
+                }
+            }
+        }
+        return positions;
+    }
+
+    private List<javafx.animation.Animation> buildRowRealignmentAnimations(HBox row, Map<Integer, Double> oldPositions) {
+        List<javafx.animation.Animation> animations = new ArrayList<>();
+        for (javafx.scene.Node n : row.getChildren()) {
+            if (!(n instanceof StackPane sp)) continue;
+            Object userData = sp.getUserData();
+            if (!(userData instanceof Integer id)) continue;
+
+            Double oldSceneX = oldPositions.get(id);
+            if (oldSceneX == null) continue;
+
+            Bounds newBounds = sp.localToScene(sp.getBoundsInLocal());
+            double deltaX = oldSceneX - newBounds.getMinX();
+            if (Math.abs(deltaX) < 0.5) continue;
+
+            sp.setTranslateX(deltaX);
+            javafx.animation.Timeline glide = new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                            new javafx.animation.KeyValue(sp.translateXProperty(), deltaX)
+                    ),
+                    new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_COLLAPSE_DURATION_MS),
+                            new javafx.animation.KeyValue(sp.translateXProperty(), 0.0,
+                                    javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0))
+                    )
+            );
+            animations.add(glide);
+        }
+        return animations;
     }
 
     private Image buildEventAnimationImage(int cardId) {
@@ -2221,7 +2317,7 @@ public class GameScreen {
 
         // Aggiorna cliccabilità carte
         canPickCards = isMyTurn && phase == GameState.PICKING_CARD;
-        if (!initialBoardDealPending && !initialBoardDealRunning) {
+        if (!initialBoardDealPending && !initialBoardDealRunning && !boardTakeAnimationRunning) {
             rebuildCardRow(topRowBox, lastTopIds, true);
             rebuildCardRow(botRowBox, lastBotIds, false);
         }
@@ -2298,10 +2394,14 @@ public class GameScreen {
     public void addCardToHand(int cardId) {
         // Rimuove il placeholder se c'è
         handBox.getChildren().removeIf(n -> n instanceof Label);
-        StackPane card = buildCardSlot(cardId, true);
-        // Click sulla carta della mano → mostra dettaglio (TODO)
+        StackPane card = buildHandCardNode(cardId);
+
         card.setOnMouseClicked(e -> showCardDetail(cardId));
         handBox.getChildren().add(card);
+    }
+
+    private StackPane buildHandCardNode(int cardId) {
+        return buildCardSlot(cardId, true);
     }
 
     public void clearBoard() {
@@ -2317,9 +2417,6 @@ public class GameScreen {
 
     public void updateBoardCards(List<Integer> topIds, List<Integer> botIds,
                                  boolean canPick, boolean pickFromTop) {
-        // Aggiorna solo se arrivano dati non vuoti
-        if (!topIds.isEmpty()) lastTopIds = new ArrayList<>(topIds);
-        if (!botIds.isEmpty()) lastBotIds = new ArrayList<>(botIds);
 
         this.canPickCards = canPick;
         this.canPickTop = canPick && pickFromTop;
@@ -2327,8 +2424,17 @@ public class GameScreen {
 
         applyBoardCardRowStyles();
 
-        boolean hasInitialCards = !lastTopIds.isEmpty() || !lastBotIds.isEmpty();
+        List<Integer> effectiveTop = topIds.isEmpty()
+                ? new ArrayList<>(lastTopIds)
+                : new ArrayList<>(topIds);
+        List<Integer> effectiveBot = botIds.isEmpty()
+                ? new ArrayList<>(lastBotIds)
+                : new ArrayList<>(botIds);
+
+        boolean hasInitialCards = !effectiveTop.isEmpty() || !effectiveBot.isEmpty();
         if (!initialBoardDealPlayed && hasInitialCards) {
+            lastTopIds = effectiveTop;
+            lastBotIds = effectiveBot;
             topRowBox.getChildren().clear();
             botRowBox.getChildren().clear();
             initialBoardDealPending = true;
@@ -2338,12 +2444,12 @@ public class GameScreen {
             return;
         }
 
-        if (initialBoardDealRunning) {
+        if (initialBoardDealRunning || boardTakeAnimationRunning) {
+            pendingBoardUpdate = new PendingBoardUpdate(effectiveTop, effectiveBot, canPick, pickFromTop);
             return;
         }
 
-        rebuildCardRow(topRowBox, lastTopIds, true);
-        rebuildCardRow(botRowBox, lastBotIds, false);
+        applyBoardUpdateNow(effectiveTop, effectiveBot);
     }
 
     private void applyBoardCardRowStyles() {
@@ -2355,6 +2461,122 @@ public class GameScreen {
                 : "-fx-border-color:transparent;-fx-padding:6;");
         topRowBox.setOpacity(canPickBot ? 0.55 : 1.0);
         botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
+    }
+
+    private void applyBoardUpdateNow(List<Integer> newTopIds, List<Integer> newBotIds) {
+        List<Integer> oldTopIds = new ArrayList<>(lastTopIds);
+        List<Integer> oldBotIds = new ArrayList<>(lastBotIds);
+
+        lastTopIds = new ArrayList<>(newTopIds);
+        lastBotIds = new ArrayList<>(newBotIds);
+
+        animateBoardRefresh(oldTopIds, oldBotIds, newTopIds, newBotIds);
+    }
+
+    private void applyPendingBoardUpdateIfAny() {
+        if (pendingBoardUpdate == null || initialBoardDealRunning || boardTakeAnimationRunning) {
+            return;
+        }
+
+        PendingBoardUpdate pending = pendingBoardUpdate;
+        pendingBoardUpdate = null;
+
+        this.canPickCards = pending.canPick;
+        this.canPickTop = pending.canPick && pending.pickFromTop;
+        this.canPickBot = pending.canPick && !pending.pickFromTop;
+        applyBoardCardRowStyles();
+        applyBoardUpdateNow(pending.topIds, pending.botIds);
+    }
+
+    private void animateBoardRefresh(List<Integer> oldTopIds, List<Integer> oldBotIds,
+                                     List<Integer> newTopIds, List<Integer> newBotIds) {
+        List<Integer> movedTopToBot = new ArrayList<>();
+        for (Integer cardId : oldTopIds) {
+            if (isEventCard(cardId) && !newTopIds.contains(cardId) && newBotIds.contains(cardId)) {
+                movedTopToBot.add(cardId);
+            }
+        }
+
+        List<Integer> freshTopIds = new ArrayList<>();
+        for (Integer cardId : newTopIds) {
+            if (!oldTopIds.contains(cardId) && !oldBotIds.contains(cardId)) {
+                freshTopIds.add(cardId);
+            }
+        }
+
+        List<Integer> freshBotIds = new ArrayList<>();
+        for (Integer cardId : newBotIds) {
+            if (!oldBotIds.contains(cardId) && !oldTopIds.contains(cardId)) {
+                freshBotIds.add(cardId);
+            }
+        }
+
+        if (movedTopToBot.isEmpty() && freshTopIds.isEmpty() && freshBotIds.isEmpty()) {
+            rebuildCardRow(topRowBox, lastTopIds, true);
+            rebuildCardRow(botRowBox, lastBotIds, false);
+            applyBoardCardRowStyles();
+            return;
+        }
+
+        Map<Integer, CardFlightSnapshot> movedSnapshots = new HashMap<>();
+        for (Integer cardId : movedTopToBot) {
+            CardFlightSnapshot snapshot = captureCardSnapshot(findCardNodeInRow(topRowBox, cardId));
+            if (snapshot != null) {
+                movedSnapshots.put(cardId, snapshot);
+            }
+        }
+
+        rebuildCardRow(topRowBox, lastTopIds, true);
+        rebuildCardRow(botRowBox, lastBotIds, false);
+        applyBoardCardRowStyles();
+
+        List<javafx.animation.Animation> animations = new ArrayList<>();
+        int dealIndex = 0;
+        int maxCards = Math.max(newTopIds.size(), newBotIds.size());
+
+        for (int i = 0; i < maxCards; i++) {
+            if (i < newTopIds.size()) {
+                int cardId = newTopIds.get(i);
+                if (freshTopIds.contains(cardId)) {
+                    StackPane node = findCardNodeInRow(topRowBox, cardId);
+                    if (node != null) {
+                        animations.add(buildDealAnimation(node, true, i, newTopIds.size(), dealIndex++));
+                    }
+                }
+            }
+
+            if (i < newBotIds.size()) {
+                int cardId = newBotIds.get(i);
+                if (movedTopToBot.contains(cardId)) {
+                    StackPane node = findCardNodeInRow(botRowBox, cardId);
+                    CardFlightSnapshot snapshot = movedSnapshots.get(cardId);
+                    if (node != null && snapshot != null) {
+                        animations.add(buildRowTransferAnimation(node, snapshot));
+                    }
+                } else if (freshBotIds.contains(cardId)) {
+                    StackPane node = findCardNodeInRow(botRowBox, cardId);
+                    if (node != null) {
+                        animations.add(buildDealAnimation(node, false, i, newBotIds.size(), dealIndex++));
+                    }
+                }
+            }
+        }
+
+        if (animations.isEmpty()) {
+            return;
+        }
+
+        boardTakeAnimationRunning = true;
+        javafx.animation.ParallelTransition refresh = new javafx.animation.ParallelTransition();
+        refresh.getChildren().addAll(animations);
+        refresh.setOnFinished(e -> {
+            boardTakeAnimationRunning = false;
+            rebuildCardRow(topRowBox, lastTopIds, true);
+            rebuildCardRow(botRowBox, lastBotIds, false);
+            applyBoardCardRowStyles();
+            applyPendingBoardUpdateIfAny();
+        });
+        refresh.play();
     }
 
     private void playInitialBoardDeal() {
@@ -2392,10 +2614,12 @@ public class GameScreen {
                 rebuildCardRow(topRowBox, lastTopIds, true);
                 rebuildCardRow(botRowBox, lastBotIds, false);
                 applyBoardCardRowStyles();
+                applyPendingBoardUpdateIfAny();
             });
             deal.play();
         } else {
             initialBoardDealRunning=false;
+            applyPendingBoardUpdateIfAny();
         }
     }
 
@@ -2438,38 +2662,349 @@ public class GameScreen {
         return flyIn;
     }
 
-    public void removeCardFromBoard(int cardId) {
-        boolean changed = false;
-
-        // Cerca e rimuove dalla top row
-        if (lastTopIds.remove(Integer.valueOf(cardId))) {
-            changed = true;
-            // Trova il nodo nella UI e fai fade-out prima di ricostruire
-            fadeOutCard(topRowBox, cardId, () -> rebuildCardRow(topRowBox, lastTopIds, true));
-        }
-
-        // Cerca e rimuove dalla bot row
-        if (lastBotIds.remove(Integer.valueOf(cardId))) {
-            changed = true;
-            fadeOutCard(botRowBox, cardId, () -> rebuildCardRow(botRowBox, lastBotIds, false));
+    public void handleCardTaken(int cardId, boolean takenByMe) {
+        if (animateTakenCardOnRow(topRowBox, lastTopIds, cardId, true, takenByMe)) return;
+        if (animateTakenCardOnRow(botRowBox, lastBotIds, cardId, false, takenByMe)) return;
+        if (takenByMe) {
+            addCardToHand(cardId);
         }
     }
 
-    private void fadeOutCard(HBox row, int cardId, Runnable onComplete) {
-        // Trova il StackPane che contiene la carta con quell'ID
-        row.getChildren().stream()
+    public void removeCardFromBoard(int cardId) {
+        handleCardTaken(cardId, false);
+    }
+
+    private boolean animateTakenCardOnRow(HBox row, List<Integer> ids, int cardId,
+                                          boolean fromTop, boolean takenByMe) {
+        int removalIndex = ids.indexOf(cardId);
+        if (removalIndex < 0) return false;
+
+        // Cerca e rimuove dalla bot row
+        ids.remove(removalIndex);
+        boolean animateToHand = takenByMe && Objects.equals(pendingPickedCardId, cardId)
+                && Objects.equals(pendingPickedFromTop, fromTop);
+
+        boardTakeAnimationRunning = true;
+        animateRowTake(row, cardId, removalIndex, fromTop, animateToHand);
+        return true;
+    }
+
+    private void animateRowTake(HBox row, int cardId, int removalIndex,
+                                boolean fromTop, boolean animateToHand) {
+        StackPane source = row.getChildren().stream()
                 .filter(n -> n instanceof StackPane)
+                .map(n -> (StackPane) n)
                 .filter(n -> cardId == (int) n.getUserData())
                 .findFirst()
-                .ifPresentOrElse(node -> {
-                    javafx.animation.FadeTransition ft =
-                            new javafx.animation.FadeTransition(
-                                    javafx.util.Duration.millis(3000), node);
-                    ft.setFromValue(1.0);
-                    ft.setToValue(0.0);
-                    ft.setOnFinished(e -> onComplete.run());
-                    ft.play();
-                }, onComplete); // se non trova il nodo, ricostruisce direttamente
+                .orElse(null); // se non trova il nodo, ricostruisce direttamente
+
+        if (source == null) {
+            finishBoardTakeAnimation(fromTop, cardId, animateToHand, false, true);
+            return;
+        }
+
+        CardFlightSnapshot sourceSnapshot = captureCardSnapshot(source);
+        Map<Integer, Double> oldPositions = captureRowSceneXPositions(row, cardId);
+
+        rebuildCardRow(row, fromTop ? lastTopIds : lastBotIds, fromTop);
+        applyBoardCardRowStyles();
+        rootWrapper.applyCss();
+        rootWrapper.layout();
+
+        List<javafx.animation.Animation> transitions = new ArrayList<>(
+                buildRowRealignmentAnimations(row, oldPositions)
+        );
+
+        if (sourceSnapshot != null) {
+            if (animateToHand) {
+                transitions.add(buildFlyToHandAnimation(cardId, sourceSnapshot));
+            } else {
+                transitions.add(buildFadeOutSnapshotAnimation(sourceSnapshot));
+            }
+        }
+
+        javafx.animation.ParallelTransition all = new javafx.animation.ParallelTransition();
+        all.getChildren().addAll(transitions);
+        all.setOnFinished(e -> finishBoardTakeAnimation(fromTop, cardId, animateToHand, sourceSnapshot!=null, true));
+        all.play();
+    }
+
+    private javafx.animation.Animation buildFlyToHandAnimation(int cardId, StackPane sourceCard) {
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        Image snapshot = sourceCard.snapshot(params, null);
+
+        Bounds sourceBoundsScene = sourceCard.localToScene(sourceCard.getBoundsInLocal());
+        Point2D sourceInRoot = rootWrapper.sceneToLocal(sourceBoundsScene.getMinX(), sourceBoundsScene.getMinY());
+
+        ImageView flyer = new ImageView(snapshot);
+        flyer.setFitWidth(sourceBoundsScene.getWidth());
+        flyer.setFitHeight(sourceBoundsScene.getHeight());
+        flyer.setPreserveRatio(true);
+        flyer.setMouseTransparent(true);
+        flyer.setManaged(false);
+        flyer.setTranslateX(sourceInRoot.getX());
+        flyer.setTranslateY(sourceInRoot.getY());
+        flyer.setEffect(new DropShadow(20, Color.rgb(0, 0, 0, 0.34)));
+
+        rootWrapper.getChildren().add(flyer);
+        StackPane.setAlignment(flyer, Pos.TOP_LEFT);
+        flyer.toFront();
+        sourceCard.setOpacity(0.0);
+
+        handBox.getChildren().removeIf(n -> n instanceof Label);
+        StackPane handCard = buildHandCardNode(cardId);
+        handCard.setOpacity(0.0);
+        handCard.setScaleX(0.92);
+        handCard.setScaleY(0.92);
+        handCard.setOnMouseClicked(e -> showCardDetail(cardId));
+        handBox.getChildren().add(handCard);
+
+        rootWrapper.applyCss();
+        rootWrapper.layout();
+
+        Bounds targetBoundsScene = handCard.localToScene(handCard.getBoundsInLocal());
+        Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+
+        javafx.animation.Timeline fly = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), sourceInRoot.getX()),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, sourceBoundsScene.getWidth()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, sourceBoundsScene.getHeight()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), fromTopToHandRotation(pendingPickedFromTop),
+                                javafx.animation.Interpolator.EASE_BOTH)
+                )
+        );
+
+        javafx.animation.FadeTransition revealHand =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(170), handCard);
+        revealHand.setFromValue(0.0);
+        revealHand.setToValue(1.0);
+
+        javafx.animation.ScaleTransition handSettle =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(170), handCard);
+        handSettle.setFromX(0.92);
+        handSettle.setFromY(0.92);
+        handSettle.setToX(1.0);
+        handSettle.setToY(1.0);
+
+        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
+                fly,
+                new javafx.animation.ParallelTransition(revealHand, handSettle)
+        );
+        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
+        return seq;
+    }
+
+    private javafx.animation.Animation buildFlyToHandAnimation(int cardId, CardFlightSnapshot snapshot) {
+        Point2D sourceInRoot = rootWrapper.sceneToLocal(snapshot.sceneBounds.getMinX(), snapshot.sceneBounds.getMinY());
+
+        ImageView flyer = new ImageView(snapshot.image);
+        flyer.setFitWidth(snapshot.sceneBounds.getWidth());
+        flyer.setFitHeight(snapshot.sceneBounds.getHeight());
+        flyer.setPreserveRatio(true);
+        flyer.setMouseTransparent(true);
+        flyer.setManaged(false);
+        flyer.setTranslateX(sourceInRoot.getX());
+        flyer.setTranslateY(sourceInRoot.getY());
+        flyer.setEffect(new DropShadow(20, Color.rgb(0, 0, 0, 0.34)));
+
+        rootWrapper.getChildren().add(flyer);
+        StackPane.setAlignment(flyer, Pos.TOP_LEFT);
+        flyer.toFront();
+
+        handBox.getChildren().removeIf(n -> n instanceof Label);
+        StackPane handCard = buildHandCardNode(cardId);
+        handCard.setOpacity(0.0);
+        handCard.setScaleX(0.92);
+        handCard.setScaleY(0.92);
+        handCard.setOnMouseClicked(e -> showCardDetail(cardId));
+        handBox.getChildren().add(handCard);
+
+        rootWrapper.applyCss();
+        rootWrapper.layout();
+
+        Bounds targetBoundsScene = handCard.localToScene(handCard.getBoundsInLocal());
+        Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+
+        javafx.animation.Timeline fly = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), sourceInRoot.getX()),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, snapshot.sceneBounds.getWidth()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, snapshot.sceneBounds.getHeight()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.rotateProperty(), fromTopToHandRotation(pendingPickedFromTop),
+                                javafx.animation.Interpolator.EASE_BOTH)
+                )
+        );
+
+        javafx.animation.FadeTransition revealHand =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(170), handCard);
+        revealHand.setFromValue(0.0);
+        revealHand.setToValue(1.0);
+
+        javafx.animation.ScaleTransition handSettle =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(170), handCard);
+        handSettle.setFromX(0.92);
+        handSettle.setFromY(0.92);
+        handSettle.setToX(1.0);
+        handSettle.setToY(1.0);
+
+        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
+                fly,
+                new javafx.animation.ParallelTransition(revealHand, handSettle)
+        );
+        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
+        return seq;
+    }
+
+    private javafx.animation.Animation buildFadeOutSnapshotAnimation(CardFlightSnapshot snapshot) {
+        Point2D sourceInRoot = rootWrapper.sceneToLocal(snapshot.sceneBounds.getMinX(), snapshot.sceneBounds.getMinY());
+
+        ImageView flyer = new ImageView(snapshot.image);
+        flyer.setFitWidth(snapshot.sceneBounds.getWidth());
+        flyer.setFitHeight(snapshot.sceneBounds.getHeight());
+        flyer.setPreserveRatio(true);
+        flyer.setManaged(false);
+        flyer.setMouseTransparent(true);
+        flyer.setTranslateX(sourceInRoot.getX());
+        flyer.setTranslateY(sourceInRoot.getY());
+        flyer.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.30)));
+
+        rootWrapper.getChildren().add(flyer);
+        StackPane.setAlignment(flyer, Pos.TOP_LEFT);
+        flyer.toFront();
+
+        javafx.animation.FadeTransition fade =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(CARD_COLLAPSE_DURATION_MS), flyer);
+        fade.setFromValue(1.0);
+        fade.setToValue(0.0);
+
+        javafx.animation.ScaleTransition shrink =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(CARD_COLLAPSE_DURATION_MS), flyer);
+        shrink.setFromX(1.0);
+        shrink.setFromY(1.0);
+        shrink.setToX(0.92);
+        shrink.setToY(0.92);
+
+        javafx.animation.ParallelTransition fadeAway = new javafx.animation.ParallelTransition(fade, shrink);
+        fadeAway.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
+        return fadeAway;
+    }
+
+    private double fromTopToHandRotation(Boolean pickedFromTop) {
+        return Boolean.TRUE.equals(pickedFromTop) ? 8.0 : -8.0;
+    }
+
+    private void finishBoardTakeAnimation(boolean fromTop, int cardId,
+                                          boolean animateToHand, boolean sourceWasVisible,
+                                          boolean rebuildBoardRows) {
+        if (rebuildBoardRows) {
+            rebuildCardRow(topRowBox, lastTopIds, true);
+            rebuildCardRow(botRowBox, lastBotIds, false);
+            applyBoardCardRowStyles();
+        }
+        boardTakeAnimationRunning = false;
+
+        if (animateToHand) {
+            if (!sourceWasVisible) {
+                addCardToHand(cardId);
+            }
+            clearPendingPick(cardId);
+        }
+        applyPendingBoardUpdateIfAny();
+    }
+
+    private javafx.animation.Animation buildRowTransferAnimation(StackPane targetNode, CardFlightSnapshot snapshot) {
+        Bounds targetBoundsScene = targetNode.localToScene(targetNode.getBoundsInLocal());
+        Point2D sourceInRoot = rootWrapper.sceneToLocal(snapshot.sceneBounds.getMinX(), snapshot.sceneBounds.getMinY());
+        Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+
+        ImageView flyer = new ImageView(snapshot.image);
+        flyer.setFitWidth(snapshot.sceneBounds.getWidth());
+        flyer.setFitHeight(snapshot.sceneBounds.getHeight());
+        flyer.setPreserveRatio(true);
+        flyer.setManaged(false);
+        flyer.setMouseTransparent(true);
+        flyer.setTranslateX(sourceInRoot.getX());
+        flyer.setTranslateY(sourceInRoot.getY());
+        flyer.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.36)));
+
+        rootWrapper.getChildren().add(flyer);
+        flyer.toFront();
+
+        double finalOpacity = targetNode.getOpacity();
+        targetNode.setOpacity(0.0);
+        targetNode.setScaleX(0.96);
+        targetNode.setScaleY(0.96);
+
+        javafx.animation.Timeline move = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), sourceInRoot.getX()),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, snapshot.sceneBounds.getWidth()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, snapshot.sceneBounds.getHeight()),
+                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0))
+                )
+        );
+
+        javafx.animation.FadeTransition reveal = new javafx.animation.FadeTransition(
+                javafx.util.Duration.millis(170), targetNode);
+        reveal.setFromValue(0.0);
+        reveal.setToValue(finalOpacity);
+
+        javafx.animation.ScaleTransition settle = new javafx.animation.ScaleTransition(
+                javafx.util.Duration.millis(170), targetNode);
+        settle.setFromX(0.96);
+        settle.setFromY(0.96);
+        settle.setToX(1.0);
+        settle.setToY(1.0);
+
+        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
+                move,
+                new javafx.animation.ParallelTransition(reveal, settle)
+        );
+        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
+        return seq;
+    }
+
+    private void clearPendingPick(int cardId) {
+        if (Objects.equals(pendingPickedCardId, cardId)) {
+            pendingPickedCardId = null;
+            pendingPickedFromTop = null;
+        }
     }
 
     private void rebuildCardRow(HBox row, List<Integer> ids, boolean fromTop) {
@@ -2504,6 +3039,8 @@ public class GameScreen {
 
                     if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY) return;
 
+                    pendingPickedCardId = cardId;
+                    pendingPickedFromTop = fromTop;
                     card.setOpacity(0.5);
                     card.setDisable(true);
 
@@ -2512,6 +3049,7 @@ public class GameScreen {
                             server.pickCard(myNick, index, fromTop);
                         } catch (Exception ex) {
                             javafx.application.Platform.runLater(() -> {
+                                clearPendingPick(cardId);
                                 card.setOpacity(1.0);
                                 card.setDisable(false);
                                 showErrorMessage("Errore: " + ex.getMessage());
@@ -2537,35 +3075,6 @@ public class GameScreen {
         turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
         phaseLabel.setText("In attesa…");
         spacePanes.forEach((l, p) -> p.setOpacity(0.75));
-    }
-
-    public void showEventNotification(String eventName) { //TODO: DA ELIMINARE IN MY OPINION AVENDO AGGIUNTO L'ANIMAZIONE
-        // Banner animato in cima
-        String emoji = switch (eventName) {
-            case "HUNT"       -> "🏹";
-            case "PICTURES"   -> "🎨";
-            case "RITUAL"     -> "🔮";
-            case "SUSTENANCE" -> "🍖";
-            default           -> "⚡";
-        };
-
-        Label banner = new Label(emoji + "  " + eventName.replace("_", " "));
-        banner.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
-                "-fx-font-size:15;-fx-font-weight:bold;-fx-text-fill:white;" +
-                "-fx-background-color:rgba(255,200,0,0.25);" +
-                "-fx-background-radius:20;-fx-padding:6 20 6 20;" +
-                "-fx-border-color:rgba(255,200,0,0.5);" +
-                "-fx-border-radius:20;-fx-border-width:1;");
-
-        // Mostralo nell'header al posto della fase
-        phaseLabel.setText(emoji + " " + eventName.replace("_", " "));
-        phaseLabel.setStyle(labelStyle(13, "#FFD700"));
-
-        // Sparisce dopo 2.5 secondi
-        javafx.animation.PauseTransition pause =
-                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2.5));
-        pause.setOnFinished(e -> phaseLabel.setStyle(labelStyle(12, "rgba(255,255,255,0.55)")));
-        pause.play();
     }
 
     public void showToast(String message) {
@@ -2595,11 +3104,7 @@ public class GameScreen {
         toastPause.playFromStart();
     }
 
-
-
-    // ─────────────────────────────────────────────────────────────────────
     //  AZIONI UTENTE
-    // ─────────────────────────────────────────────────────────────────────
 
     private void onSpaceClicked(String letter) {
         if (!isMyTurn || currentPhase != GameState.OFFER_SPACE_CHOOSE) return;
@@ -2612,20 +3117,12 @@ public class GameScreen {
         }, "gui-place-totem").start();
     }
 
- //   private void showCardDetail(int cardId) {
-        // TODO step 4 — modal con immagine grande + effetto frosted glass
- //   }
-
     private void showError(String msg) {
         turnLabel.setText("⚠ " + msg);
         turnLabel.setStyle(labelStyle(13, "#FF453A"));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
     //  HELPERS
-    // ─────────────────────────────────────────────────────────────────────
-
-
 
     private static boolean isEventCard(int cardId) {
         return cardId >= 200;

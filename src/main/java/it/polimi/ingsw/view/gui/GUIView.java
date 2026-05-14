@@ -456,11 +456,8 @@ public class GUIView implements ModelObserver {
                     java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(cardId);
             if (m.find()) {
                 int id = Integer.parseInt(m.group(1));
-                // Rimuovi la carta dal board per tutti (anche se la prende un altro)
-                gameScreen.removeCardFromBoard(id);
-                // Aggiungila alla mano solo se è mia
-                if (nickname.equals(nick))
-                    gameScreen.addCardToHand(id);
+                // Rimuovi la carta dal board per tutti (anche se la prende un altro) CON ANIMAZIONE!!!
+                gameScreen.handleCardTaken(id, nickname.equals(nick));
             }
         });
     }
