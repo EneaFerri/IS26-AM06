@@ -39,6 +39,11 @@ public class GameScreen {
     private static final double BLOCK_H       = 125;
     private static final double CARD_W = 95;
     private static final double CARD_H = 134;
+
+    private static final int GAME_INTRO_DELAY_MS = 230;
+    private static final int GAME_INTRO_FADE_MS = 900;
+    private static final int CARD_DEAL_STAGGER_MS = 180;
+    private static final int CARD_DEAL_DURATION_MS = 700;
     // il totem sugli spazi offerta stava troppo in basso. primo try 32 troppo sopra i segni delle carte sopra e sotto
     // 72 ci siamo quasi 90 praticamente perfetto 95 siiiiiiii perfetto
     private static final double TOTEM_SLOT_LIFT_Y = 95;
@@ -93,9 +98,13 @@ public class GameScreen {
     private final HBox topRowBox = new HBox(8);
     private final HBox botRowBox = new HBox(8);
     private boolean canPickCards = false;
-
     private boolean canPickTop = false;
     private boolean canPickBot = false;
+
+    private boolean gameIntroFinished = false;
+    private boolean initialBoardDealPlayed = false;
+    private boolean initialBoardDealPending = false;
+    private boolean initialBoardDealRunning = false;
 
     // spazio → lista ImageView dei totem sovrapposti
     private final Map<String, VBox> spaceTotemSlots = new HashMap<>();
@@ -506,6 +515,7 @@ public class GameScreen {
         // === END SPECTATOR ===
 
         Scene scene = new Scene(rootWrapper, 1400, 860);
+        playGameOpeningAnimation();
 
         scene.setOnKeyPressed(e -> {
             // esc cosi si puo anche non smenare il mouse
@@ -539,6 +549,49 @@ public class GameScreen {
         return scene;
     }
 
+    //per animazione iniziale e distribuzione carte
+    private void playGameOpeningAnimation() {
+        mainRoot.setOpacity(0.0);
+        mainRoot.setScaleX(0.985);
+        mainRoot.setScaleY(0.985);
+        mainRoot.setTranslateY(18);
+
+        javafx.animation.PauseTransition emptyTableBeat =
+                new javafx.animation.PauseTransition(javafx.util.Duration.millis(GAME_INTRO_DELAY_MS));
+
+        javafx.animation.FadeTransition fadeIn =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(GAME_INTRO_FADE_MS), mainRoot);
+        fadeIn.setFromValue(0.0);
+        fadeIn.setToValue(1.0);
+        fadeIn.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+
+        javafx.animation.ScaleTransition scaleIn =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(GAME_INTRO_FADE_MS), mainRoot);
+        scaleIn.setFromX(0.985);
+        scaleIn.setFromY(0.985);
+        scaleIn.setToX(1.0);
+        scaleIn.setToY(1.0);
+        scaleIn.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.TranslateTransition slideIn =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(GAME_INTRO_FADE_MS), mainRoot);
+        slideIn.setFromY(18);
+        slideIn.setToY(0);
+        slideIn.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.SequentialTransition intro =
+                new javafx.animation.SequentialTransition(
+                        emptyTableBeat,
+                        new javafx.animation.ParallelTransition(fadeIn, scaleIn, slideIn)
+                );
+        intro.setOnFinished(e -> {
+            gameIntroFinished = true;
+            if (initialBoardDealPending) {
+                playInitialBoardDeal();
+            }
+        });
+        intro.play();
+    }
 
     //HELPER
 
@@ -2168,8 +2221,10 @@ public class GameScreen {
 
         // Aggiorna cliccabilità carte
         canPickCards = isMyTurn && phase == GameState.PICKING_CARD;
-        rebuildCardRow(topRowBox, lastTopIds, true);
-        rebuildCardRow(botRowBox, lastBotIds, false);
+        if (!initialBoardDealPending && !initialBoardDealRunning) {
+            rebuildCardRow(topRowBox, lastTopIds, true);
+            rebuildCardRow(botRowBox, lastBotIds, false);
+        }
     }
 
     public void updateMyStats(int food, int prestige) {
@@ -2267,12 +2322,31 @@ public class GameScreen {
         if (!botIds.isEmpty()) lastBotIds = new ArrayList<>(botIds);
 
         this.canPickCards = canPick;
-        this.canPickTop   = canPick && pickFromTop;
-        this.canPickBot   = canPick && !pickFromTop;
+        this.canPickTop = canPick && pickFromTop;
+        this.canPickBot = canPick && !pickFromTop;
+
+        applyBoardCardRowStyles();
+
+        boolean hasInitialCards = !lastTopIds.isEmpty() || !lastBotIds.isEmpty();
+        if (!initialBoardDealPlayed && hasInitialCards) {
+            topRowBox.getChildren().clear();
+            botRowBox.getChildren().clear();
+            initialBoardDealPending = true;
+            if (gameIntroFinished) {
+                playInitialBoardDeal();
+            }
+            return;
+        }
+
+        if (initialBoardDealRunning) {
+            return;
+        }
 
         rebuildCardRow(topRowBox, lastTopIds, true);
         rebuildCardRow(botRowBox, lastBotIds, false);
+    }
 
+    private void applyBoardCardRowStyles() {
         topRowBox.setStyle(canPickTop
                 ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
                 : "-fx-border-color:transparent;-fx-padding:6;");
@@ -2283,7 +2357,86 @@ public class GameScreen {
         botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
     }
 
+    private void playInitialBoardDeal() {
+        if (initialBoardDealPlayed || (!initialBoardDealPending && topRowBox.getChildren().isEmpty()
+                && botRowBox.getChildren().isEmpty())) {
+            return;
+        }
 
+        initialBoardDealPending = false;
+        initialBoardDealPlayed = true;
+        initialBoardDealRunning = true;
+
+        rebuildCardRow(topRowBox, lastTopIds, true);
+        rebuildCardRow(botRowBox, lastBotIds, false);
+        applyBoardCardRowStyles();
+
+        List<javafx.animation.Animation> deals = new ArrayList<>();
+        int dealIndex = 0;
+        int maxCards = Math.max(topRowBox.getChildren().size(), botRowBox.getChildren().size());
+
+        for (int i = 0; i < maxCards; i++) {
+            if (i < topRowBox.getChildren().size()) {
+                deals.add(buildDealAnimation(topRowBox.getChildren().get(i), true, i, topRowBox.getChildren().size(), dealIndex++));
+            }
+            if (i < botRowBox.getChildren().size()) {
+                deals.add(buildDealAnimation(botRowBox.getChildren().get(i), false, i, botRowBox.getChildren().size(), dealIndex++));
+            }
+        }
+
+        if (!deals.isEmpty()) {
+            javafx.animation.ParallelTransition deal = new javafx.animation.ParallelTransition();
+            deal.getChildren().addAll(deals);
+            deal.setOnFinished(e -> {
+                initialBoardDealRunning = false;
+                rebuildCardRow(topRowBox, lastTopIds, true);
+                rebuildCardRow(botRowBox, lastBotIds, false);
+                applyBoardCardRowStyles();
+            });
+            deal.play();
+        } else {
+            initialBoardDealRunning=false;
+        }
+    }
+
+    private javafx.animation.Animation buildDealAnimation(javafx.scene.Node card, boolean fromTop,
+                                                          int cardIndex, int rowSize, int dealIndex) {
+        double finalOpacity = card.getOpacity();
+        double centerOffset = (rowSize - 1) / 2.0 - cardIndex;
+        double startX = centerOffset * 24;
+        double startY = fromTop ? 205 : -205;
+        double startRotate = (fromTop ? -1 : 1) * (10 + (cardIndex % 3) * 2);
+
+        card.setMouseTransparent(true);
+        card.setOpacity(0.0);
+        card.setScaleX(0.82);
+        card.setScaleY(0.82);
+        card.setTranslateX(startX);
+        card.setTranslateY(startY);
+        card.setRotate(startRotate);
+
+        javafx.animation.Timeline flyIn = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                        new javafx.animation.KeyValue(card.opacityProperty(), 0.0),
+                        new javafx.animation.KeyValue(card.translateXProperty(), startX),
+                        new javafx.animation.KeyValue(card.translateYProperty(), startY),
+                        new javafx.animation.KeyValue(card.scaleXProperty(), 0.82),
+                        new javafx.animation.KeyValue(card.scaleYProperty(), 0.82),
+                        new javafx.animation.KeyValue(card.rotateProperty(), startRotate)
+                ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_DEAL_DURATION_MS),
+                        new javafx.animation.KeyValue(card.opacityProperty(), finalOpacity, javafx.animation.Interpolator.EASE_BOTH),
+                        new javafx.animation.KeyValue(card.translateXProperty(), 0.0, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                        new javafx.animation.KeyValue(card.translateYProperty(), 0.0, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                        new javafx.animation.KeyValue(card.scaleXProperty(), 1.0, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                        new javafx.animation.KeyValue(card.scaleYProperty(), 1.0, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                        new javafx.animation.KeyValue(card.rotateProperty(), 0.0, javafx.animation.Interpolator.EASE_OUT)
+                )
+        );
+        flyIn.setDelay(javafx.util.Duration.millis((long) dealIndex * CARD_DEAL_STAGGER_MS));
+        flyIn.setOnFinished(e -> card.setMouseTransparent(false));
+        return flyIn;
+    }
 
     public void removeCardFromBoard(int cardId) {
         boolean changed = false;
