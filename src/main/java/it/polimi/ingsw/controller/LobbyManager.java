@@ -22,22 +22,22 @@ import java.util.List;
 public class LobbyManager {
 
     private final List<GameController> lobbies = new ArrayList<>();
+    private final List<VirtualView> lobbyListSubscribers = new ArrayList<>();
 
-    // ================================================================== //
-    //  LOGIN                                                              //
-    // ================================================================== //
-
+    //  LOGIN
     /**
      * Crea una lobby nuova e registra il primo giocatore.
      * Pulisce le lobby terminate prima di creare (fix memory leak).
      */
     public synchronized void createLobby(String nickname, int numPlayers, VirtualView caller) {
         cleanFinishedLobbies();
+        unregisterLobbyListSubscriber(caller);
         GameController lobby = new GameController(new Game(1));
         lobbies.add(lobby);
         System.out.println("[LobbyManager] Lobby #" + lobbies.size()
                 + " creata da " + nickname + " (" + numPlayers + " giocatori)");
         lobby.loginFirstPlayer(nickname, numPlayers, caller);
+        broadcastLobbyListUpdate();
     }
 
     /**
@@ -47,9 +47,11 @@ public class LobbyManager {
     public synchronized void joinLobby(String nickname, VirtualView caller) {
         GameController available = findOpenLobby();
         if (available != null) {
+            unregisterLobbyListSubscriber(caller);
             int id = lobbies.indexOf(available) + 1;
             System.out.println("[LobbyManager] " + nickname + " → Lobby #" + id);
             available.login(nickname, caller);
+            broadcastLobbyListUpdate();
         } else {
             try {
                 caller.onNoLobbyAvailable();
@@ -75,8 +77,10 @@ public class LobbyManager {
             catch (Exception e) { System.err.println("[LobbyManager] joinSpecificLobby error: " + e.getMessage()); }
             return;
         }
+        unregisterLobbyListSubscriber(caller);
         System.out.println("[LobbyManager] " + nickname + " → Lobby #" + lobbyId + " (scelta)");
         lobby.login(nickname, caller);
+        broadcastLobbyListUpdate();
     }
 
     /**
@@ -129,6 +133,7 @@ public class LobbyManager {
         }
         System.out.println("[LobbyManager] Broadcasting disconnect of: " + nickname);
         lobby.onPlayerDisconnected(nickname);
+        broadcastLobbyListUpdate();
     }
 
     // === SPECTATOR ===
@@ -144,6 +149,7 @@ public class LobbyManager {
             catch (Exception e) { System.err.println("[LobbyManager] joinAsSpectator error: " + e.getMessage()); }
             return;
         }
+        unregisterLobbyListSubscriber(caller);
         System.out.println("[LobbyManager] " + nickname + " → Lobby #" + lobbyId + " (spettatore)");
         lobby.addSpectator(nickname, caller);
     }
@@ -160,8 +166,7 @@ public class LobbyManager {
             }
         }
         // Rimanda la lista lobby aggiornata così il client può tornare alla schermata di selezione
-        try { caller.onLobbyList(getActiveLobbies()); }
-        catch (Exception e) { System.err.println("[LobbyManager] leaveSpectator callback: " + e.getMessage()); }
+        requestLobbyList(caller);
     }
 
     private void handleSpectatorDisconnect(String nickname) {
@@ -169,6 +174,7 @@ public class LobbyManager {
             if (lobby.hasSpectator(nickname)) {
                 lobby.removeSpectator(nickname);
                 System.out.println("[LobbyManager] Spectator disconnected: " + nickname);
+                broadcastLobbyListUpdate();
                 return;
             }
         }
@@ -207,6 +213,44 @@ public class LobbyManager {
         int idx = lobbyId - 1;
         if (idx < 0 || idx >= lobbies.size()) return null;
         return lobbies.get(idx);
+    }
+
+    public synchronized void requestLobbyList(VirtualView caller) {
+        cleanFinishedLobbies();
+        registerLobbyListSubscriber(caller);
+        try {
+            caller.onLobbyList(getActiveLobbies());
+        } catch (Exception e) {
+            unregisterLobbyListSubscriber(caller);
+            System.err.println("[LobbyManager] requestLobbyList callback: " + e.getMessage());
+        }
+    }
+
+    private void broadcastLobbyListUpdate() {
+        cleanFinishedLobbies();
+        if (lobbyListSubscribers.isEmpty()) return;
+
+        List<LobbyInfo> snapshot = getActiveLobbies();
+        List<VirtualView> staleSubscribers = new ArrayList<>();
+        for (VirtualView subscriber : new ArrayList<>(lobbyListSubscribers)) {
+            try {
+                subscriber.onLobbyList(snapshot);
+            } catch (Exception e) {
+                staleSubscribers.add(subscriber);
+                System.err.println("[LobbyManager] broadcastLobbyListUpdate: " + e.getMessage());
+            }
+        }
+        lobbyListSubscribers.removeAll(staleSubscribers);
+    }
+
+    private void registerLobbyListSubscriber(VirtualView caller) {
+        if (!lobbyListSubscribers.contains(caller)) {
+            lobbyListSubscribers.add(caller);
+        }
+    }
+
+    private void unregisterLobbyListSubscriber(VirtualView caller) {
+        lobbyListSubscribers.remove(caller);
     }
 
     // ================================================================== //

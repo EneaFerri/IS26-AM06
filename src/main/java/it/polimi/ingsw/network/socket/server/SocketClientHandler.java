@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
+/*
  * Handles one Socket client connection on the server side.
  *
  * ── Responsibilities ────────────────────────────────────────────────────────
@@ -110,10 +110,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
                     msg.str("nickname"), msg.num("lobbyId"), this);
 
             case REQUEST_LOBBY_LIST -> {
-                try { onLobbyList(lobbyManager.getActiveLobbies()); }
-                catch (Exception e) {
-                    System.err.println("[SocketHandler] requestLobbyList: " + e.getMessage());
-                }
+                lobbyManager.requestLobbyList(this);
             }
 
             // === SPECTATOR ===

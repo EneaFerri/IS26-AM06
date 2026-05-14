@@ -115,11 +115,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
 
     @Override
     public synchronized void requestLobbyList(VirtualViewRmi clientView) throws RemoteException {
-        try {
-            clientView.onLobbyList(lobbyManager.getActiveLobbies());
-        } catch (Exception e) {
-            System.err.println("[RmiServer] requestLobbyList: " + e.getMessage());
-        }
+        lobbyManager.requestLobbyList(clientView);
     }
 
     @Override
