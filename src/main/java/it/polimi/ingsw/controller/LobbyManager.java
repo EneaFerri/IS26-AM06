@@ -8,17 +8,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Gestisce N lobby (GameController) in parallelo.
+ * Manage N lobby (GameController) simultaneously
  *
- * Responsabilità:
- *  - createLobby()         → crea una nuova lobby (client è il primo)
- *  - joinLobby()           → trova la prima lobby aperta; se non c'è → notifica il client
- *  - joinSpecificLobby()   → entra in una lobby specifica per ID
- *  - getActiveLobbies()    → snapshot di tutte le lobby attive (aperte + in corso)
- *  - placeTotem/pickCard   → trova la lobby del giocatore e delega
+ * Responsability:
+ *  - createLobby()         → if first player or player who decide to create a lobby
+ *  - joinLobby()           → find the first free lobby; if there is not -> noptify client ---OLD VERSION
+ *  - joinSpecificLobby()   → client choose and join an existing lobby ---NEW VERSION
+ *  - getActiveLobbies()    → snapshot of all active lobbies (free and running)
  *
- * È posseduto da RmiServer (uno solo per server).
+ *  - placeTotem/pickCard   → find player lobby and delegate
+ *
+ *  Only one lobbymanager for server !
  */
+
 public class LobbyManager {
 
     private final List<GameController> lobbies = new ArrayList<>();
@@ -26,8 +28,8 @@ public class LobbyManager {
 
     //  LOGIN
     /**
-     * Crea una lobby nuova e registra il primo giocatore.
-     * Pulisce le lobby terminate prima di creare (fix memory leak).
+     * crate new lobby and register first player
+     * Clean ended lobby first (fix memory leak).
      */
     public synchronized void createLobby(String nickname, int numPlayers, VirtualView caller) {
         cleanFinishedLobbies();
@@ -40,9 +42,9 @@ public class LobbyManager {
         broadcastLobbyListUpdate();
     }
 
-    /**
-     * Unisce il client alla prima lobby aperta.
-     * Se non ce ne sono, notifica il client tramite onNoLobbyAvailable().
+    /** OLD VERSION, NO REAL USAGE
+     * client added in the first free lobby
+     * if no lobby avaible -> onNoLobbyAvailable().
      */
     public synchronized void joinLobby(String nickname, VirtualView caller) {
         GameController available = findOpenLobby();
@@ -61,9 +63,9 @@ public class LobbyManager {
         }
     }
 
-    /**
-     * Unisce il client a una lobby specifica per ID.
-     * Usato da CLI (lista numerata) e GUI (bottone con ID).
+    /** NEW VERSION
+     * client added on a specific lobby chosen by ID.
+     * CLI --> ordered list /  GUI --> button
      */
     public synchronized void joinSpecificLobby(String nickname, int lobbyId, VirtualView caller) {
         GameController lobby = findLobbyById(lobbyId);
@@ -84,10 +86,9 @@ public class LobbyManager {
     }
 
     /**
-     * Restituisce snapshot di tutte le lobby attive:
-     *  - inProgress=false → lobby aperta (accetta nuovi giocatori)
-     *  - inProgress=true  → partita in corso (accessibile come spettatore)
-     * Le lobby terminate vengono ripulite.
+     * Snapshot with all the actives lobbies
+     *  - inProgress=false → lobby free
+     *  - inProgress=true  → running game (free for spectators)
      */
     public synchronized List<LobbyInfo> getActiveLobbies() {
         cleanFinishedLobbies();
@@ -99,13 +100,13 @@ public class LobbyManager {
             } else if (lobby.isInProgress()) {
                 result.add(new LobbyInfo(i + 1, lobby.getCurrentPlayers(), lobby.getExpectedPlayers(), true));
             }
-            // lobby terminate escluse
+
         }
         return result;
     }
 
     // ================================================================== //
-    //  AZIONI DI GIOCO — instradamento alla lobby giusta                 //
+    //  Delegate actions to the correct gamecontrol              //
     // ================================================================== //
 
     public synchronized void placeTotem(String nickname, char letter) {
@@ -182,6 +183,7 @@ public class LobbyManager {
     }
 
     // === END SPECTATOR ===
+
 
     // ================================================================== //
     //  UTILITY                                                            //
