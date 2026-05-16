@@ -108,7 +108,7 @@ public class TurnOrder {
         for (OrderBlock block : orderBlocks) {
             if (block.isFree()) {
                 block.setTotem(player.getTotem());
-                player.getTotem().remove(); // totem non è più sull'offerta
+                player.getTotem().remove();
                 return;
             }
         }
