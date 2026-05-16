@@ -10,6 +10,8 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public class Sustenance extends EventCard {
+    private static final long serialVersionUID = 1L;
+
     private static final int FOOD_PRICE = 1;
     private final int prestigeMalus;
 

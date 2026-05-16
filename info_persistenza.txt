@@ -1,0 +1,370 @@
+================================================================================
+  FA PERSISTENZA — Documentazione implementazione
+  Progetto: IS26-AM6 Mesos
+================================================================================
+
+REQUISITO (da requirements.pdf)
+--------------------------------
+"Fare in modo che il server salvi periodicamente lo stato della partita su disco,
+in modo che l'esecuzione possa riprendere da dove si è interrotta anche a seguito
+del crash del server stesso. Per riprendere una partita, i giocatori si dovranno
+ricollegare al server utilizzando gli stessi nickname una volta che questo sia
+tornato attivo. Si assume che il disco della macchina su cui gira il server
+costituisca una memoria totalmente affidabile."
+
+
+================================================================================
+  PANORAMICA
+================================================================================
+
+L'implementazione si basa su tre pilastri:
+
+  1. SERIALIZZAZIONE del modello (Game + tutto il grafo di oggetti collegati)
+     → salvataggio su file binario tramite Java ObjectOutputStream
+
+  2. CHECKPOINT automatici nei callback GameObserver già presenti in GameController
+     → nessun thread dedicato, nessun timer: si salva dopo ogni transizione di stato
+
+  3. RECONNECT FLOW lato server (LobbyManager + GameController)
+     + RETRY LOOP lato client (RmiClient, SocketServerProxy, View)
+     → il client rimane aperto, ritenta la connessione ogni 5s per 60s,
+       poi fa login automatico con lo stesso nickname
+
+
+================================================================================
+  PARTE 1 — SERIALIZZAZIONE JAVA (transient, Serializable)
+================================================================================
+
+Java Serialization converte un oggetto e tutto il grafo di oggetti raggiungibili
+da esso in una sequenza di byte che può essere scritta su file e poi riletta.
+
+Per abilitarla su una classe: aggiungere "implements Serializable" e
+"private static final long serialVersionUID = 1L;".
+
+  serialVersionUID: identificatore di versione. Se cambi i campi della classe
+  senza aggiornare l'UID, Java si rifiuta di caricare save file vecchi. Per il
+  progetto, usare sempre 1L — se il modello cambia, i save file vengono ricreati.
+
+-------- Il campo transient --------
+
+  "transient" dice a Java: NON serializzare questo campo. Al caricamento, il
+  campo sarà null (o 0 per i primitivi).
+
+  Si usa quando un campo contiene riferimenti non serializzabili (socket, thread,
+  lock) oppure quando il campo non ha senso salvare (es. observer/listener).
+
+  MODIFICA IN Game.java:
+
+    // PRIMA:
+    private List<GameObserver> observers = new ArrayList<>();
+
+    // DOPO:
+    private transient List<GameObserver> observers = new ArrayList<>();
+
+  PERCHÉ: observers contiene GameController, che contiene CopyOnWriteArrayList
+  di VirtualView (socket/RMI). L'intera catena non è serializzabile.
+  Al riavvio, observers viene messo a null dalla deserializzazione, poi
+  ripopolato da GameController nel suo costruttore (game.addObserver(this)).
+
+  Metodo aggiunto a Game.java:
+    public void clearObservers() { observers = new ArrayList<>(); }
+  → chiamato dal LobbyManager dopo il load, prima di creare il nuovo controller,
+    per evitare NullPointerException se observers è null dopo la deserializzazione.
+
+-------- Classi da rendere Serializable --------
+
+  Si aggiunge solo "implements Serializable" + serialVersionUID. Nessuna altra
+  modifica a costruttori, getter o logica.
+
+  model/
+    Game.java                          ← anche transient observers + clearObservers()
+    player/Player.java
+    player/Totem.java
+    board/Board.java
+    board/BoardSpace.java
+    board/TurnOrder.java
+    board/OrderBlock.java
+    board/BoardConfiguration.java     ← verificare che non abbia ObjectMapper come campo
+    cards/Deck.java                    ← ObjectMapper usato solo nel costruttore (var locale) → OK
+    cards/DeckConfiguration.java
+    cards/Card.java
+    cards/TribeCard.java
+    cards/CharacterCard.java
+    cards/EventCard.java
+    cards/BuildingCard.java
+    cards/Characters/Artist.java
+    cards/Characters/Builder.java
+    cards/Characters/Collector.java
+    cards/Characters/Hunter.java
+    cards/Characters/Inventor.java
+    cards/Characters/Shaman.java
+    cards/Buildings/BuildingEachTurn.java
+    cards/Buildings/BuildingEnd.java
+    cards/Buildings/BuildingEvent.java
+    cards/Events/Hunt.java
+    cards/Events/Pictures.java
+    cards/Events/Ritual.java
+    cards/Events/Sustenance.java
+
+  Enum (GameState, Age, TotemColor, CharacterType, EventType, InventionType,
+  BuildingEachTurnType): già Serializable per default in Java → nessuna modifica.
+
+  NOTA su Deck.java: il costruttore Deck() usa ObjectMapper per leggere JSON
+  dal classpath. ObjectMapper è una variabile LOCALE nel costruttore, non un
+  campo dell'oggetto. Deck salva solo le liste di Card. Quindi è serializzabile
+  senza modifiche (a parte implements Serializable).
+
+  NOTA IMPORTANTE: quando si deserializza Game, il costruttore di Game NON viene
+  chiamato (Java bypassa il costruttore). Questo è un comportamento standard di
+  Java Serialization. Il Deck già serializzato contiene i card nella loro forma
+  corrente (carte non ancora pescate). Tutto funziona correttamente.
+
+
+================================================================================
+  PARTE 2 — GamePersistenceManager (nuovo file)
+================================================================================
+
+  Percorso: src/main/java/it/polimi/ingsw/persistence/GamePersistenceManager.java
+  Pacchetto: it.polimi.ingsw.persistence (già esiste per DatabaseManager)
+
+  È una classe utility con 4 metodi statici. Nessun costruttore, nessuno stato.
+
+  Directory di salvataggio: "saves/" (relativa alla working directory del server)
+
+  File salvato: saves/game_<gameId>.ser
+    es. saves/game_1.ser per la lobby #1
+
+  ---- save(int gameId, Game game) ----
+
+    Crea la directory "saves/" se non esiste.
+    Scrive il file con ObjectOutputStream.writeObject(game).
+    In caso di IOException: stampa errore su stderr e NON lancia eccezione
+    (il gioco continua anche se il save fallisce — graceful degradation).
+
+  ---- load(int gameId) → Game ----
+
+    Controlla se il file esiste. Se no, ritorna null.
+    Legge il file con ObjectInputStream.readObject().
+    Ritorna il Game deserializzato, oppure null in caso di errore.
+    Errori tipici: file corrotto, ClassNotFoundException (classe cambiata),
+    InvalidClassException (serialVersionUID mismatch).
+
+  ---- delete(int gameId) ----
+
+    Cancella saves/game_<gameId>.ser.
+    Chiamato quando la partita finisce normalmente (onGameOver in GameController).
+    Se la partita finisce regolarmente, il save file non deve restare su disco.
+
+  ---- listSavedGameIds() → List<Integer> ----
+
+    Scansiona la directory "saves/" cercando file che matchano "game_\\d+\\.ser".
+    Estrae l'ID dal nome del file.
+    Ritorna la lista di ID. Se la directory non esiste, ritorna lista vuota.
+    Chiamato dal costruttore di LobbyManager al riavvio del server.
+
+
+================================================================================
+  PARTE 3 — CHECKPOINT automatici (GameController)
+================================================================================
+
+  In GameController, nei metodi che implementano GameObserver, si aggiunge
+  una chiamata a GamePersistenceManager.save() alla fine di ogni callback
+  che corrisponde a una transizione di stato significativa:
+
+  onTurnStarted(Player p):
+    → chiamato dopo che tutti i giocatori hanno piazzato il totem
+      e il gioco transita in PICKING_CARD
+    → AGGIUNGERE: GamePersistenceManager.save(game.getGameID(), game);
+
+  onEventResolved(String eventName, String details):
+    → chiamato dopo la risoluzione di ogni carta evento
+    → AGGIUNGERE: GamePersistenceManager.save(game.getGameID(), game);
+
+  onNewEraStarted(Age era):
+    → chiamato quando il gioco avanza all'era successiva
+    → AGGIUNGERE: GamePersistenceManager.save(game.getGameID(), game);
+
+  onGameOver(String results):
+    → partita finita normalmente
+    → AGGIUNGERE: GamePersistenceManager.delete(game.getGameID());
+
+  Frequenza: il save avviene circa una volta per turno (a onTurnStarted).
+  Se il server crasha nel mezzo di un turno (PICKING_CARD), al riavvio il gioco
+  torna all'INIZIO di quel turno (checkpoint precedente). I giocatori devono
+  ripiazzare i totem. Comportamento accettabile e standard per questa FA.
+
+
+================================================================================
+  PARTE 4 — RESTORE e RECONNECT FLOW (server side)
+================================================================================
+
+---- Nuovi campi/metodi in GameController ----
+
+  private volatile boolean waitingForReconnection = false;
+  public boolean isWaitingForReconnection() { return waitingForReconnection; }
+
+  initFromRestoredGame():
+    Chiamato da LobbyManager dopo aver caricato un Game da disco.
+    Popola "nicks" e "clients" dai Player del Game caricato:
+      - nicks: lista dei nickname originali (da game.getPlayers())
+      - clients: lista di null (stesso size di nicks) → placeholder
+    Imposta expectedPlayers = game.getNumberOfPlayers()
+    Imposta waitingForReconnection = true
+
+  reconnectPlayer(String nick, VirtualView newView):
+    Trova l'indice di nick in nicks.
+    Sostituisce clients.set(idx, newView).
+    Conta quanti clients sono non-null.
+    Manda onPlayerJoined(nick, connessi, totale) a tutti i già-connessi.
+    Se tutti connessi:
+      - waitingForReconnection = false
+      - broadcast onGameStarting(nicks) → view crea GameScreen
+      - chiama onTurnStarted(game.getCurrentPlayer()) → invia stato corrente
+
+  null-check in broadcast():
+    Il metodo broadcast(ViewAction) deve saltare i client null:
+      for (VirtualView v : clients) {
+          if (v == null) continue; // player non ancora riconnesso
+          try { action.execute(v); } catch (Exception e) { ... }
+      }
+
+  isInProgress() aggiornato:
+    return !isOpen() && !isFinished() && !waitingForReconnection;
+    → le partite in attesa di riconnessione NON compaiono nella lobby list
+    → sono raggiungibili solo tramite tryReconnect() per nickname
+
+  Guard in placeTotem() e pickCard():
+    if (waitingForReconnection) {
+        view.onInvalidAction(nick, "Waiting for all players to reconnect.");
+        return;
+    }
+
+---- LobbyManager: costruttore + tryReconnect ----
+
+  Costruttore LobbyManager():
+    Chiama GamePersistenceManager.listSavedGameIds()
+    Per ogni ID trovato:
+      1. Game restored = GamePersistenceManager.load(id)
+      2. restored.clearObservers()
+      3. GameController ctrl = new GameController(restored)
+         (il costruttore chiama game.addObserver(ctrl) → observer aggiornato)
+      4. ctrl.initFromRestoredGame()
+      5. lobbies.add(ctrl)
+    Log: "[LobbyManager] Partita salvata ripristinata: game#X (N giocatori)"
+
+  tryReconnect(String nickname, VirtualView caller) → boolean:
+    Scorre lobbies cercando lobby con isWaitingForReconnection() && hasPlayer(nickname).
+    Se trovata: lobby.reconnectPlayer(nickname, caller) + broadcastLobbyListUpdate()
+    Ritorna true se reconnessione avvenuta, false altrimenti.
+
+  createLobby(), joinLobby(), joinSpecificLobby():
+    Prima riga di ciascun metodo:
+      if (tryReconnect(nickname, caller)) return;
+    → se il giocatore ha una partita salvata, viene dirottato lì
+      indipendentemente dal flusso normale di login
+
+
+================================================================================
+  PARTE 5 — CLIENT RETRY LOOP (lato client)
+================================================================================
+
+  Costanti (sia RMI che Socket):
+    RETRY_INTERVAL = 5 secondi
+    MAX_RETRY_TIME = 60 secondi
+
+  Quando il server crasha, il client riceve un segnale di errore:
+    RMI:    heartbeat ping() → RemoteException → handleServerDisconnect()
+    Socket: readLine() → null/IOException → reader thread lo propaga
+
+  In entrambi i casi:
+    1. model.onError("SERVER_DOWN") → view mostra overlay/banner di attesa
+    2. avvia un thread daemon "reconnect-loop"
+
+  Il reconnect-loop:
+    - ogni 5 secondi tenta di ri-stabilire la connessione (Registry RMI o Socket TCP)
+    - se riesce: esegue il login automatico con il nickname salvato al primo login
+      → il server esegue tryReconnect() e lo dirige alla partita salvata
+      → il client riceve onLoginAccepted(nick, N) → view esce dall'overlay di attesa
+    - se dopo 60 secondi il server non è tornato:
+      → model.onError("RECONNECT_TIMEOUT") → view avvisa e chiude (System.exit)
+
+  Nickname da salvare:
+    In RmiClient: campo "private String savedNickname" → popolato in login()/loginFirstPlayer()
+    In SocketServerProxy: stesso pattern
+
+  VIEW — onError(String msg):
+    CLI:
+      "SERVER_DOWN" → stampa "⚠ Server non disponibile. Tentativo riconnessione (60s)..."
+      "RECONNECT_TIMEOUT" → stampa "✗ Server non raggiunto. Uscita." → System.exit(0)
+      altri → comportamento attuale (stampa errore)
+
+    GUI:
+      "SERVER_DOWN" → showServerDownOverlay() → overlay con spinner/testo animato
+                      stile coerente con LiquidGlassPane esistente
+      "RECONNECT_TIMEOUT" → dialog "Server irraggiungibile" → Platform.exit()
+      onLoginAccepted() → rimuove overlay di attesa → flusso normale di riconnessione
+
+---- FLUSSO COMPLETO ----
+
+  T=0:    Server crasha durante PICKING_CARD
+          → saves/game_1.ser esiste (salvato a onTurnStarted del turno corrente) ✓
+
+  T=0:    Client A: heartbeat fallisce → onError("SERVER_DOWN") → overlay
+  T=0:    Client B: stesso
+
+  T=5s:   Server ripart → LobbyManager() carica game_1.ser
+          → waitingForReconnection=true, nicks=["alice","bob"], clients=[null,null]
+
+  T=10s:  Client A: retry → TCP/RMI OK → login("alice") automatico
+          → LobbyManager.tryReconnect("alice") → trovato → reconnectPlayer()
+          → clients=["alice_view", null], connessi=1/2
+          → onPlayerJoined("alice", 1, 2) a Client A
+          → Client A: overlay aggiornato "In attesa (1/2)..."
+
+  T=15s:  Client B: retry → login("bob") automatico
+          → reconnectPlayer("bob") → clients=["alice_view","bob_view"], connessi=2/2
+          → onGameStarting(["alice","bob"]) → entrambi i client creano/ri-creano GameScreen
+          → onTurnStarted(currentPlayer) → stato del gioco inviato
+          → partita ripresa dallo stato salvato ✓
+
+  Se server non torna entro 60s da T=0:
+  T=60s:  model.onError("RECONNECT_TIMEOUT") → view chiude il client
+
+
+================================================================================
+  RIEPILOGO FILE MODIFICATI
+================================================================================
+
+  NUOVO:
+    persistence/GamePersistenceManager.java          (~60 righe)
+
+  MODIFICA SOSTANZIALE:
+    controller/GameController.java                   (nuovi campi/metodi, save calls)
+    controller/LobbyManager.java                     (costruttore, tryReconnect, 3 entry)
+    model/Game.java                                  (transient, clearObservers)
+    network/rmi/client/RmiClient.java                (handleServerDisconnect → retry loop)
+    network/socket/client/SocketServerProxy.java     (retry loop su IOException)
+    view/cli/CLIView.java                            (onError: SERVER_DOWN / TIMEOUT)
+    view/gui/GUIView.java                            (onError: overlay + Platform.exit)
+
+  MODIFICA MINIMA (solo implements Serializable + serialVersionUID):
+    26 classi nel package model/ (vedi lista completa in Parte 1)
+
+================================================================================
+  NOTE FINALI
+================================================================================
+
+  - La directory "saves/" viene creata automaticamente. Per un reset pulito,
+    eliminarla manualmente prima di avviare il server.
+
+  - Non è implementato un timeout server-side per i giocatori che non si
+    riconnettono (quello è nella FA "Resilienza alle disconnessioni").
+    La partita resta in stato waitingForReconnection finché tutti non tornano.
+
+  - La FA Persistenza è indipendente dalla FA Resilienza alle disconnessioni:
+    si può implementare una senza l'altra.
+
+  - Per testare: avviare server + 2 client, iniziare partita fino a PICKING_CARD,
+    killare il processo server (kill -9 o Ctrl+C), verificare saves/game_1.ser,
+    riavviare il server, attendere il retry automatico dei client.
+================================================================================

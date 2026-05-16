@@ -7,6 +7,7 @@ import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +17,8 @@ import java.util.List;
  * contains a list of OrderBlock
  */
 
-public class TurnOrder {
+public class TurnOrder implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private int tag;
     private List<OrderBlock> orderBlocks;

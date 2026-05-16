@@ -5,6 +5,7 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.CharacterType;
 
 public class Shaman extends CharacterCard {
+    private static final long serialVersionUID = 1L;
 
     private final int stars;
 

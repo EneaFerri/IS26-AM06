@@ -10,6 +10,8 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public class Pictures extends EventCard {
+    private static final long serialVersionUID = 1L;
+
     private final int minimumArtists; // meglio minimumArtist di value, almeno nel codice riusciamo a capire cosa sono
     private final int prestigeMalus;
     private final int prestigeBonus;

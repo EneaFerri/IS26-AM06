@@ -12,6 +12,7 @@ import it.polimi.ingsw.model.enums.BuildingEachTurnType;
 import it.polimi.ingsw.model.enums.CharacterType;
 import it.polimi.ingsw.model.enums.InventionType;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -19,7 +20,8 @@ import java.util.List;
 import java.util.EnumMap;
 import java.util.Map;
 
-public class Player {
+public class Player implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final String nickname;
     private final Totem myTotem;
 

@@ -12,8 +12,9 @@ import java.util.Collections;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class Deck
-{
+public class Deck implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+
     private List<CharacterCard> characterCards = new ArrayList<>();
     private List<BuildingCard> buildingCards = new ArrayList<>();
     private List<EventCard> eventCards = new ArrayList<>();

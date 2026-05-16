@@ -2,6 +2,7 @@ package it.polimi.ingsw.model.board;
 
 import it.polimi.ingsw.model.player.Totem;
 
+import java.io.Serializable;
 
 /**
  * it rappresents the single order block
@@ -9,7 +10,8 @@ import it.polimi.ingsw.model.player.Totem;
  * turnOrder contains a list of these blocks
  */
 
-public class OrderBlock {
+public class OrderBlock implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private int nuggetsBonusOrMalus;
     private int prestigeMalus;

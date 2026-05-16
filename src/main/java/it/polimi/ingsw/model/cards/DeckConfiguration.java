@@ -10,7 +10,8 @@ import jdk.jfr.Event;
 import java.util.Collection;
 import java.util.List;
 
-public abstract class DeckConfiguration {
+public abstract class DeckConfiguration implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     //collegamento JSON FILES: buildings, characters, events <--> CLASSE DECK
 
     public static CharacterCard createCharacterCard(JsonNode node){

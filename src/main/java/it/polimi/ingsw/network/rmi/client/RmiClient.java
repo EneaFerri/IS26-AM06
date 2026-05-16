@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * RMI client adapter.
@@ -34,12 +35,22 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     private static final String SERVER_NAME      = "GameServer";
     private static final int    RMI_PORT         = 1099;
     private static final int    HEARTBEAT_SEC    = 10;
+    private static final int    RETRY_INTERVAL_SEC = 5;
+    private static final int    MAX_RETRY_SEC      = 60;
 
-    private final VirtualServerRmi server;
-    private final ClientModel      model;
+    private volatile VirtualServerRmi server;
+    private final ClientModel         model;
+    private final String              host;
 
-    public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
+    // Saved for auto-login on reconnect
+    private volatile String savedNickname;
+    private volatile int    savedExpectedPlayers = -1;
+
+    private final AtomicBoolean disconnected = new AtomicBoolean(false);
+
+    public RmiClient(String host, VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
+        this.host   = host;
         this.server = server;
         this.model  = model;
     }
@@ -52,7 +63,7 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
             throws RemoteException, NotBoundException {
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
         VirtualServerRmi serverStub = (VirtualServerRmi) registry.lookup(SERVER_NAME);
-        RmiClient client = new RmiClient(serverStub, model);
+        RmiClient client = new RmiClient(host, serverStub, model);
         client.startHeartbeat();
         return client;
     }
@@ -78,9 +89,36 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
         }, HEARTBEAT_SEC, HEARTBEAT_SEC, TimeUnit.SECONDS);
     }
 
-    private synchronized void handleServerDisconnect() {
-        model.onError("Connessione al server persa. Chiudi e riavvia il client.");
-        System.exit(1);
+    private void handleServerDisconnect() {
+        if (!disconnected.compareAndSet(false, true)) return; // already handling
+        model.onError("SERVER_DOWN");
+        startReconnectLoop();
+    }
+
+    private void startReconnectLoop() {
+        Thread t = new Thread(() -> {
+            long deadline = System.currentTimeMillis() + MAX_RETRY_SEC * 1000L;
+            while (System.currentTimeMillis() < deadline) {
+                try {
+                    Thread.sleep(RETRY_INTERVAL_SEC * 1000L);
+                    Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
+                    server = (VirtualServerRmi) registry.lookup(SERVER_NAME);
+                    // Re-login automatically with the saved nickname
+                    if (savedNickname != null) {
+                        server.login(savedNickname, this);
+                    }
+                    disconnected.set(false);
+                    startHeartbeat();
+                    System.out.println("[RmiClient] Reconnected to server as " + savedNickname);
+                    return;
+                } catch (Exception e) {
+                    System.out.println("[RmiClient] Server not available yet, retrying...");
+                }
+            }
+            model.onError("RECONNECT_TIMEOUT");
+        }, "rmi-reconnect");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -89,16 +127,20 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
 
     @Override
     public void loginFirstPlayer(String nickname, int numPlayers) throws RemoteException {
+        savedNickname = nickname;
+        savedExpectedPlayers = numPlayers;
         server.loginFirstPlayer(nickname, numPlayers, this);
     }
 
     @Override
     public void login(String nickname) throws RemoteException {
+        savedNickname = nickname;
         server.login(nickname, this);
     }
 
     @Override
     public void loginToLobby(String nickname, int lobbyId) throws RemoteException {
+        savedNickname = nickname;
         server.loginToLobby(nickname, lobbyId, this);
     }
 

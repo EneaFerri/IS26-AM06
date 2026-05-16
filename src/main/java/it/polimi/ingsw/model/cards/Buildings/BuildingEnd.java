@@ -9,6 +9,8 @@ import it.polimi.ingsw.model.cards.CharacterCard;
 
 
 public class BuildingEnd extends BuildingCard {
+    private static final long serialVersionUID = 1L;
+
     private final CharacterType characterToConsider;
     private final int prestigeEndEffect;
 

@@ -8,6 +8,8 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public class Ritual extends EventCard {
+    private static final long serialVersionUID = 1L;
+
     private final int maxBonus;
     private final int maxMalus;
 

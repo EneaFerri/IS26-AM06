@@ -7,6 +7,8 @@ import it.polimi.ingsw.model.player.Player;
 // import it.polimi.ingsw.model.enums.*; non più necessaria
 
 public abstract class BuildingCard extends Card {
+    private static final long serialVersionUID = 1L;
+
     private final int foodCost;
     private final int prestigePoint;
 

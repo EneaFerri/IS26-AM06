@@ -119,7 +119,14 @@ public class CLIView implements ModelObserver {
 
     @Override
     public void onError(String message) {
-        System.err.println("  ✗ ERRORE: " + message);
+        if ("SERVER_DOWN".equals(message)) {
+            System.out.println("\n  ⚠  Server non disponibile. Tentativo di riconnessione in corso (timeout 60s)...");
+        } else if ("RECONNECT_TIMEOUT".equals(message)) {
+            System.out.println("  ✗  Server non raggiunto entro 60 secondi. Uscita.");
+            System.exit(0);
+        } else {
+            System.err.println("  ✗ ERRORE: " + message);
+        }
     }
 
     @Override

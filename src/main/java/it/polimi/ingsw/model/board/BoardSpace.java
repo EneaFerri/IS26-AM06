@@ -2,7 +2,10 @@ package it.polimi.ingsw.model.board;
 
 import it.polimi.ingsw.model.player.Totem;
 
-public class BoardSpace {
+import java.io.Serializable;
+
+public class BoardSpace implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final char letter;
     private final int numCardsTop;
     private final int numCardsDown;

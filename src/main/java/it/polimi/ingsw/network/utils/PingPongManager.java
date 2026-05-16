@@ -36,11 +36,7 @@ public class PingPongManager {
     /** How often to send a PING. Must be longer than typical round-trip time. */
     private static final int PING_INTERVAL_MS = 10_000;
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "heartbeat");
-        t.setDaemon(true);
-        return t;
-    });
+    private volatile ScheduledExecutorService scheduler;
 
     /** True while we are waiting for the PONG that follows the last PING we sent. */
     private final AtomicBoolean awaitingPong = new AtomicBoolean(false);
@@ -53,6 +49,12 @@ public class PingPongManager {
      * @param onTimeout called once when the remote peer misses a PONG
      */
     public void start(Runnable sendPing, Runnable onTimeout) {
+        if (scheduler != null) scheduler.shutdownNow();
+        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "heartbeat");
+            t.setDaemon(true);
+            return t;
+        });
         running = true;
         awaitingPong.set(false);
 
@@ -107,6 +109,6 @@ public class PingPongManager {
      */
     public void stop() {
         running = false;
-        scheduler.shutdownNow();
+        if (scheduler != null) scheduler.shutdownNow();
     }
 }

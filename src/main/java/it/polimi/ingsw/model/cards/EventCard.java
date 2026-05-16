@@ -8,6 +8,7 @@ import it.polimi.ingsw.model.player.Player;
 import java.util.List;
 
 public abstract class EventCard extends TribeCard {
+    private static final long serialVersionUID = 1L;
 
     private final EventType eventType;
 

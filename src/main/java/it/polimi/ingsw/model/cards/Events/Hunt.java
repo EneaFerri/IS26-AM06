@@ -13,6 +13,8 @@ import it.polimi.ingsw.model.enums.CharacterType;
 import java.util.List;
 
 public class Hunt extends EventCard {
+    private static final long serialVersionUID = 1L;
+
     private static final int FOOD_BONUS = 1;
     private final int prestigeBonus;
 

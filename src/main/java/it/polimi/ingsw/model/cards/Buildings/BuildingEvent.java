@@ -8,6 +8,8 @@ import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.cards.CharacterCard;
 
 public class BuildingEvent extends BuildingCard {
+    private static final long serialVersionUID = 1L;
+
     private final EventType eventToRespond;
     private final CharacterType characterToConsider;
 
