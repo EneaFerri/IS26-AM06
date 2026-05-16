@@ -5,8 +5,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Board configuration.
+ * Contains the initial setup of the board.
+ * link JSON FILES: boardSpaces, turnOrder <--> class Board, TurnOrder
+ */
+
 public abstract class BoardConfiguration {
-    //collegamento JSON FILES: boardSpaces, turnOrder <--> CLASSE BOARD E TURNORDER
+
 
     public static BoardSpace createBoardSpace(JsonNode node) {
         Character letter = node.get("letter").asText().charAt(0);
