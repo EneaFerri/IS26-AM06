@@ -468,6 +468,8 @@ public class GameController implements GameObserver {
 
         StringBuilder sb = new StringBuilder();
 
+        appendDeckStatus(sb);
+
         if (phase == GameState.OFFER_SPACE_CHOOSE) {
             appendBoardDisplay(sb);
             appendPlayersSummary(sb);
@@ -522,10 +524,26 @@ public class GameController implements GameObserver {
      */
     private String buildBoardSummaryForWatchers() {
         StringBuilder sb = new StringBuilder();
+
+        // inserisco uno snapshot del mazzo corrente la GUI lo usa per tenere sincronizzati era, back della carta e contatore residuo
+        appendDeckStatus(sb);
+
         appendBoardDisplay(sb);
         appendPlayersSummary(sb);
         appendAllPlayersCardsSummary(sb);
         return sb.toString();
+    }
+
+    /**
+     * Aggiunge un piccolo blocco machine-readable con lo stato del mazzo attivo.
+     * Lo tengo separato dal testo umano così la GUI può leggerlo in modo robusto
+     * senza fare parsing fragile di label o descrizioni di gioco.
+     */
+    private void appendDeckStatus(StringBuilder sb) {
+        sb.append("##DECK_STATUS_BEGIN##\n");
+        sb.append("AGE=").append(game.getCurrentAge().name()).append("\n");
+        sb.append("REMAINING=").append(game.getRemainingCardsInTotalDeck()).append("\n");
+        sb.append("##DECK_STATUS_END##\n");
     }
 
     //player own cards section

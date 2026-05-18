@@ -77,6 +77,14 @@ public class Game implements GameActions {
     public Age getCurrentAge()         { return currentAge; }
     public Board getBoard()            { return gameBoard; }
     public Deck getMainDeck()          { return mainDeck; }
+    /**
+     * Restituisce quante tribe card restano complessivamente nel gioco.
+     * La GUI usa questo numero per il contatore del mazzo centrale,
+     * che deve riflettere il "mazzo generale" e non solo l'era attiva.
+     */
+    public int getRemainingCardsInTotalDeck() {
+        return deck_ERA_I.size() + deck_ERA_II.size() + deck_ERA_III.size();
+    }
 
     // ────────────────────────────────────────────────
     //  LOBBY

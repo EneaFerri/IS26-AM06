@@ -79,10 +79,15 @@ public class GameScreen {
     // larghezza sidebar destra fissa così non balla troppo tra full-hd e 2k che mi dava problemi sui due monitor
     private static final double RIGHT_SIDEBAR_W = 248;
 
+    // larghezza del widget mazzo nel blocco centrale:
+    // lo tengo compatto così non mangia spazio alle tessere del board
+    private static final double DECK_TRACK_W = 108;
+
     // le riepilogo sono miniature cliccabili nella sidebar
     // mentre le regole complete verranno aperte nello stesso viewer riusabile
     private static final List<String> SUMMARY_CARD_RESOURCES = List.of(
-            "/gui/cards/card_300.png"
+            "/gui/cards/card_300.png",
+            "/gui/cards/backs/back_riepilogo.png"
     //       "/gui/cards/card_301.png" nulla scherzavo sono tutte uguali da 300 a 305. è solo una la carta ma per 5 giocatori nella realtà
     );
 
@@ -101,6 +106,12 @@ public class GameScreen {
     private final Label       eraLabel        = new Label("Era I");
     private final Label       phaseLabel      = new Label();
     private final Label       turnLabel       = new Label();
+    // elementi UI del mazzo a sinistra:
+    // tengo riferimenti separati così posso aggiornare era, immagine e contatore in un colpo solo
+    private final ImageView deckBackView   = new ImageView();
+    private final Label     deckTitleLabel = new Label("MAZZO ERA");
+    private final Label     deckCountLabel = new Label("0");
+    private final Label     deckCountHint  = new Label("Carte rimaste");
     private final Label       foodLabel       = new Label("🍖 —");
     private final Label       prestigeLabel   = new Label("★ —");
     private final HBox        handBox         = new HBox(8);
@@ -1927,7 +1938,12 @@ public class GameScreen {
         HBox boardRow = new HBox(10);
         boardRow.setAlignment(Pos.CENTER);
         boardRow.setFillHeight(false);
+
+        // il mazzo deve stare nel cuore della partita, non in una sidebar laterale:
+        // lo aggancio qui, subito prima dell'ordine totem, così resta leggibile e coerente col board.
+        boardRow.getChildren().add(buildDeckTrack());
         boardRow.getChildren().add(buildTurnOrderTrack());
+
         for (String letter : activeSpaces)
             boardRow.getChildren().add(buildBoardSpace(letter));
 
@@ -2068,6 +2084,55 @@ public class GameScreen {
     //  PANNELLO GIOCATORI (right)
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Costruisce il widget del mazzo da mostrare nel blocco centrale.
+     * Qui non voglio una sidebar vera: voglio un indicatore compatto, vicino
+     * all'ordine dei totem, che mostri era attiva e quante tribe card restano in totale.
+     */
+    private VBox buildDeckTrack() {
+        deckTitleLabel.setStyle(labelStyle(9, "rgba(255,255,255,0.40)"));
+        deckTitleLabel.setText("MAZZO");
+
+        deckBackView.setFitWidth(92);
+        deckBackView.setFitHeight(129);
+        deckBackView.setPreserveRatio(true);
+        deckBackView.setSmooth(true);
+        deckBackView.setEffect(new DropShadow(12, Color.rgb(0, 0, 0, 0.28)));
+
+        deckCountLabel.setStyle("-fx-font-family:'SF Pro Display','Helvetica Neue',Arial;" +
+                "-fx-font-size:20;-fx-font-weight:bold;-fx-text-fill:white;");
+
+        deckCountHint.setStyle(labelStyle(9, "rgba(255,255,255,0.52)"));
+        deckCountHint.setText("rimaste");
+
+        VBox counterBox = new VBox(1, deckCountLabel, deckCountHint);
+        counterBox.setAlignment(Pos.CENTER);
+
+        VBox track = new VBox(4, deckTitleLabel, deckBackView, counterBox);
+        track.setAlignment(Pos.BOTTOM_CENTER);
+        track.setPrefWidth(DECK_TRACK_W);
+        track.setMinWidth(DECK_TRACK_W);
+        track.setMaxWidth(DECK_TRACK_W);
+
+        // stato iniziale sicuro: poi verrà riallineato dai callback reali
+        updateDeckStatus(Age.Era_I, 0);
+
+        return track;
+    }
+
+    /**
+     * Traduce l'era attiva nel retro grafico corretto del mazzo.
+     * Qui uso solo i back tribe delle tre ere: sono quelli che bastano
+     * per dare un riferimento visivo chiaro durante la partita.
+     */
+    private String deckBackPathForAge(Age age) {
+        return switch (age) {
+            case Era_I   -> "/gui/cards/backs/back_tribe1.png";
+            case Era_II  -> "/gui/cards/backs/back_tribe2.png";
+            case Era_III -> "/gui/cards/backs/back_tribe3.png";
+            default      -> "/gui/cards/backs/back_tribe3.png";
+        };
+    }
 
     // tutta la colonna destra.
     //Sopra tengo l'elenco dinamico dei giocatori, sotto i contenuti di supporto
@@ -2103,7 +2168,11 @@ public class GameScreen {
         // per ora abbiamo una sola carta riepilogo pronta nelle risorse,
         // quindi la sezione resta pulita e non mostro placeholder finti
         row.getChildren().add(
-                buildReferenceThumb(SUMMARY_CARD_RESOURCES.get(0), "Carta info")
+                buildReferenceThumb(
+                        SUMMARY_CARD_RESOURCES.get(0),
+                        "Carta info",
+                        SUMMARY_CARD_RESOURCES
+                )
         );
 
 
@@ -2144,8 +2213,13 @@ public class GameScreen {
     //  miniatura cliccabile di supporto, La tengo piccola perché in sidebar deve solo suggerire "apri il dettaglio",
     // senza rubare spazio
 
-    private StackPane buildReferenceThumb(String resourcePath, String labelText) {
-        Image img = loadRawImage(resourcePath);
+    /**
+     * Costruisce una miniatura cliccabile per i contenuti di supporto.
+     * Uso una preview singola per la sidebar, ma al click apro una lista di pagine:
+     * così la stessa UI va bene sia per la carta riepilogo 2/2 sia per il regolamento.
+     */
+    private StackPane buildReferenceThumb(String previewResourcePath, String labelText, List<String> pages) {
+        Image img = loadRawImage(previewResourcePath);
 
         ImageView iv = new ImageView();
         if (img != null) {
@@ -2176,13 +2250,15 @@ public class GameScreen {
         StackPane.setAlignment(badge, Pos.BOTTOM_CENTER);
         StackPane.setMargin(badge, new Insets(0, 0, 6, 0));
 
+        // la miniatura serve solo come entry point:
+        // il contenuto vero si apre nel viewer glass, che qui riceve tutte le pagine disponibili
         thumb.setOnMouseClicked(e ->
                 showReferencePages(
                         "CARTA RIEPILOGO",
                         labelText + "  •  guida rapida sempre visibile durante la partita",
-                        List.of(resourcePath),
+                        pages,
                         0,
-                        "Usa Chiudi o ESC per tornare subito alla partita."
+                        "Usa ◀ ▶ oppure le frecce sinistra/destra della tastiera. ESC chiude."
                 )
         );
 
@@ -2320,6 +2396,27 @@ public class GameScreen {
     // ─────────────────────────────────────────────────────────────────────
     //  UPDATE methods  (chiamati da GUIView su Platform.runLater)
     // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Aggiorna il widget del mazzo centrale.
+     * La label in alto resta la parte testuale dell'era,
+     * mentre qui sincronizzo immagine del back e contatore del mazzo totale rimasto.
+     */
+    public void updateDeckStatus(Age era, int remaining) {
+        updateEra(era);
+
+        String backPath = deckBackPathForAge(era);
+        Image backImage = loadRawImage(backPath);
+        deckBackView.setImage(backImage);
+
+        deckCountLabel.setText(String.valueOf(Math.max(0, remaining)));
+
+        if (era == Age.Last_Event) {
+            deckBackView.setOpacity(0.62);
+        } else {
+            deckBackView.setOpacity(1.0);
+        }
+    }
 
     public void updateEra(Age era) {
         String text = switch (era) {

@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class GUIView implements ModelObserver {
 
     private final Stage       stage;
@@ -405,6 +408,12 @@ public class GUIView implements ModelObserver {
             parseAndUpdateAllStats(extraInfo);
             gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(extraInfo));
 
+            Age deckAge = parseDeckAge(extraInfo);
+            int remainingDeck = parseDeckRemaining(extraInfo);
+            if (deckAge != null) {
+                gameScreen.updateDeckStatus(deckAge, remainingDeck);
+            }
+
             boolean myTurn  = nick.equals(nickname);
             boolean canPick = myTurn && phase == GameState.PICKING_CARD;
 
@@ -439,6 +448,11 @@ public class GUIView implements ModelObserver {
             gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
             gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
+            Age deckAge = parseDeckAge(boardSummary);
+            int remainingDeck = parseDeckRemaining(boardSummary);
+            if (deckAge != null) {
+                gameScreen.updateDeckStatus(deckAge, remainingDeck);
+            }
         });
     }
 
@@ -697,6 +711,11 @@ public class GUIView implements ModelObserver {
                 gameScreen.updateBoardCards(top, bot, false, false);
                 parseAndUpdateAllStats(boardSummary);
                 gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
+                Age deckAge = parseDeckAge(boardSummary);
+                int remainingDeck = parseDeckRemaining(boardSummary);
+                if (deckAge != null) {
+                    gameScreen.updateDeckStatus(deckAge, remainingDeck);
+                }
             }
         });
     }
@@ -715,6 +734,42 @@ public class GUIView implements ModelObserver {
             }
         }
         return names;
+    }
+
+    /**
+     * Legge l'era corrente dal blocco machine-readable inviato dal server.
+     * Se il blocco non c'è o il valore è sporco, ritorno null e lascio invariata la GUI.
+     */
+    private Age parseDeckAge(String text) {
+        if (text == null) return null;
+
+        Matcher m = Pattern.compile("##DECK_STATUS_BEGIN##\\s*AGE=([A-Za-z_]+)", Pattern.MULTILINE)
+                .matcher(text);
+
+        if (!m.find()) return null;
+
+        try {
+            return Age.valueOf(m.group(1).trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Legge quante carte restano nel mazzo dell'era attiva.
+     * Il default è 0 perché in assenza del marker preferisco non inventare numeri.
+     */
+    private int parseDeckRemaining(String text) {
+        if (text == null) return 0;
+
+        Matcher m = Pattern.compile("REMAINING=(\\d+)").matcher(text);
+        if (!m.find()) return 0;
+
+        try {
+            return Integer.parseInt(m.group(1));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 // === END SPECTATOR ===
 
