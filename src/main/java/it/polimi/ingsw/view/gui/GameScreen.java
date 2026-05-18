@@ -167,22 +167,6 @@ public class GameScreen {
     private final ImageView eventHeroCard = new ImageView();
     private final Label eventHeroTitle = new Label();
 
-    // Smoke system (evento)
-    private final javafx.scene.canvas.Canvas smokeCanvas = new javafx.scene.canvas.Canvas();
-    private javafx.animation.AnimationTimer smokeTimer = null;
-    private final List<SmokeParticle> smokeParticles = new ArrayList<>();
-    private double smokeSpawnAccum = 0.0;
-    private boolean smokeFading = false;
-
-    private static final class SmokeParticle {
-        double x, y, radius, alpha, dy, dx, grow, alphaDecay;
-        SmokeParticle(double x, double y, double radius, double alpha,
-                      double dy, double dx, double grow, double alphaDecay) {
-            this.x = x; this.y = y; this.radius = radius; this.alpha = alpha;
-            this.dy = dy; this.dx = dx; this.grow = grow; this.alphaDecay = alphaDecay;
-        }
-    }
-
     private ScrollPane centerScrollPane;
 
 
@@ -519,11 +503,7 @@ public class GameScreen {
         StackPane.setAlignment(eventHeroCard, Pos.CENTER);
         eventHeroCard.setTranslateY(60);
 
-        smokeCanvas.setMouseTransparent(true);
-        smokeCanvas.widthProperty().bind(rootWrapper.widthProperty());
-        smokeCanvas.heightProperty().bind(rootWrapper.heightProperty());
-
-        eventOverlay.getChildren().addAll(eventScrim, smokeCanvas, eventFlash, eventHeroCard, eventHeroTitle);
+        eventOverlay.getChildren().addAll(eventScrim, eventFlash, eventHeroCard, eventHeroTitle);
 
         eventOverlay.setVisible(false);
         eventOverlay.setMouseTransparent(true);
@@ -1728,85 +1708,6 @@ public class GameScreen {
         }
     }
 
-    private void startSmoke() {
-        smokeParticles.clear();
-        smokeSpawnAccum = 0.0;
-        smokeFading = false;
-
-        javafx.scene.canvas.GraphicsContext g = smokeCanvas.getGraphicsContext2D();
-        g.clearRect(0, 0, smokeCanvas.getWidth(), smokeCanvas.getHeight());
-
-        final long[] lastNow = {0};
-
-        smokeTimer = new javafx.animation.AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                if (lastNow[0] == 0) { lastNow[0] = now; return; }
-                double dt = Math.min((now - lastNow[0]) / 1_000_000_000.0, 0.05);
-                lastNow[0] = now;
-
-                double w = smokeCanvas.getWidth();
-                double h = smokeCanvas.getHeight();
-                if (w <= 0 || h <= 0) return;
-
-                if (!smokeFading) {
-                    smokeSpawnAccum += dt * 6.5;
-                    while (smokeSpawnAccum >= 1.0) {
-                        smokeSpawnAccum -= 1.0;
-                        spawnSmokeParticle(w, h);
-                    }
-                }
-
-                smokeParticles.removeIf(p -> p.alpha <= 0.0);
-                for (SmokeParticle p : smokeParticles) {
-                    p.x      += p.dx  * dt;
-                    p.y      += p.dy  * dt;
-                    p.radius += p.grow * dt;
-                    p.alpha  -= p.alphaDecay * dt;
-                    if (smokeFading) p.alpha -= 0.55 * dt;
-                    p.alpha = Math.max(p.alpha, 0.0);
-                }
-
-                g.clearRect(0, 0, w, h);
-                for (SmokeParticle p : smokeParticles) {
-                    if (p.alpha <= 0.0 || p.radius <= 0.0) continue;
-                    javafx.scene.paint.RadialGradient rg = new javafx.scene.paint.RadialGradient(
-                            0, 0, p.x, p.y, p.radius, false,
-                            javafx.scene.paint.CycleMethod.NO_CYCLE,
-                            new javafx.scene.paint.Stop(0.00, Color.rgb(200, 195, 180, Math.min(p.alpha, 1.0))),
-                            new javafx.scene.paint.Stop(0.45, Color.rgb(180, 172, 155, Math.min(p.alpha * 0.55, 1.0))),
-                            new javafx.scene.paint.Stop(1.00, Color.TRANSPARENT)
-                    );
-                    g.setFill(rg);
-                    g.fillOval(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
-                }
-
-                if (smokeFading && smokeParticles.isEmpty()) {
-                    stop();
-                    g.clearRect(0, 0, w, h);
-                }
-            }
-        };
-        smokeTimer.start();
-    }
-
-    private void spawnSmokeParticle(double w, double h) {
-        java.util.Random rng = new java.util.Random();
-        double x      = w * (0.10 + rng.nextDouble() * 0.80);
-        double y      = h * (0.75 + rng.nextDouble() * 0.25);
-        double radius = 40 + rng.nextDouble() * 70;
-        double alpha  = 0.13 + rng.nextDouble() * 0.20;
-        double dy     = -(55 + rng.nextDouble() * 70);
-        double dx     = (rng.nextDouble() - 0.5) * 28;
-        double grow   = 18 + rng.nextDouble() * 28;
-        double decay  = 0.035 + rng.nextDouble() * 0.045;
-        smokeParticles.add(new SmokeParticle(x, y, radius, alpha, dy, dx, grow, decay));
-    }
-
-    private void stopSmoke() {
-        smokeFading = true;
-    }
-
     private void playNextEventAnimation() {
         EventAnimationRequest req = eventQueue.poll();
         if (req == null) {
@@ -1830,7 +1731,6 @@ public class GameScreen {
         eventOverlay.setVisible(true);
         eventOverlay.setOpacity(1.0);
         eventOverlay.toFront();
-        startSmoke();
 
         StackPane source = findCardNode(req.cardId);
         double startDx = 0;
@@ -1917,8 +1817,6 @@ public class GameScreen {
                 )
         );
 
-        outro.setOnFinished(ev -> stopSmoke());
-
         javafx.animation.SequentialTransition seq =
                 new javafx.animation.SequentialTransition(
                         intro,
@@ -1931,9 +1829,6 @@ public class GameScreen {
             eventOverlay.setVisible(false);
             eventOverlay.setOpacity(1.0);
             eventHeroCard.setImage(null);
-            smokeCanvas.getGraphicsContext2D().clearRect(0, 0, smokeCanvas.getWidth(), smokeCanvas.getHeight());
-            smokeParticles.clear();
-            if (smokeTimer != null) { smokeTimer.stop(); smokeTimer = null; }
             playNextEventAnimation();
         });
 
