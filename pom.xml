@@ -45,7 +45,6 @@
             <version>8.3.0</version>
         </dependency>
 
-        <!-- JavaFX (NUOVE) -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>

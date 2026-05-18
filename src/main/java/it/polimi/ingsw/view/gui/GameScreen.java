@@ -19,7 +19,10 @@ import javafx.scene.SnapshotParameters;
 import javafx.scene.effect.GaussianBlur;
 import javafx.beans.binding.Bindings;
 import javafx.scene.input.KeyCode;
+import javafx.event.ActionEvent;
 import java.util.List;
+import javafx.event.EventHandler;
+import javafx.scene.control.Button;
 
 
 import java.util.*;
@@ -1862,9 +1865,27 @@ public class GameScreen {
         foodLabel.setStyle(labelStyle(13, "#F5C518"));
         prestigeLabel.setStyle(labelStyle(13, "#34C759"));
 
+        // ── Bottone mute ──────────────────────────────────────────────────
+        Button muteBtn = new Button("🔇");
+        muteBtn.setStyle("-fx-background-color:rgba(255,255,255,0.10);" +
+                "-fx-background-radius:20;-fx-text-fill:white;" +
+                "-fx-font-size:16;-fx-cursor:hand;" +
+                "-fx-border-color:rgba(255,255,255,0.15);" +
+                "-fx-border-radius:20;-fx-border-width:1;" +
+                "-fx-padding:4 12 4 12;");
+        muteBtn.setOnAction(e -> {
+            if (MusicPlayer.getVolume() > 0) {
+                MusicPlayer.setVolume(0);
+                muteBtn.setText("🔊");
+            } else {
+                MusicPlayer.setVolume(0.35);
+                muteBtn.setText("🔇");
+            }
+        });
+
         HBox header = new HBox(16, eraLabel, separator_v(), phaseLabel,
                 separator_v(), turnLabel, spacer,
-                foodLabel, prestigeLabel);
+                foodLabel, prestigeLabel, muteBtn);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(14, 24, 14, 24));
         header.setStyle("-fx-background-color:rgba(0,0,0,0.45);" +

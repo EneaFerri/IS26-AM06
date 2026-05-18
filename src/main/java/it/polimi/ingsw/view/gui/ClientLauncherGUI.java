@@ -32,6 +32,10 @@ public class ClientLauncherGUI extends Application {
         this.primaryStage = stage;
         stage.setTitle("Mesos");
         stage.setResizable(false);
+
+        MusicPlayer.start();
+        stage.setOnCloseRequest(e -> MusicPlayer.stop());
+
         showConnectionScreen();
     }
 
