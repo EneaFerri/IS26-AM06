@@ -58,7 +58,7 @@ public class Board implements Serializable {
         }
     }
 
-    //remuve cards from offerfield if not needed based on number of players
+    //remove cards from offerfield if not needed based on number of players
     public void prepareGameBoardSpace(int numberOfPlayers) {
 
         if (numberOfPlayers == 5) {
@@ -85,6 +85,21 @@ public class Board implements Serializable {
         offerField.removeIf(boardSpace -> boardSpace.getLetter() == letter);
     }
 
+    public List<TribeCard> getTopRowTribe() {
+        return topTribeCards;
+    }
+
+    public List<TribeCard> getLowRowTribe() {
+        return bottomTribeCards;
+    }
+
+    public List<BuildingCard> getTopRowBuild() {
+        return topBuildingCards;
+    }
+
+    public List<BuildingCard> getLowRowBuild() {
+        return bottomBuildingCards;
+    }
 
     public List<BoardSpace> getOfferField() {
         return offerField;
