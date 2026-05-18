@@ -31,6 +31,9 @@ public class ClientLauncher {
 
     public static void main(String[] args) throws Exception {
 
+        System.setProperty("apple.awt.application.name", "Mesos");
+        System.setProperty("com.apple.mrj.application.apple.menu.about.name", "Mesos");
+
         // ── Scelta interfaccia ────────────────────────────────────────────
         //    Usiamo lo scanner di CLIView per non aprire mai due Scanner su
         //    System.in contemporaneamente nel percorso TUI.

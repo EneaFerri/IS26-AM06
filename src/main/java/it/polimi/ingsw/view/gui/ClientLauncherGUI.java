@@ -26,10 +26,6 @@ public class ClientLauncherGUI extends Application {
 
     private Stage primaryStage;
 
-    static {
-        System.setProperty("apple.awt.application.name", "Mesos");
-    }
-
     public static void main(String[] args) {
         launch(args);
     }
