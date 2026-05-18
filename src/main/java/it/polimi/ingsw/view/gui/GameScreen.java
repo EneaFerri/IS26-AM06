@@ -1865,27 +1865,42 @@ public class GameScreen {
         foodLabel.setStyle(labelStyle(13, "#F5C518"));
         prestigeLabel.setStyle(labelStyle(13, "#34C759"));
 
-        // ── Bottone mute ──────────────────────────────────────────────────
-        Button muteBtn = new Button("🔇");
+        double initialVol = MusicPlayer.getVolume();
+        double[] savedVol = { initialVol > 0 ? initialVol : 0.35 };
+
+        Slider volumeSlider = new Slider(0.0, 1.0, initialVol);
+        volumeSlider.setPrefWidth(90);
+        volumeSlider.setStyle("-fx-accent:#007AFF;");
+
+        Button muteBtn = new Button(initialVol == 0 ? "🔇" : "🔊");
         muteBtn.setStyle("-fx-background-color:rgba(255,255,255,0.10);" +
                 "-fx-background-radius:20;-fx-text-fill:white;" +
                 "-fx-font-size:16;-fx-cursor:hand;" +
                 "-fx-border-color:rgba(255,255,255,0.15);" +
                 "-fx-border-radius:20;-fx-border-width:1;" +
                 "-fx-padding:4 12 4 12;");
+
+        // slider → aggiorna volume in tempo reale e sincronizza l'icona
+        volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double v = newVal.doubleValue();
+            MusicPlayer.setVolume(v);
+            muteBtn.setText(v == 0.0 ? "🔇" : "🔊");
+            if (v > 0.0) savedVol[0] = v;
+        });
+
+        // mute button → muove lo slider (che a sua volta aggiorna volume e icona)
         muteBtn.setOnAction(e -> {
             if (MusicPlayer.getVolume() > 0) {
-                MusicPlayer.setVolume(0);
-                muteBtn.setText("🔊");
+                savedVol[0] = MusicPlayer.getVolume();
+                volumeSlider.setValue(0.0);
             } else {
-                MusicPlayer.setVolume(0.35);
-                muteBtn.setText("🔇");
+                volumeSlider.setValue(savedVol[0]);
             }
         });
 
         HBox header = new HBox(16, eraLabel, separator_v(), phaseLabel,
                 separator_v(), turnLabel, spacer,
-                foodLabel, prestigeLabel, muteBtn);
+                foodLabel, prestigeLabel, volumeSlider, muteBtn);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(14, 24, 14, 24));
         header.setStyle("-fx-background-color:rgba(0,0,0,0.45);" +

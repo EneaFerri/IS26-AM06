@@ -940,6 +940,7 @@ public class GUIView implements ModelObserver {
     // ─────────────────────────────────────────────────────────────────────
 
     private void showEndGameScreen(String results, Map<String, List<Integer>> cardsByPlayer) {
+        MusicPlayer.switchTo("final_music.mp3");
         AnimatedBackground animBg = new AnimatedBackground();
 
         Label title = new Label("FINE PARTITA!");
@@ -1164,6 +1165,53 @@ public class GUIView implements ModelObserver {
             case BLACK  -> "#9B4F6F";
             case WHITE  -> "#C8C8C8";
         };
+    }
+
+    //  Controllo volume musica (slider + mute)
+    private HBox buildMusicControls() {
+        Label musicLabel = new Label("🎵 MUSICA");
+        musicLabel.setStyle(styleSmallCaps());
+        HBox.setHgrow(musicLabel, Priority.ALWAYS);
+
+        // Valore del volume prima di mutare (per ripristinarlo)
+        double[] savedVolume = { Math.max(MusicPlayer.getVolume(), 0.20) };
+
+        // ── Slider ────────────────────────────────────────────────────────
+        Slider slider = new Slider(0.0, 1.0, MusicPlayer.getVolume());
+        slider.setPrefWidth(110);
+        slider.setStyle(
+                "-fx-control-inner-background: rgba(255,255,255,0.12);" +
+                        "-fx-accent: #007AFF;"
+        );
+
+        // ── Pulsante mute ─────────────────────────────────────────────────
+        boolean startsMuted = MusicPlayer.getVolume() == 0;
+        Button muteBtn = new Button(startsMuted ? "🔇" : "🔊");
+        muteBtn.setPrefSize(38, 34);
+        muteBtn.setStyle(styleSecondaryButton());
+
+        // Slider → volume live
+        slider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double v = newVal.doubleValue();
+            MusicPlayer.setVolume(v);
+            muteBtn.setText(v == 0.0 ? "🔇" : "🔊");
+            if (v > 0.0) savedVolume[0] = v;
+        });
+
+        // Mute button toggle
+        muteBtn.setOnAction(e -> {
+            if (MusicPlayer.getVolume() > 0.0) {
+                savedVolume[0] = MusicPlayer.getVolume();
+                slider.setValue(0.0);          // triggera il listener → setVolume(0)
+            } else {
+                slider.setValue(savedVolume[0]); // ripristina
+            }
+        });
+
+        HBox row = new HBox(10, musicLabel, slider, muteBtn);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(4, 0, 0, 0));
+        return row;
     }
 
 }

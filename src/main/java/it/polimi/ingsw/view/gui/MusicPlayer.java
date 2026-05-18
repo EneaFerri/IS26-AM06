@@ -22,7 +22,7 @@ public class MusicPlayer {
         Media media = new Media(resource.toExternalForm());
         player = new MediaPlayer(media);
         player.setCycleCount(MediaPlayer.INDEFINITE); // loop infinito
-        player.setVolume(0.35); // volume 0.0 – 1.0
+        player.setVolume(0.20); // volume 0.0 – 1.0
         player.play();
     }
 
@@ -32,6 +32,27 @@ public class MusicPlayer {
             player.dispose();
             player = null;
         }
+    }
+
+    public static void switchTo(String audioFileName) {
+        // Ferma e rilascia la traccia corrente
+        if (player != null) {
+            player.stop();
+            player.dispose();
+            player = null;
+        }
+
+        URL resource = MusicPlayer.class.getResource("/audio/" + audioFileName);
+        if (resource == null) {
+            System.err.println("[MusicPlayer] File audio non trovato: " + audioFileName);
+            return;
+        }
+
+        Media media = new Media(resource.toExternalForm());
+        player = new MediaPlayer(media);
+        player.setCycleCount(MediaPlayer.INDEFINITE);
+        player.setVolume(0.20);
+        player.play();
     }
 
     public static void setVolume(double v) {
