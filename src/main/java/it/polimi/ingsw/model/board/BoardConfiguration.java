@@ -2,7 +2,6 @@ package it.polimi.ingsw.model.board;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,8 +11,7 @@ import java.util.List;
  * link JSON FILES: boardSpaces, turnOrder <--> class Board, TurnOrder
  */
 
-public abstract class BoardConfiguration implements Serializable {
-    private static final long serialVersionUID = 1L;
+public abstract class BoardConfiguration {
 
 
     public static BoardSpace createBoardSpace(JsonNode node) {

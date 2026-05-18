@@ -6,7 +6,6 @@ import it.polimi.ingsw.model.enums.BuildingEachTurnType;
 import it.polimi.ingsw.model.player.Player;
 
 public class BuildingEachTurn extends BuildingCard {
-    private static final long serialVersionUID = 1L;
 
     private BuildingEachTurnType bType;
 

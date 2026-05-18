@@ -6,7 +6,6 @@ import it.polimi.ingsw.model.enums.CharacterType;
 import it.polimi.ingsw.model.player.Player;
 
 public class Hunter extends CharacterCard {
-    private static final long serialVersionUID = 1L;
 
     private final int nuggets; //0 = no icona, 1 = icona
 

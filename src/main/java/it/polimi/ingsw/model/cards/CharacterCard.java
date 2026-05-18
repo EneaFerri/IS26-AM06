@@ -7,8 +7,6 @@ import it.polimi.ingsw.model.enums.InventionType;
 import it.polimi.ingsw.model.player.Player;
 
 public abstract class CharacterCard extends TribeCard {
-    private static final long serialVersionUID = 1L;
-
     private final int tag; //indica il numerino, default 2 gg, altrimenti +3,+4,5
 
     private final CharacterType characterType;

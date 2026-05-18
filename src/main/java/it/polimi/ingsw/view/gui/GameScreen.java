@@ -2404,17 +2404,6 @@ public class GameScreen {
         handBox.getChildren().add(card);
     }
 
-    public void repopulateHandIfNeeded() {
-        List<Integer> myCards = playerOwnedCards.getOrDefault(myNick, List.of());
-        long currentHandCards = handBox.getChildren().stream()
-                .filter(n -> !(n instanceof Label))
-                .count();
-        if (myCards.size() > currentHandCards) {
-            handBox.getChildren().clear();
-            for (int id : myCards) addCardToHand(id);
-        }
-    }
-
     private StackPane buildHandCardNode(int cardId) {
         return buildCardSlot(cardId, true);
     }

@@ -3,10 +3,7 @@ package it.polimi.ingsw.model.player;
 import it.polimi.ingsw.model.board.BoardSpace;
 import it.polimi.ingsw.model.enums.TotemColor;
 
-import java.io.Serializable;
-
-public class Totem implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class Totem {
 
     private final TotemColor color;
     private BoardSpace position;

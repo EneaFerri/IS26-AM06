@@ -2,12 +2,10 @@ package it.polimi.ingsw.controller;
 
 import it.polimi.ingsw.VirtualView;
 import it.polimi.ingsw.model.Game;
-import it.polimi.ingsw.persistence.GamePersistenceManager;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Manage N lobby (GameController) simultaneously
@@ -27,48 +25,6 @@ public class LobbyManager {
 
     private final List<GameController> lobbies = new ArrayList<>();
     private final List<VirtualView> lobbyListSubscribers = new ArrayList<>();
-    private final AtomicInteger nextGameId = new AtomicInteger(1);
-
-    /**
-     * Loads any games saved on disk from a previous server run and registers them
-     * as controllers waiting for players to reconnect.
-     */
-    public LobbyManager() {
-        List<Integer> savedIds = GamePersistenceManager.listSavedGameIds();
-        int maxSavedId = savedIds.stream().mapToInt(Integer::intValue).max().orElse(0);
-        nextGameId.set(maxSavedId + 1);
-
-        for (int id : savedIds) {
-            Game restored = GamePersistenceManager.load(id);
-            if (restored == null) continue;
-            restored.clearObservers();
-            GameController ctrl = new GameController(restored);
-            ctrl.initFromRestoredGame();
-            lobbies.add(ctrl);
-            System.out.println("[LobbyManager] Restored saved game#" + id
-                    + " (" + restored.getNumberOfPlayers() + " players)");
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  PERSISTENCE — reconnect helper
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Checks whether the given nickname belongs to a restored game waiting for
-     * reconnection. If so, re-attaches the player and returns true.
-     */
-    private boolean tryReconnect(String nickname, VirtualView caller) {
-        for (GameController lobby : lobbies) {
-            if (lobby.isWaitingForReconnection() && lobby.hasPlayer(nickname)) {
-                System.out.println("[LobbyManager] " + nickname + " reconnecting to restored game");
-                lobby.reconnectPlayer(nickname, caller);
-                broadcastLobbyListUpdate();
-                return true;
-            }
-        }
-        return false;
-    }
 
     //  LOGIN
     /**
@@ -76,10 +32,9 @@ public class LobbyManager {
      * Clean ended lobby first (fix memory leak).
      */
     public synchronized void createLobby(String nickname, int numPlayers, VirtualView caller) {
-        if (tryReconnect(nickname, caller)) return;
         cleanFinishedLobbies();
         unregisterLobbyListSubscriber(caller);
-        GameController lobby = new GameController(new Game(nextGameId.getAndIncrement()));
+        GameController lobby = new GameController(new Game(1));
         lobbies.add(lobby);
         System.out.println("[LobbyManager] Lobby #" + lobbies.size()
                 + " creata da " + nickname + " (" + numPlayers + " giocatori)");
@@ -92,7 +47,6 @@ public class LobbyManager {
      * if no lobby avaible -> onNoLobbyAvailable().
      */
     public synchronized void joinLobby(String nickname, VirtualView caller) {
-        if (tryReconnect(nickname, caller)) return;
         GameController available = findOpenLobby();
         if (available != null) {
             unregisterLobbyListSubscriber(caller);
@@ -114,7 +68,6 @@ public class LobbyManager {
      * CLI --> ordered list /  GUI --> button
      */
     public synchronized void joinSpecificLobby(String nickname, int lobbyId, VirtualView caller) {
-        if (tryReconnect(nickname, caller)) return;
         GameController lobby = findLobbyById(lobbyId);
         if (lobby == null) {
             try { caller.onError("Lobby #" + lobbyId + " non trovata."); }

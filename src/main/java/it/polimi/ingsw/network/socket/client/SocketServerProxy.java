@@ -19,16 +19,11 @@ import java.util.Map;
  */
 public class SocketServerProxy implements GameServerProxy {
 
-    private volatile PrintWriter out;
-    private final ObjectMapper   mapper = new ObjectMapper();
+    private final PrintWriter  out;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public SocketServerProxy(PrintWriter out) {
         this.out = out;
-    }
-
-    /** Replaces the underlying writer after a socket reconnection. */
-    public synchronized void setWriter(PrintWriter newOut) {
-        this.out = newOut;
     }
 
     // ── Login ──────────────────────────────────────────────────────────────

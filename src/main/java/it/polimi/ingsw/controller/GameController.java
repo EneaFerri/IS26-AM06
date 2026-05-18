@@ -20,13 +20,11 @@ import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.persistence.DatabaseManager;
-import it.polimi.ingsw.persistence.GamePersistenceManager;
 import it.polimi.ingsw.persistence.RankingEntry;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -50,11 +48,6 @@ public class GameController implements GameObserver {
     private final List<VirtualView> spectators = new CopyOnWriteArrayList<>();
     private final List<String> spectatorNicks = new CopyOnWriteArrayList<>();
     // === END SPECTATOR ===
-
-    // === PERSISTENCE ===
-    /** True while waiting for all original players to reconnect after a server restore. */
-    private volatile boolean waitingForReconnection = false;
-    // === END PERSISTENCE ===
 
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
 
@@ -84,10 +77,8 @@ public class GameController implements GameObserver {
     }
 
     public synchronized boolean isInProgress() {
-        return !isOpen() && !isFinished() && !waitingForReconnection;
+        return !isOpen() && !isFinished();
     }
-
-    public boolean isWaitingForReconnection() { return waitingForReconnection; }
 
     public synchronized int getCurrentPlayers()  { return game.getNumberOfPlayers(); }
 
@@ -219,8 +210,6 @@ public class GameController implements GameObserver {
 
     public synchronized void placeTotem(String nickname, char letter) {
         try {
-            if (waitingForReconnection) { safeInvalidAction(nickname, "Waiting for all players to reconnect."); return; }
-
             Player player = findPlayer(nickname);
             if (player == null) { safeError(nickname, "Giocatore non trovato."); return; }
 
@@ -251,8 +240,6 @@ public class GameController implements GameObserver {
 
     public synchronized void pickCard(String nickname, int cardIndex, boolean fromTop) {
         try {
-            if (waitingForReconnection) { safeInvalidAction(nickname, "Waiting for all players to reconnect."); return; }
-
             Player player = findPlayer(nickname);
             if (player == null) { safeError(nickname, "Giocatore non trovato."); return; }
 
@@ -341,9 +328,7 @@ public class GameController implements GameObserver {
             String boardSummary = buildBoardSummaryForWatchers();
             for (int i = 0; i < nicks.size(); i++) {
                 if (!nicks.get(i).equals(nickname)) {
-                    VirtualView v = i < clients.size() ? clients.get(i) : null;
-                    if (v == null) continue;
-                    try { v.onTurnSnapshot(nickname, boardSummary); }
+                    try { clients.get(i).onTurnSnapshot(nickname, boardSummary); }
                     catch (Exception e) {
                         System.err.println("[Controller] onTurnSnapshot → " + nicks.get(i) + ": " + e.getMessage());
                     }
@@ -364,8 +349,6 @@ public class GameController implements GameObserver {
             if (target == null) return;
             String extra = buildExtraInfo(nickname, phase);
             target.onYourTurn(nickname, phase, extra);
-
-            GamePersistenceManager.save(game.getGameID(), game);
 
         } catch (Exception e) {
             System.err.println("[Controller] onTurnStarted: " + e.getMessage());
@@ -406,7 +389,6 @@ public class GameController implements GameObserver {
     public void onEventResolved(String eventName, String details) {
         String payload = buildEventAnimationPayload(details);
         broadcast(v -> v.onEventResolved(eventName, payload));
-        GamePersistenceManager.save(game.getGameID(), game);
     }
 
     @Override
@@ -417,14 +399,12 @@ public class GameController implements GameObserver {
     @Override
     public void onNewEraStarted(Age newEra) {
         broadcast(v -> v.onNewEraStarted(newEra));
-        GamePersistenceManager.save(game.getGameID(), game);
     }
 
     @Override
     public void onGameOver() {
         String results = buildFinalResults();
         broadcast(v -> v.onGameOver(results));
-        GamePersistenceManager.delete(game.getGameID());
 
         // FA1: save to DB and send individual ranking to each player (not spectators)
         try {
@@ -460,60 +440,6 @@ public class GameController implements GameObserver {
     public synchronized void onPlayerDisconnected(String nickname) {
         System.out.println("[GameController] Player disconnected: " + nickname);
         broadcast(v -> v.onPlayerDisconnected(nickname));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  PERSISTENCE — restore and reconnect
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Initializes this controller from a game restored from disk.
-     * Pre-populates nicks and clients (null placeholders) from the saved player list,
-     * and sets waitingForReconnection=true until all players reconnect.
-     * Called by LobbyManager right after loading the game from disk.
-     */
-    public synchronized void initFromRestoredGame() {
-        for (Player p : game.getPlayers()) {
-            nicks.add(p.getNickname());
-            clients.add(null);
-        }
-        this.expectedPlayers = game.getNumberOfPlayers();
-        this.waitingForReconnection = true;
-        System.out.println("[GameController] Restored game#" + game.getGameID()
-                + " — waiting for " + expectedPlayers + " players to reconnect");
-    }
-
-    /**
-     * Re-attaches a reconnecting player's VirtualView.
-     * When all original players have reconnected, resumes the game by re-sending
-     * the current turn state to all clients (reuses the existing onGameStarting +
-     * onTurnStarted flow so the client view can reconstruct itself).
-     */
-    public synchronized void reconnectPlayer(String nick, VirtualView newView) {
-        int idx = nicks.indexOf(nick);
-        if (idx < 0) return;
-        clients.set(idx, newView);
-
-        long reconnected = clients.stream().filter(Objects::nonNull).count();
-        int total = nicks.size();
-        System.out.println("[GameController] " + nick + " reconnected (" + reconnected + "/" + total + ")");
-
-        // Notify all already-connected clients that this player has joined back
-        final int r = (int) reconnected;
-        broadcast(v -> v.onPlayerJoined(nick, r, total));
-
-        if (reconnected == total) {
-            waitingForReconnection = false;
-            // Re-use existing flow: onGameStarting puts the client in-game, then
-            // onTurnStarted sends the current board snapshot + action prompt.
-            List<String> nicksCopy = new ArrayList<>(nicks);
-            broadcast(v -> v.onGameStarting(nicksCopy));
-            Player current = game.getCurrentPlayer();
-            if (current != null) {
-                onTurnStarted(current.getNickname(), game.getStatus());
-            }
-            System.out.println("[GameController] All players reconnected — game#" + game.getGameID() + " resumed.");
-        }
     }
 
 
@@ -874,7 +800,6 @@ public class GameController implements GameObserver {
 
     private void broadcast(ViewAction action) {
         for (VirtualView v : clients) {
-            if (v == null) continue;
             try { action.execute(v); }
             catch (Exception e) { System.err.println("[Controller] broadcast: " + e.getMessage()); }
         }

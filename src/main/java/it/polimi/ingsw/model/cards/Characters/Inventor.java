@@ -7,7 +7,6 @@ import it.polimi.ingsw.model.enums.InventionType;
 import it.polimi.ingsw.model.player.Player;
 
 public class Inventor extends CharacterCard {
-    private static final long serialVersionUID = 1L;
 
     private final InventionType invention;
 

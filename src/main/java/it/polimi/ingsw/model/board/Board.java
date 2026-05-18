@@ -9,7 +9,6 @@ import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,8 +18,7 @@ import java.util.List;
  * Every game has exactly one board.
  */
 
-public class Board implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class Board {
 
     private List<TribeCard> topTribeCards;
     private List<TribeCard> bottomTribeCards;

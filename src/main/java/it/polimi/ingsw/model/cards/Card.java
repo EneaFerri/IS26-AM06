@@ -4,10 +4,7 @@ import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.player.Player;
 
-import java.io.Serializable;
-
-public abstract class Card implements Serializable {
-    private static final long serialVersionUID = 1L;
+public abstract class Card {
 
     private final int cardID;
     private final Age cardAge;

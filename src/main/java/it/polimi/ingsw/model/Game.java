@@ -10,15 +10,12 @@ import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
 
-import java.io.Serializable;
 import java.util.*;
 
-public class Game implements GameActions, Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class Game implements GameActions {
     private final int gameID;
 
-    private transient List<GameObserver> observers = new ArrayList<>();
+    private List<GameObserver> observers = new ArrayList<>();
 
     private final List<Player> players;
     private Player playerInTurn;
@@ -68,13 +65,7 @@ public class Game implements GameActions, Serializable {
     }
 
     public void addObserver(GameObserver observer) {
-        if (observers == null) observers = new ArrayList<>();
         this.observers.add(observer);
-    }
-
-    /** Resets the transient observer list after deserialization. */
-    public void clearObservers() {
-        this.observers = new ArrayList<>();
     }
 
     public int getGameID()             { return gameID; }

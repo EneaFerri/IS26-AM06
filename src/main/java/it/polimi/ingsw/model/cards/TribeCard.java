@@ -3,7 +3,6 @@ package it.polimi.ingsw.model.cards;
 import it.polimi.ingsw.model.enums.Age;
 
 public abstract class TribeCard extends Card {
-    private static final long serialVersionUID = 1L;
 
     //classe d'appoggio per dividire TribeCard dalle BuildingCard
 

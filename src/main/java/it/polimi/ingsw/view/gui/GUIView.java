@@ -382,35 +382,16 @@ public class GUIView implements ModelObserver {
 
     @Override
     public void onError(String message) {
-        if ("SERVER_DOWN".equals(message)) {
-            Platform.runLater(() -> {
-                String text = "⚠  Server non disponibile. Riconnessione in corso (60s)...";
-                if (gameScreen != null) {
-                    gameScreen.showToast(text);
-                } else if (lobbyStatusLabel != null) {
-                    lobbyStatusLabel.setText(text);
-                }
-            });
-        } else if ("RECONNECT_TIMEOUT".equals(message)) {
-            Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Server irraggiungibile");
-                alert.setHeaderText(null);
-                alert.setContentText("Il server non è tornato disponibile entro 60 secondi.\nChiusura del client.");
-                alert.showAndWait();
-                Platform.exit();
-            });
-        } else {
-            Platform.runLater(() -> {
-                if (gameScreen != null) {
-                    gameScreen.showToast(message);
-                    return;
-                }
-                if (lobbyStatusLabel != null) {
-                    lobbyStatusLabel.setText("⚠  " + message);
-                }
-            });
-        }
+        Platform.runLater(() -> {
+            if (gameScreen != null) {
+                gameScreen.showToast(message);
+                return;
+            }
+
+            if (lobbyStatusLabel != null) {
+                lobbyStatusLabel.setText("⚠  " + message);
+            }
+        });
     }
 
 
@@ -423,7 +404,6 @@ public class GUIView implements ModelObserver {
             parseAndUpdateStats(extraInfo);
             parseAndUpdateAllStats(extraInfo);
             gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(extraInfo));
-            gameScreen.repopulateHandIfNeeded();
 
             boolean myTurn  = nick.equals(nickname);
             boolean canPick = myTurn && phase == GameState.PICKING_CARD;
@@ -459,7 +439,6 @@ public class GUIView implements ModelObserver {
             gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
             gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
-            gameScreen.repopulateHandIfNeeded();
         });
     }
 

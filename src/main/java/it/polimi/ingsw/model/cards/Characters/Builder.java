@@ -6,7 +6,6 @@ import it.polimi.ingsw.model.enums.CharacterType;
 import it.polimi.ingsw.model.player.Player;
 
 public class Builder extends CharacterCard {
-    private static final long serialVersionUID = 1L;
 
     private final int prestigeValue;
     private final int buildDiscount;

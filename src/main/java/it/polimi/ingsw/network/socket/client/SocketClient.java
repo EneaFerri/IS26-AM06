@@ -14,8 +14,6 @@ import java.io.*;
 import java.net.Socket;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -35,20 +33,12 @@ public class SocketClient {
 
     public static final int SOCKET_PORT = 12345;
 
-    private static final int RETRY_INTERVAL_MS = 5_000;
-    private static final int MAX_RETRY_MS      = 60_000;
-
-    private final ClientModel     model;
-    private final ObjectMapper    mapper    = new ObjectMapper();
+    private final ClientModel      model;
+    private final ObjectMapper     mapper    = new ObjectMapper();
     private final PingPongManager heartbeat = new PingPongManager();
 
     private SocketServerProxy proxy;
     private volatile boolean  running = true;
-    private String            host;
-    private volatile String   savedNickname;
-
-    private final AtomicBoolean disconnected = new AtomicBoolean(false);
-    private final AtomicLong    connGen      = new AtomicLong(0);
 
     public SocketClient(ClientModel model) {
         this.model = model;
@@ -69,7 +59,6 @@ public class SocketClient {
      * @return the SocketServerProxy that CLIView should use as its GameServerProxy
      */
     public SocketServerProxy connect(String host) throws IOException {
-        this.host = host;
         Socket socket = new Socket(host, SOCKET_PORT);
         System.out.println("[SocketClient] Connected to " + host + ":" + SOCKET_PORT);
 
@@ -87,8 +76,7 @@ public class SocketClient {
         );
 
         // Background reader thread.
-        final long myGen = connGen.get();
-        Thread reader = new Thread(() -> readLoop(in, socket, myGen), "socket-reader");
+        Thread reader = new Thread(() -> readLoop(in, socket), "socket-reader");
         reader.setDaemon(true);
         reader.start();
 
@@ -99,7 +87,7 @@ public class SocketClient {
     //  READ LOOP
     // ─────────────────────────────────────────────────────────────────────
 
-    private void readLoop(BufferedReader in, Socket socket, long myGen) {
+    private void readLoop(BufferedReader in, Socket socket) {
         try {
             String line;
             while (running && (line = in.readLine()) != null) {
@@ -112,12 +100,7 @@ public class SocketClient {
         } catch (IOException e) {
             if (running) System.err.println("[SocketClient] Read error: " + e.getMessage());
         } finally {
-            // Only the reader for the CURRENT connection may trigger a disconnect.
-            // Old readers blocked on readLine() until TCP timeout must not disrupt a
-            // newer connection that was already established successfully.
-            if (connGen.get() == myGen) {
-                handleServerDisconnect();
-            }
+            handleServerDisconnect();
         }
     }
 
@@ -137,10 +120,8 @@ public class SocketClient {
         switch (type) {
 
             // ── Login & setup ──────────────────────────────────────────────
-            case ON_LOGIN_ACCEPTED -> {
-                savedNickname = msg.str("nickname");
-                model.onLoginAccepted(savedNickname, msg.num("expectedPlayers"));
-            }
+            case ON_LOGIN_ACCEPTED ->
+                    model.onLoginAccepted(msg.str("nickname"), msg.num("expectedPlayers"));
 
             case ON_PLAYER_JOINED ->
                     model.onPlayerJoined(msg.str("nickname"),
@@ -257,55 +238,12 @@ public class SocketClient {
     //  DISCONNECTION
     // ─────────────────────────────────────────────────────────────────────
 
-    private void handleServerDisconnect() {
-        if (!disconnected.compareAndSet(false, true)) return;
+    private synchronized void handleServerDisconnect() {
+        if (!running) return;
         running = false;
         heartbeat.stop();
-        System.err.println("\n[SocketClient] Server connection lost.");
-        model.onError("SERVER_DOWN");
-        startReconnectLoop();
-    }
-
-    private void startReconnectLoop() {
-        Thread t = new Thread(() -> {
-            long deadline = System.currentTimeMillis() + MAX_RETRY_MS;
-            while (System.currentTimeMillis() < deadline) {
-                try {
-                    Thread.sleep(RETRY_INTERVAL_MS);
-                    Socket socket = new Socket(host, SOCKET_PORT);
-                    PrintWriter out = new PrintWriter(
-                            new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8")), true);
-                    BufferedReader in = new BufferedReader(
-                            new InputStreamReader(socket.getInputStream(), "UTF-8"));
-
-                    long newGen = connGen.incrementAndGet();
-                    proxy.setWriter(out);
-                    running = true;
-                    disconnected.set(false);
-
-                    heartbeat.stop();
-                    heartbeat.start(
-                            () -> { try { proxy.ping(); } catch (Exception e) { handleServerDisconnect(); } },
-                            () -> handleServerDisconnect()
-                    );
-
-                    final long capturedGen = newGen;
-                    Thread reader = new Thread(() -> readLoop(in, socket, capturedGen), "socket-reader");
-                    reader.setDaemon(true);
-                    reader.start();
-
-                    if (savedNickname != null) {
-                        proxy.login(savedNickname);
-                    }
-                    System.out.println("[SocketClient] Reconnected as " + savedNickname);
-                    return;
-                } catch (Exception e) {
-                    System.out.println("[SocketClient] Server not available yet, retrying...");
-                }
-            }
-            model.onError("RECONNECT_TIMEOUT");
-        }, "socket-reconnect");
-        t.setDaemon(true);
-        t.start();
+        System.err.println("\n[SocketClient] Connessione al server persa.");
+        model.onError("Connessione al server persa. Chiudi e riavvia il client.");
+        System.exit(1);
     }
 }
