@@ -31,27 +31,25 @@ public class Player {
     private List<CharacterCard> myCharacterCards;
     private List<BuildingCard> myBuildingCards;
 
-    //tengo traccia delle diverse "invenzioni"
+
     private List<InventionType> myInventions;
 
-    //VARIABILI D'APPOGGIO PER GESTIONE EFFETTI BUILDING, quelli che vanno considerati una volta pescata la carta
-    private boolean doublePointForBuilder = false; //gestione building che raddoppia punti dei builder
 
-    public boolean doublePointForRituals = false; //gestione building che raddoppia punti per evento rituale
-    public boolean noMalusForRituals = false; // gestione building che rimuove malus per evento rituale
-    public boolean extraThreeStars = false; //gestione building che aggiunge 3 stelle
+    private boolean doublePointForBuilder = false;
 
-    private boolean extraFoodOnTurnOrder = false;   // per il building che permette di ottenere scibo in piu rispetto alla posizione del totem (lo metto in turnOrder)
-    private boolean extraCard = false; // building che permette di pescare una carta in più dalla riga sopra ma solo prima della fine del turno, prima che
-                                        // in game->advanceNextPlayer si passi al game state di risoluzione eventi
+    public boolean doublePointForRituals = false;
+    public boolean noMalusForRituals = false;
+    public boolean extraThreeStars = false;
 
-    private boolean setToCheck = false; // gestione building con extrafood per ogni set
+    private boolean extraFoodOnTurnOrder = false;
+    private boolean extraCard = false;
+
+    private boolean setToCheck = false;
     private int setNumberForExtraFood = 0;
 
     private boolean inventorsToCheck = false;
 
-    private int foodDiscountFromBuildings; //variabile comoda per tenere sconti di cibo dalle building: si ma usiamo
-    // private e metodo
+    private int foodDiscountFromBuildings;
 
     public Player(String nickname, Totem myTotem) {
         this.nickname = nickname;
@@ -170,8 +168,7 @@ public class Player {
     }
 
     public void inventorsCountAndCheck(Inventor newInventor) {
-        //in poche parole controllo se è gia presente un inventore con la stessa invenzione di quello nuobo in myCharacterCards
-        //se si, allora ho un doppione  e aggiungo +3 di cibo
+
         InventionType type = newInventor.getInvention();
 
         if (!myInventions.contains(type)) {
@@ -213,13 +210,12 @@ public class Player {
         return Collections.unmodifiableList(myBuildingCards);
     }
 
-    public boolean hasExtraFoodOnTurnOrder() { //getters per extraFoodOnTurnOrder e extraCard
+    public boolean hasExtraFoodOnTurnOrder() {
         return extraFoodOnTurnOrder;}
 
     public boolean hasExtraCard() {
         return extraCard; }
 
-    // L'ho aggiunto per calcolare los conto totale di cibo durante il gioco in base al numero di raccoglitori che si hanno
     public int getCollectorsFoodDiscount() {
         int numcollectors = 0;
         for (CharacterCard card : myCharacterCards) {
@@ -243,7 +239,6 @@ public class Player {
         this.foodDiscountFromBuildings = 0;
     }
 
-    //funzione d'appoggio per maggiore chiarimento di come calcolare sconto totale
     public int getTotalFoodDiscount() {
         int fromCollectors = getCollectorsFoodDiscount();
         int fromBuildings = getBuildingFoodDiscount();
@@ -297,7 +292,6 @@ public class Player {
         return counter;
     }
 
-    //punti totali pre effetti finali delle buildings
     public int getTotalPointsPreEffect() {
         int currPre = prestige;
 
@@ -307,15 +301,12 @@ public class Player {
             sum += card.getPrestigeContribution(this);
         }
 
-        //ARTISTI
         int nArtistCouple = getNumArtists()/2;
         sum = sum + nArtistCouple*10;
 
-        //INVENTORI
         int fromInventors = getNumInventors() * getNumInventions();
         sum = sum + fromInventors;
 
-        //PUNTI BASE DA BUILDING (no effetto, solo prestigio standard)
         for (BuildingCard card : myBuildingCards) {
             sum += card.getPrestigePoint();
         }
@@ -323,7 +314,6 @@ public class Player {
         return currPre + sum;
     }
 
-   // public int pointsFromEndEffect = 0; NON SERVE secondo me
 
     public int countSet() {
         //TODO
@@ -341,13 +331,11 @@ public class Player {
         for (CharacterCard card : myCharacterCards) {
             CharacterType type = card.getCharacterType();
 
-            // per ingorare eventuali tipi "speciali" dell enum che non rappresentano personaggi validi per il set
             if (counts.containsKey(type)) {
                 counts.put(type, counts.get(type) + 1);
             }
         }
 
-        // il numero di set completi è dato dal minimo tra i conteggi. tipo 2 artisti, 3 builder, 1 hunter allora ho solo 1 set completo.
         return counts.values().stream()
                 .min(Integer::compareTo)
                 .orElse(0);
@@ -355,8 +343,7 @@ public class Player {
     }
 
     public int getPointsFromEndEffect() {
-        // azzera il contatore all'inizio, xche se chiami questo metodo due volte
-        // per sbaglio, il giocatore fa il doppio dei punti
+
         int pointsFromEndEffect = 0;
 
         for (BuildingCard bCard : myBuildingCards) {
@@ -367,7 +354,6 @@ public class Player {
     }
 
     public int getTotalPoints() {
-        // NON sovrascrivere prestige — restituisce solo il calcolo
         return getTotalPointsPreEffect() + getPointsFromEndEffect();
     }
 

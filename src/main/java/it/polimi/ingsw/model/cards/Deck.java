@@ -20,7 +20,6 @@ public class Deck
 
     private List<Card> cards;
 
-    //se servisse risalire all'intero mazzo di carte
     public List<Card> getAllCards()
     {
         cards = new ArrayList<>();
@@ -112,10 +111,8 @@ public class Deck
             throw new IllegalArgumentException("Error in buildings ordering");
         }
 
-        //mischio tutte le buildings
         Collections.shuffle(buildingCards);
 
-        //ERA_I
         for(BuildingCard bCard : buildingCards){
             if(from_ERA_I==0){
                 break;
@@ -126,7 +123,6 @@ public class Deck
             }
         }
 
-        //ERA_II
         for(BuildingCard bCard : buildingCards){
             if(from_ERA_II==0){
                 break;
@@ -137,7 +133,6 @@ public class Deck
             }
         }
 
-        //ERA_III
         for(BuildingCard bCard : buildingCards){
             if(from_ERA_III==0){
                 break;

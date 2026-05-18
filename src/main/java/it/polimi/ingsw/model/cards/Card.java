@@ -10,13 +10,11 @@ public abstract class Card {
     private final Age cardAge;
     private boolean drawed = false;
 
-    // Costruttore
     public Card(int cardID, Age cardAge){
         this.cardID = cardID;
         this.cardAge = cardAge;
     }
 
-    // Getters
     public int getID(){
         return cardID;
     }

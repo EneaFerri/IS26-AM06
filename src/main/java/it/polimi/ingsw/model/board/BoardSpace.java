@@ -8,7 +8,6 @@ public class BoardSpace {
     private final int numCardsDown;
     private final int nuggets;
     private Totem totem;
-    // private boolean totemPresence = false; forse non serve tenendo traccia del totem che c'è sopra
 
     public BoardSpace(char letter, int numCardsTop, int numCardsDown, int nuggets) {
         this.letter = letter;

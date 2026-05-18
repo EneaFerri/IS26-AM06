@@ -50,7 +50,6 @@ public class Board {
     }
     */
 
-    //aggiunge tutte le carte boardspace nella lista di offerfield prendendole direttamente da json file
     private void configureOfferField() {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -68,19 +67,15 @@ public class Board {
     }
 
     public void prepareGameBoardSpace(int numberOfPlayers) {
-        //rimuove le carte dalla lista offerfield se inutili in base al numero player
 
         if (numberOfPlayers == 5) {
             return;
         }else if (numberOfPlayers == 4) {
-            //rimuovi lettera A
             removeFromOfferField('A');
         }else if (numberOfPlayers == 3) {
-            //rimuovi lettera G
             removeFromOfferField('G');
             removeFromOfferField('A');
         }else if (numberOfPlayers == 2) {
-            //riumuovi lettera D
             removeFromOfferField('D');
             removeFromOfferField('G');
             removeFromOfferField('A');
@@ -131,8 +126,7 @@ public class Board {
                 filtered.add(card);
             }
         }
-        this.topBuildingCards = filtered; //l'ho modificato perchè quello di prima assegnava tutta la lista con una sola
-                                         // corrispondenza hahaha
+        this.topBuildingCards = filtered;
     }
 
     public BoardSpace getBoardSpace(char letter){
@@ -217,21 +211,16 @@ public class Board {
     }
 
     public void shiftRows() {
-        // scarta tutti i TribeCard dalla fila inferiore (le BuildingCard rimangono)
-        bottomTribeCards.clear();
 
-        // sposta TribeCard dalla fila superiore alla fila inferiore
+        bottomTribeCards.clear();
         bottomTribeCards.addAll(topTribeCards);
         topTribeCards.clear();
 
-        // le BuildingCard in fila superiore rimangono in fila superiore
-        // le BuildingCard in fila inferiore rimangono in fila inferiore
     }
 
     public void shiftRowsBuildings() {
 
         bottomBuildingCards.clear();
-
         bottomBuildingCards.addAll(topBuildingCards);
         topBuildingCards.clear();
 

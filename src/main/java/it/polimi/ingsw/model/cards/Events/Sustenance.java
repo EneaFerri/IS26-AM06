@@ -26,20 +26,18 @@ public class Sustenance extends EventCard {
     public void resolve(List<Player> players) {
         for (Player player : players) {
 
-            // Attiviamo gli edifici (se ne hanno) che reagiscono a SUSTENANCE
             for(BuildingCard bCard : player.getBuildingCards()){
                 bCard.applyEventEffect(EventType.SUSTENANCE, player);
             }
 
-            // mi calcolo il numero tot di carte per comodità
             int totalCharacters = player.getCharacterCards().size();
 
             int totalCost = Math.max(0, (FOOD_PRICE * totalCharacters) - player.getTotalFoodDiscount());
 
-            player.resetBuildingFoodDiscount(); //riazzeramento per futuri eventi
+            player.resetBuildingFoodDiscount();
 
             if (player.getFood() >= totalCost) {
-                player.removeFood(totalCost); //il giocatore è ricco di SCIBO, tipo il coppe
+                player.removeFood(totalCost);
             } else {
                 int availableFood = player.getFood();
                 int missingFood = totalCost - availableFood;
@@ -49,7 +47,6 @@ public class Sustenance extends EventCard {
                 }
 
                 player.removePrestige(missingFood * prestigeMalus);
-                //se finto il cibo paghi i punti sulla carta + il numero di cibi mancanti
             }
         }
     }
