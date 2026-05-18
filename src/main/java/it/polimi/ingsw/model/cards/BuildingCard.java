@@ -4,7 +4,7 @@ import it.polimi.ingsw.model.Game;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.EventType;
 import it.polimi.ingsw.model.player.Player;
-// import it.polimi.ingsw.model.enums.*; non più necessaria
+
 
 public abstract class BuildingCard extends Card {
     private final int foodCost;
@@ -25,11 +25,9 @@ public abstract class BuildingCard extends Card {
     }
 
     public void applyEventEffect(EventType eventType,  Player player) {
-        //non fa nulla qui dentro, serve solo per override
     }
 
     public void onAddedToPlayer(Player player) {
-        // default: NON FA NIENTE
     }
 
     public int getEndEffectPoints(Player player) {

@@ -37,7 +37,6 @@ public class BuildingEnd extends BuildingCard {
         }
         */
 
-        //caso speciale per la building con i set
         if(characterToConsider == CharacterType.SET_OF_CHAR) {
             int n = player.countSet();
             return prestigeEndEffect * n;
@@ -45,7 +44,6 @@ public class BuildingEnd extends BuildingCard {
 
         int count = 0;
 
-        // conto quanti personaggi del tipo richiesto ha il player
         for (CharacterCard c : player.getCharacterCards()) {
             if (c.getCharacterType() == this.characterToConsider) {
                 count++;

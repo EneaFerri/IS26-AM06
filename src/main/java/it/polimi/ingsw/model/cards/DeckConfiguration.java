@@ -11,7 +11,6 @@ import java.util.Collection;
 import java.util.List;
 
 public abstract class DeckConfiguration {
-    //collegamento JSON FILES: buildings, characters, events <--> CLASSE DECK
 
     public static CharacterCard createCharacterCard(JsonNode node){
 
@@ -57,7 +56,6 @@ public abstract class DeckConfiguration {
         int foodCost = node.get("foodCost").asInt();
         int prestigePoints = node.get("prestigePoints").asInt();
 
-        //tipo building nel file JSON per distinguere i 3 macro tipi: EachTurn, End, Event
         String buildingType = node.get("buildingType").asText();
 
         if(buildingType.equals("eachTurn")){

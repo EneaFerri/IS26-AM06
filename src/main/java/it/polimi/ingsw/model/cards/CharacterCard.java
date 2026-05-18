@@ -26,7 +26,6 @@ public abstract class CharacterCard extends TribeCard {
     }
 
     public void onAddedToPlayer(Player player) {
-        // default: non fa UN CAZZO come ha detto il nostro broder
     }
 
     public int getShamanStars() {

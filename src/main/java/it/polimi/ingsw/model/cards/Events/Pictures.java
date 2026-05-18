@@ -37,17 +37,13 @@ public class Pictures extends EventCard {
     public void resolve(List<Player> players) {
         for (Player player : players) {
 
-            // Attiviamo gli edifici (se ne hanno) che reagiscono a PICTURES
             for (BuildingCard bCard : player.getBuildingCards()) {
                 bCard.applyEventEffect(EventType.PICTURES, player);
             }
 
-            // 2 EFFETTO CARTA: Risolviamo l'evento Pictures per giocatore
             if (player.getNumArtists() >= this.minimumArtists) {
-                // punti bonus x num artisti
                 player.addPrestige(this.prestigeBonus * player.getNumArtists());
             } else {
-                // tipo se non ha abbastanza artisti subisce malus
                 player.removePrestige(this.prestigeMalus);
             }
 

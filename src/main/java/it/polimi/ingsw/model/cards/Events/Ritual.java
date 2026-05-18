@@ -54,7 +54,7 @@ public class Ritual extends EventCard {
             if (getRitualStars(player) == minStars) {
                 if(!player.noMalusForRituals){
                     player.removePrestige(maxMalus);
-                } //altrimenti: cioè player ha la building con effetto nomalus da ritual, player non perde punti
+                }
             }
         }
     }

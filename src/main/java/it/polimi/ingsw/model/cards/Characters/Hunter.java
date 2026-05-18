@@ -18,7 +18,7 @@ public class Hunter extends CharacterCard {
         return nuggets;
     }
 
-    @Override //HUNTER CON ICONA DANNO UN CIBO PER OGNI HUNTER
+    @Override
     public void onAddedToPlayer(Player player) {
         if (getNuggets() > 0) {
             player.addFood(player.getNumHunters());

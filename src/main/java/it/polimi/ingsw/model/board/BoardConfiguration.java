@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class BoardConfiguration {
-    //collegamento JSON FILES: boardSpaces, turnOrder <--> CLASSE BOARD E TURNORDER
 
     public static BoardSpace createBoardSpace(JsonNode node) {
         Character letter = node.get("letter").asText().charAt(0);
