@@ -11,6 +11,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import java.awt.Taskbar;
+import java.awt.Toolkit;
 import javafx.scene.layout.*;
 import javafx.scene.paint.*;
 import javafx.stage.Stage;
@@ -23,6 +26,10 @@ public class ClientLauncherGUI extends Application {
 
     private Stage primaryStage;
 
+    static {
+        System.setProperty("apple.awt.application.name", "Mesos");
+    }
+
     public static void main(String[] args) {
         launch(args);
     }
@@ -32,6 +39,23 @@ public class ClientLauncherGUI extends Application {
         this.primaryStage = stage;
         stage.setTitle("Mesos");
         stage.setResizable(false);
+
+        // Icona finestra
+        stage.getIcons().add(new Image(
+                getClass().getResourceAsStream("/icon.png")
+        ));
+
+        // Icona dock macOS
+        if (Taskbar.isTaskbarSupported()) {
+            var taskbar = Taskbar.getTaskbar();
+            if (taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                taskbar.setIconImage(
+                        Toolkit.getDefaultToolkit().getImage(
+                                getClass().getResource("/icon.png")
+                        )
+                );
+            }
+        }
 
         MusicPlayer.start();
         stage.setOnCloseRequest(e -> MusicPlayer.stop());
