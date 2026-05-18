@@ -289,7 +289,7 @@ public class GUIView implements ModelObserver {
     }
 
     private List<Integer> parseBotCards(String text) {
-        return parseCardsBetween(text, "Riga INFERIORE", "Spazi Offerta");
+        return parseCardsBetween(text, "Riga INFERIORE", "Spazi liberi:");
     }
 
     private List<Integer> parseCardsBetween(String text, String startMarker, String endMarker) {
