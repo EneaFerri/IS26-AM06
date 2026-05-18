@@ -10,24 +10,22 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * it represents the turn order card.
- * contains the order of the players in the game.
- * contains a list of OrderBlock
- */
-
 public class TurnOrder {
 
     private int tag;
     private List<OrderBlock> orderBlocks;
 
+    //costruttore senza tag
+    public TurnOrder() {
+        this.orderBlocks = new ArrayList<>();
+    }
 
+    //costruttore con tag
     public TurnOrder(int tag) {
         this.tag = tag;
         configureOrderBlocks(tag);
     }
 
-    //configurations with JSON file
     private void configureOrderBlocks(int tag) {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -37,12 +35,12 @@ public class TurnOrder {
             );
 
 
-            JsonNode blockNode = root.get("block" + tag); //correct block resarch
+            JsonNode blockNode = root.get("block" + tag); //qui controllo il blocco corretto
             if (blockNode == null || !blockNode.isArray()) {
                 throw new RuntimeException("Blocco non valido: block" + tag);
             }
 
-            orderBlocks = BoardConfiguration.createTurnOrder(blockNode); //create based on correct block
+            orderBlocks = BoardConfiguration.createTurnOrder(blockNode); //crea solo blocco in base a numero player
 
 
         }catch(IOException e){
@@ -50,7 +48,7 @@ public class TurnOrder {
         }
     }
 
-
+    // getters
     public int getTag() {
         return tag;
     }
@@ -70,19 +68,24 @@ public class TurnOrder {
         return playersOrder;
     }
 
+    //TODO: SERVE? 0 USAGE E 0 CODICE LOL
+    public void updateOrderFromBoard(List<BoardSpace> spaces, List<Player> players) {
+    }
 
+    //L'ho aggiunto ragas perchè non c'era un metodo che ci portasse (alla fine del turno)
+    // i totem sulla carta delle offerte nell'ordine corretto
     public void placeTotemFirstFree(Player player) {
         for (OrderBlock block : orderBlocks) {
             if (block.isFree()) {
                 block.setTotem(player.getTotem());
-                player.getTotem().remove();
+                player.getTotem().remove(); // totem non è più sull'offerta
 
                 int FoodbonusOrMalus = block.getNuggetsBonusOrMalus();
                 int malus = block.getPrestigeMalus();
 
                 if (FoodbonusOrMalus > 0) {
                     player.addFood(FoodbonusOrMalus);
-
+                    // altra condizione per edificio che da +1 cibo se si è su una casella che da cibo
                     if (player.hasExtraFoodOnTurnOrder()) {
                         player.addFood(1);
                     }
@@ -103,7 +106,6 @@ public class TurnOrder {
         throw new IllegalStateException("No free blocks on TurnOrder tile");
     }
 
-    //only for the first round
     public void placeTotemFirstFreeFirstR(Player player) {
         for (OrderBlock block : orderBlocks) {
             if (block.isFree()) {
@@ -115,6 +117,17 @@ public class TurnOrder {
         throw new IllegalStateException("No free blocks on TurnOrder tile");
     }
 
+
+
+    //TODO: SERVE? 0 USAGE
+    public void clearAll() {
+        for (OrderBlock block : orderBlocks) {
+            if (!block.isFree()) {
+                block.getTotemOn().remove();
+                block.removeTotem();
+            }
+        }
+    }
 
     public void clearBlock(Totem t) {
         for (OrderBlock block : orderBlocks) {

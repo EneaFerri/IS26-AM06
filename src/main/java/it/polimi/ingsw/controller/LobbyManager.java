@@ -140,8 +140,8 @@ public class LobbyManager {
     // === SPECTATOR ===
 
     /**
-     * Add a spectator to the lobby chosen
-     *Spectators receive snapshots of the game.
+     * Aggiunge uno spettatore alla lobby in corso specificata per ID.
+     * Lo spettatore riceve subito uno snapshot e poi tutti gli eventi broadcast.
      */
     public synchronized void joinAsSpectator(String nickname, int lobbyId, VirtualView caller) {
         GameController lobby = findLobbyById(lobbyId);
@@ -156,7 +156,7 @@ public class LobbyManager {
     }
 
     /**
-     *spectator leave and return to the lobby.
+     * Rimuove lo spettatore e invia lista lobby aggiornata al caller (per tornare alla lobby).
      */
     public synchronized void leaveSpectator(String nickname, VirtualView caller) {
         for (GameController lobby : lobbies) {
@@ -166,7 +166,7 @@ public class LobbyManager {
                 break;
             }
         }
-       //lobby sended to the client --> so can chose another game
+        // Rimanda la lista lobby aggiornata così il client può tornare alla schermata di selezione
         requestLobbyList(caller);
     }
 
@@ -189,11 +189,12 @@ public class LobbyManager {
     //  UTILITY                                                            //
     // ================================================================== //
 
-
+    /** Rimuove le lobby terminate (fix memory leak). */
     private void cleanFinishedLobbies() {
         lobbies.removeIf(GameController::isFinished);
     }
 
+    /** Prima lobby con posti liberi e partita non ancora iniziata. */
     private GameController findOpenLobby() {
         return lobbies.stream()
                 .filter(GameController::isOpen)
@@ -201,7 +202,7 @@ public class LobbyManager {
                 .orElse(null);
     }
 
-
+    /** Lobby che contiene già il giocatore con quel nickname. */
     private GameController findLobbyOf(String nickname) {
         return lobbies.stream()
                 .filter(l -> l.hasPlayer(nickname))
@@ -209,7 +210,7 @@ public class LobbyManager {
                 .orElse(null);
     }
 
-
+    /** Lobby con un ID specifico (1-based). */
     private GameController findLobbyById(int lobbyId) {
         int idx = lobbyId - 1;
         if (idx < 0 || idx >= lobbies.size()) return null;
@@ -259,9 +260,9 @@ public class LobbyManager {
     // ================================================================== //
 
     /**
-     * Snapshot of active lobby
-     * inProgress=true  → started game (for spectators)
-     * inProgress=false → free lobby
+     * Snapshot serializzabile di una lobby attiva.
+     * inProgress=true  → partita in corso (solo spettatori)
+     * inProgress=false → lobby aperta (accetta giocatori)
      */
     public record LobbyInfo(int id, int currentPlayers, int expectedPlayers, boolean inProgress)
             implements Serializable {

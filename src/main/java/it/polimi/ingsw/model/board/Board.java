@@ -12,13 +12,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Board of the game.
- * Contains the cards and the spaces on the board.
- * Every game has exactly one board.
- */
-
 public class Board {
+
+
 
     private List<TribeCard> topTribeCards;
     private List<TribeCard> bottomTribeCards;
@@ -39,7 +35,22 @@ public class Board {
         configureOfferField();
     }
 
-    //add all the boardspace cards in the offerfield list by reading them from the json file
+    /*
+    public Board(List<TribeCard> topTribeCards, List<TribeCard> bottomTribeCards,
+                 List<BuildingCard> topBuildingCards, List<BuildingCard> bottomBuildingCards) {
+
+
+        this.topTribeCards = topTribeCards;
+        this.bottomTribeCards = bottomTribeCards;
+        this.topBuildingCards = topBuildingCards;
+        this.bottomBuildingCards = bottomBuildingCards;
+
+        this.offerField = null;
+        configureOfferField();
+    }
+    */
+
+    //aggiunge tutte le carte boardspace nella lista di offerfield prendendole direttamente da json file
     private void configureOfferField() {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -56,22 +67,20 @@ public class Board {
         }
     }
 
-    //remuve cards from offerfield if not needed based on number of players
     public void prepareGameBoardSpace(int numberOfPlayers) {
+        //rimuove le carte dalla lista offerfield se inutili in base al numero player
 
         if (numberOfPlayers == 5) {
             return;
         }else if (numberOfPlayers == 4) {
+            //rimuovi lettera A
             removeFromOfferField('A');
-
         }else if (numberOfPlayers == 3) {
-
+            //rimuovi lettera G
             removeFromOfferField('G');
             removeFromOfferField('A');
-
         }else if (numberOfPlayers == 2) {
-
-
+            //riumuovi lettera D
             removeFromOfferField('D');
             removeFromOfferField('G');
             removeFromOfferField('A');
@@ -83,6 +92,21 @@ public class Board {
         offerField.removeIf(boardSpace -> boardSpace.getLetter() == letter);
     }
 
+    public List<TribeCard> getTopRowTribe() {
+        return topTribeCards;
+    }
+
+    public List<TribeCard> getLowRowTribe() {
+        return bottomTribeCards;
+    }
+
+    public List<BuildingCard> getTopRowBuild() {
+        return topBuildingCards;
+    }
+
+    public List<BuildingCard> getLowRowBuild() {
+        return bottomBuildingCards;
+    }
 
     public List<BoardSpace> getOfferField() {
         return offerField;
@@ -93,11 +117,9 @@ public class Board {
         totem.place(space);
     }
 
-    //only for the first turn of the game
     public void addBottomTribeCardsFirstTurn(TribeCard card) {
         this.bottomTribeCards.add(card);
     }
-
     public void addTopTribeCards(TribeCard card) {
         this.topTribeCards.add(card);
     }
@@ -109,7 +131,8 @@ public class Board {
                 filtered.add(card);
             }
         }
-        this.topBuildingCards = filtered;
+        this.topBuildingCards = filtered; //l'ho modificato perchè quello di prima assegnava tutta la lista con una sola
+                                         // corrispondenza hahaha
     }
 
     public BoardSpace getBoardSpace(char letter){
@@ -194,18 +217,17 @@ public class Board {
     }
 
     public void shiftRows() {
-
-        // delete all the tribe cards bottom row (no buildings)
+        // scarta tutti i TribeCard dalla fila inferiore (le BuildingCard rimangono)
         bottomTribeCards.clear();
 
-        // move tribe cards top row --> to bottom row (no buildings)
+        // sposta TribeCard dalla fila superiore alla fila inferiore
         bottomTribeCards.addAll(topTribeCards);
         topTribeCards.clear();
 
-
+        // le BuildingCard in fila superiore rimangono in fila superiore
+        // le BuildingCard in fila inferiore rimangono in fila inferiore
     }
 
-    // buildings shifts is managed based on the era change
     public void shiftRowsBuildings() {
 
         bottomBuildingCards.clear();
@@ -225,7 +247,7 @@ public class Board {
 
         List<EventCard> lowRowEvents = new ArrayList<>();
 
-        for (TribeCard card : bottomTribeCards) {
+        for (TribeCard card : bottomTribeCards) { //così salviamo anche l'ordine
             if (card.isEvent()) {
                 lowRowEvents.add((EventCard) card);
             }
