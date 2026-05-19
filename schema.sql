@@ -2,6 +2,7 @@
 -- Run once before starting the server:
 --   mysql -u root -p < schema.sql
 
+-- schema.sql corretto
 CREATE DATABASE IF NOT EXISTS mesos;
 USE mesos;
 
@@ -11,7 +12,4 @@ CREATE TABLE IF NOT EXISTS game_results (
     score       INT          NOT NULL,
     game_date   DATE         NOT NULL,
     num_players INT          NOT NULL
-);
-
-CREATE INDEX idx_num_players_score
-    ON game_results (num_players, score DESC);
+    );

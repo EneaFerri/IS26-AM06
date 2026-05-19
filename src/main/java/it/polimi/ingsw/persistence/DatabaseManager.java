@@ -28,7 +28,7 @@ public class DatabaseManager {
     private DatabaseManager() throws Exception {
         Properties props = new Properties();
         try (InputStream in = getClass().getClassLoader()
-                .getResourceAsStream("db.properties")) {
+                .getResourceAsStream("db/db.properties")) {
             if (in == null) throw new Exception("db.properties not found in classpath resources");
             props.load(in);
         }
