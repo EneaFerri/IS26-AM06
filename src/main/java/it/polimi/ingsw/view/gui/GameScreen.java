@@ -1818,7 +1818,7 @@ public class GameScreen {
         statsDelay.setOnFinished(e -> applyAnimatedEventStats(req.stats));
 
         javafx.animation.PauseTransition hold =
-                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(6));
+                new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));
 
         javafx.animation.Timeline outro = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(450),
