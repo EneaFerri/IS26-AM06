@@ -1,0 +1,3 @@
+db.url=jdbc:mysql://localhost:3306/mesos
+db.user=INSERISCI_UTENTE
+db.password=INSERISCI_PASSWORD

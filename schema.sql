@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS game_results (
     num_players INT          NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_num_players_score
+CREATE INDEX idx_num_players_score
     ON game_results (num_players, score DESC);
