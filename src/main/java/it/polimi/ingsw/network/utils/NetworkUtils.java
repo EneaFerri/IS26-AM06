@@ -29,7 +29,7 @@ public final class NetworkUtils {
                 Enumeration<InetAddress> addrs = iface.getInetAddresses();
                 while (addrs.hasMoreElements()) {
                     InetAddress addr = addrs.nextElement();
-                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                    if (!addr.isLoopbackAddress() && !addr.isLinkLocalAddress() && addr instanceof Inet4Address) {
                         return addr.getHostAddress();
                     }
                 }
