@@ -556,7 +556,13 @@ public class GUIView implements ModelObserver {
         if (endgameOverlayContainer == null) return;
 
         Rectangle scrim = new Rectangle();
-        scrim.setFill(Color.rgb(0, 0, 0, 0.72));
+        scrim.setFill(new LinearGradient(
+                0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.00, Color.rgb(4, 6, 10, 0.82)),
+                new Stop(0.45, Color.rgb(6, 8, 14, 0.78)),
+                new Stop(1.00, Color.rgb(2, 3, 7, 0.88))
+        ));
+        scrim.setOpacity(0.0);
         scrim.widthProperty().bind(endgameOverlayContainer.widthProperty());
         scrim.heightProperty().bind(endgameOverlayContainer.heightProperty());
 
@@ -591,9 +597,18 @@ public class GUIView implements ModelObserver {
                 "-fx-border-color:transparent;");
 
         VBox panel = new VBox(16, titleRow, subtitleLbl, separator(), scroll);
-        panel.setPadding(new Insets(28, 28, 28, 28));
-        panel.setMaxWidth(580);
-        panel.setStyle(styleGlassCard());
+        panel.setPadding(new Insets(30, 30, 30, 30));
+        panel.setMaxWidth(620);
+        panel.setStyle(
+                "-fx-background-color:rgba(16,18,24,0.88);" +
+                        "-fx-background-radius:26;" +
+                        "-fx-border-color:rgba(255,255,255,0.16);" +
+                        "-fx-border-radius:26;" +
+                        "-fx-border-width:1.2;"
+        );
+        panel.setEffect(new javafx.scene.effect.DropShadow(
+                42, Color.rgb(0, 0, 0, 0.40)
+        ));
 
         StackPane wrapper = new StackPane(panel);
         wrapper.setPadding(new Insets(40));
@@ -601,21 +616,71 @@ public class GUIView implements ModelObserver {
         endgameOverlayContainer.getChildren().addAll(scrim, wrapper);
         endgameOverlayContainer.setMouseTransparent(false);
 
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(200), endgameOverlayContainer);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        endgameOverlayContainer.setOpacity(0);
-        fadeIn.play();
+        endgameOverlayContainer.setOpacity(1.0);
+        wrapper.setOpacity(0.0);
+        wrapper.setScaleX(0.965);
+        wrapper.setScaleY(0.965);
+        wrapper.setTranslateY(18);
+
+        FadeTransition scrimFade = new FadeTransition(Duration.millis(240), scrim);
+        scrimFade.setFromValue(0.0);
+        scrimFade.setToValue(1.0);
+
+        FadeTransition panelFade = new FadeTransition(Duration.millis(240), wrapper);
+        panelFade.setFromValue(0.0);
+        panelFade.setToValue(1.0);
+
+        javafx.animation.ScaleTransition panelScale =
+                new javafx.animation.ScaleTransition(Duration.millis(280), wrapper);
+        panelScale.setFromX(0.965);
+        panelScale.setFromY(0.965);
+        panelScale.setToX(1.0);
+        panelScale.setToY(1.0);
+        panelScale.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.TranslateTransition panelSlide =
+                new javafx.animation.TranslateTransition(Duration.millis(280), wrapper);
+        panelSlide.setFromY(18);
+        panelSlide.setToY(0);
+        panelSlide.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        new javafx.animation.ParallelTransition(
+                scrimFade, panelFade, panelScale, panelSlide
+        ).play();
 
         Runnable dismiss = () -> {
-            FadeTransition fo = new FadeTransition(Duration.millis(160), endgameOverlayContainer);
-            fo.setFromValue(1);
-            fo.setToValue(0);
-            fo.setOnFinished(ev -> {
+            FadeTransition scrimOut = new FadeTransition(Duration.millis(170), scrim);
+            scrimOut.setFromValue(scrim.getOpacity());
+            scrimOut.setToValue(0.0);
+
+            FadeTransition panelOut = new FadeTransition(Duration.millis(170), wrapper);
+            panelOut.setFromValue(wrapper.getOpacity());
+            panelOut.setToValue(0.0);
+
+            javafx.animation.ScaleTransition scaleOut =
+                    new javafx.animation.ScaleTransition(Duration.millis(170), wrapper);
+            scaleOut.setFromX(wrapper.getScaleX());
+            scaleOut.setFromY(wrapper.getScaleY());
+            scaleOut.setToX(0.975);
+            scaleOut.setToY(0.975);
+
+            javafx.animation.TranslateTransition slideOut =
+                    new javafx.animation.TranslateTransition(Duration.millis(170), wrapper);
+            slideOut.setFromY(wrapper.getTranslateY());
+            slideOut.setToY(12);
+
+            javafx.animation.ParallelTransition close = new javafx.animation.ParallelTransition(
+                    scrimOut, panelOut, scaleOut, slideOut
+            );
+            close.setOnFinished(ev -> {
                 endgameOverlayContainer.getChildren().clear();
                 endgameOverlayContainer.setMouseTransparent(true);
+                wrapper.setOpacity(1.0);
+                wrapper.setScaleX(1.0);
+                wrapper.setScaleY(1.0);
+                wrapper.setTranslateY(0.0);
             });
-            fo.play();
+            close.play();
         };
         scrim.setOnMouseClicked(e -> dismiss.run());
         closeBtn.setOnAction(e -> dismiss.run());
