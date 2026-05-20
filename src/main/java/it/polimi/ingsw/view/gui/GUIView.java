@@ -524,7 +524,9 @@ public class GUIView implements ModelObserver {
         Platform.runLater(() -> {
             if (gameScreen != null) {
                 Map<String, List<Integer>> cards = gameScreen.getPlayerOwnedCards();
-                gameScreen.runWhenAnimationsDone(() -> showEndGameScreen(results, cards));
+                gameScreen.runWhenAnimationsDone(() ->
+                        gameScreen.playFinalTurnOutro(() -> showEndGameScreen(results, cards))
+                );
             } else {
                 showEndGameScreen(results, Map.of());
             }
@@ -998,6 +1000,15 @@ public class GUIView implements ModelObserver {
         MusicPlayer.switchTo("final_music.mp3");
         AnimatedBackground animBg = new AnimatedBackground();
 
+        Scene currentScene = stage.getScene();
+        double sceneWidth = currentScene != null ? currentScene.getWidth() : 1400;
+        double sceneHeight = currentScene != null ? currentScene.getHeight() : 860;
+        boolean keepResizable = stage.isResizable();
+
+        StackPane oldRoot = currentScene != null && currentScene.getRoot() instanceof StackPane oldStack
+                ? oldStack
+                : null;
+
         Label title = new Label("FINE PARTITA!");
         title.setStyle(styleTitle());
 
@@ -1068,8 +1079,36 @@ public class GUIView implements ModelObserver {
         animBg.prefWidthProperty().bind(root.widthProperty());
         animBg.prefHeightProperty().bind(root.heightProperty());
 
-        stage.setScene(new Scene(root, 640, 680));
-        stage.setResizable(false);
+        root.setOpacity(0.0);
+        root.setScaleX(1.015);
+        root.setScaleY(1.015);
+        root.setTranslateY(10);
+
+        Scene endScene = new Scene(root, sceneWidth, sceneHeight);
+        stage.setScene(endScene);
+        stage.setResizable(keepResizable);
+
+        javafx.animation.FadeTransition fadeIn =
+                new javafx.animation.FadeTransition(Duration.millis(520), root);
+        fadeIn.setFromValue(0.0);
+        fadeIn.setToValue(1.0);
+        fadeIn.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+
+        javafx.animation.ScaleTransition scaleIn =
+                new javafx.animation.ScaleTransition(Duration.millis(520), root);
+        scaleIn.setFromX(1.015);
+        scaleIn.setFromY(1.015);
+        scaleIn.setToX(1.0);
+        scaleIn.setToY(1.0);
+        scaleIn.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.TranslateTransition slideIn =
+                new javafx.animation.TranslateTransition(Duration.millis(520), root);
+        slideIn.setFromY(10);
+        slideIn.setToY(0);
+        slideIn.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        new javafx.animation.ParallelTransition(fadeIn, scaleIn, slideIn).play();
     }
 
     private Node buildPlayerRow(String name, String pts, String medal, boolean winner) {

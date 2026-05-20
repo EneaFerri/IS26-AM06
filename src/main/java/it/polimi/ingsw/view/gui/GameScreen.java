@@ -128,6 +128,10 @@ public class GameScreen {
 
     private PendingBoardUpdate pendingBoardUpdate = null;
 
+    private boolean finalOutroRunning = false;
+    private HBox boardRowBox;
+    private VBox centerContentBox;
+
     private boolean gameIntroFinished = false;
     private boolean initialBoardDealPlayed = false;
     private boolean initialBoardDealPending = false;
@@ -643,6 +647,124 @@ public class GameScreen {
             }
         });
         intro.play();
+    }
+
+    public void playFinalTurnOutro(Runnable onFinished) {
+        if (finalOutroRunning) return;
+        finalOutroRunning = true;
+
+        List<javafx.animation.Animation> animations = new ArrayList<>();
+        animations.add(buildBoardFinalFadeOut());
+        animations.add(buildRowFinalFadeOut(topRowBox, true));
+        animations.add(buildRowFinalFadeOut(botRowBox, false));
+
+        javafx.animation.FadeTransition wholeSceneFade =
+                new javafx.animation.FadeTransition(
+                        javafx.util.Duration.millis(420), mainRoot);
+        wholeSceneFade.setFromValue(1.0);
+        wholeSceneFade.setToValue(0.0);
+        wholeSceneFade.setDelay(javafx.util.Duration.millis(260));
+        wholeSceneFade.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+
+        javafx.animation.ScaleTransition wholeSceneScale =
+                new javafx.animation.ScaleTransition(
+                        javafx.util.Duration.millis(420), mainRoot);
+        wholeSceneScale.setFromX(1.0);
+        wholeSceneScale.setFromY(1.0);
+        wholeSceneScale.setToX(0.992);
+        wholeSceneScale.setToY(0.992);
+        wholeSceneScale.setDelay(javafx.util.Duration.millis(260));
+        wholeSceneScale.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.ParallelTransition outro = new javafx.animation.ParallelTransition();
+        outro.getChildren().addAll(animations);
+        outro.getChildren().addAll(wholeSceneFade, wholeSceneScale);
+        outro.setOnFinished(e -> {
+            if (boardRowBox != null) {
+                boardRowBox.setOpacity(0.0);
+            }
+            topRowBox.setOpacity(0.0);
+            botRowBox.setOpacity(0.0);
+
+            if (onFinished != null) {
+                onFinished.run();
+            }
+        });
+        outro.play();
+    }
+
+    private javafx.animation.Animation buildBoardFinalFadeOut() {
+        if (boardRowBox == null) {
+            return new javafx.animation.PauseTransition(javafx.util.Duration.ZERO);
+        }
+
+        javafx.animation.FadeTransition fade =
+                new javafx.animation.FadeTransition(
+                        javafx.util.Duration.millis(GAME_INTRO_FADE_MS), boardRowBox);
+        fade.setFromValue(boardRowBox.getOpacity());
+        fade.setToValue(0.0);
+        fade.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+
+        javafx.animation.ScaleTransition scale =
+                new javafx.animation.ScaleTransition(
+                        javafx.util.Duration.millis(GAME_INTRO_FADE_MS), boardRowBox);
+        scale.setFromX(boardRowBox.getScaleX());
+        scale.setFromY(boardRowBox.getScaleY());
+        scale.setToX(0.985);
+        scale.setToY(0.985);
+        scale.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        javafx.animation.TranslateTransition slide =
+                new javafx.animation.TranslateTransition(
+                        javafx.util.Duration.millis(GAME_INTRO_FADE_MS), boardRowBox);
+        slide.setFromY(boardRowBox.getTranslateY());
+        slide.setToY(boardRowBox.getTranslateY() + 18);
+        slide.setInterpolator(javafx.animation.Interpolator.SPLINE(0.16, 0.88, 0.22, 1.0));
+
+        return new javafx.animation.ParallelTransition(fade, scale, slide);
+    }
+
+    private javafx.animation.Animation buildRowFinalFadeOut(HBox row, boolean fromTop) {
+        if (row.getChildren().isEmpty()) {
+            return new javafx.animation.PauseTransition(javafx.util.Duration.ZERO);
+        }
+
+        List<javafx.animation.Animation> exits = new ArrayList<>();
+        int rowSize = row.getChildren().size();
+
+        for (int i = 0; i < rowSize; i++) {
+            javafx.scene.Node card = row.getChildren().get(i);
+            double centerOffset = (rowSize - 1) / 2.0 - i;
+            double endX = centerOffset * 24;
+            double endY = fromTop ? 205 : -205;
+            double endRotate = (fromTop ? -1 : 1) * (10 + (i % 3) * 2);
+
+            javafx.animation.Timeline flyOut = new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                            new javafx.animation.KeyValue(card.opacityProperty(), card.getOpacity()),
+                            new javafx.animation.KeyValue(card.translateXProperty(), card.getTranslateX()),
+                            new javafx.animation.KeyValue(card.translateYProperty(), card.getTranslateY()),
+                            new javafx.animation.KeyValue(card.scaleXProperty(), card.getScaleX()),
+                            new javafx.animation.KeyValue(card.scaleYProperty(), card.getScaleY()),
+                            new javafx.animation.KeyValue(card.rotateProperty(), card.getRotate())
+                    ),
+                    new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_DEAL_DURATION_MS),
+                            new javafx.animation.KeyValue(card.opacityProperty(), 0.0, javafx.animation.Interpolator.EASE_BOTH),
+                            new javafx.animation.KeyValue(card.translateXProperty(), endX, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                            new javafx.animation.KeyValue(card.translateYProperty(), endY, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                            new javafx.animation.KeyValue(card.scaleXProperty(), 0.82, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                            new javafx.animation.KeyValue(card.scaleYProperty(), 0.82, javafx.animation.Interpolator.SPLINE(0.18, 0.9, 0.22, 1.0)),
+                            new javafx.animation.KeyValue(card.rotateProperty(), endRotate, javafx.animation.Interpolator.EASE_OUT)
+                    )
+            );
+
+            flyOut.setDelay(javafx.util.Duration.millis((long) (rowSize - 1 - i) * CARD_DEAL_STAGGER_MS));
+            exits.add(flyOut);
+        }
+
+        javafx.animation.ParallelTransition all = new javafx.animation.ParallelTransition();
+        all.getChildren().addAll(exits);
+        return all;
     }
 
     //HELPER
@@ -1935,25 +2057,26 @@ public class GameScreen {
         botRowBox.setPadding(new Insets(8, 0, 8, 0));
         botRowBox.setMaxWidth(Region.USE_PREF_SIZE);
 
-        HBox boardRow = new HBox(10);
-        boardRow.setAlignment(Pos.CENTER);
-        boardRow.setFillHeight(false);
+        boardRowBox = new HBox(10);
+        boardRowBox.setAlignment(Pos.CENTER);
+        boardRowBox.setFillHeight(false);
 
         // il mazzo deve stare nel cuore della partita, non in una sidebar laterale:
         // lo aggancio qui, subito prima dell'ordine totem, così resta leggibile e coerente col board.
-        boardRow.getChildren().add(buildDeckTrack());
-        boardRow.getChildren().add(buildTurnOrderTrack());
+        boardRowBox.getChildren().add(buildDeckTrack());
+        boardRowBox.getChildren().add(buildTurnOrderTrack());
 
         for (String letter : activeSpaces)
-            boardRow.getChildren().add(buildBoardSpace(letter));
+            boardRowBox.getChildren().add(buildBoardSpace(letter));
 
-        VBox centerContent = new VBox(10, topRowBox, boardRow, botRowBox);
-        centerContent.setAlignment(Pos.CENTER);
-        centerContent.setFillWidth(false);
-        centerContent.setPadding(new Insets(12, 16, 12, 16));
-        centerContent.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        centerContentBox = new VBox(10, topRowBox, boardRowBox, botRowBox);
+        centerContentBox.setAlignment(Pos.CENTER);
+        centerContentBox.setFillWidth(false);
+        centerContentBox.setPadding(new Insets(12, 16, 12, 16));
+        centerContentBox.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
 
-        StackPane centeredWrapper = new StackPane(centerContent);
+        StackPane centeredWrapper = new StackPane(centerContentBox);
+
         centeredWrapper.setAlignment(Pos.CENTER);
         centeredWrapper.setPadding(Insets.EMPTY);
 
@@ -2441,7 +2564,13 @@ public class GameScreen {
             default                 -> phase.name();
         });
 
-        if (isMyTurn) {
+        if (phase == GameState.EVENTS) {
+            turnLabel.setText("Risoluzione in corso…");
+            turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
+        } else if (phase == GameState.END) {
+            turnLabel.setText("Calcolo classifica finale…");
+            turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
+        } else if (isMyTurn) {
             turnLabel.setText("⬤ Il tuo turno");
             turnLabel.setStyle(labelStyle(13, "#34C759"));
         } else {
@@ -2452,8 +2581,13 @@ public class GameScreen {
         boolean active = isMyTurn && phase == GameState.OFFER_SPACE_CHOOSE;
         spacePanes.forEach((l, p) -> p.setOpacity(active ? 1.0 : 0.85));
 
-        // Aggiorna cliccabilità carte
         canPickCards = isMyTurn && phase == GameState.PICKING_CARD;
+        if (phase != GameState.PICKING_CARD) {
+            canPickTop = false;
+            canPickBot = false;
+            applyBoardCardRowStyles();
+        }
+
         if (!initialBoardDealPending && !initialBoardDealRunning && !boardTakeAnimationRunning) {
             rebuildCardRow(topRowBox, lastTopIds, true);
             rebuildCardRow(botRowBox, lastBotIds, false);
@@ -2590,14 +2724,17 @@ public class GameScreen {
     }
 
     private void applyBoardCardRowStyles() {
-        topRowBox.setStyle(canPickTop
+        boolean highlightTop = currentPhase == GameState.PICKING_CARD && canPickTop;
+        boolean highlightBot = currentPhase == GameState.PICKING_CARD && canPickBot;
+
+        topRowBox.setStyle(highlightTop
                 ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
                 : "-fx-border-color:transparent;-fx-padding:6;");
-        botRowBox.setStyle(canPickBot
+        botRowBox.setStyle(highlightBot
                 ? "-fx-border-color:#34C759;-fx-border-width:2;-fx-border-radius:10;-fx-padding:6;"
                 : "-fx-border-color:transparent;-fx-padding:6;");
-        topRowBox.setOpacity(canPickBot ? 0.55 : 1.0);
-        botRowBox.setOpacity(canPickTop ? 0.55 : 1.0);
+        topRowBox.setOpacity(highlightBot ? 0.55 : 1.0);
+        botRowBox.setOpacity(highlightTop ? 0.55 : 1.0);
     }
 
     private void applyBoardUpdateNow(List<Integer> newTopIds, List<Integer> newBotIds) {
@@ -3248,6 +3385,19 @@ public class GameScreen {
 
     public void setOtherPlayerTurn(String currentPlayer) {
         this.isMyTurn = false;
+
+        if (currentPhase == GameState.EVENTS) {
+            turnLabel.setText("Risoluzione in corso…");
+            turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
+            return;
+        }
+
+        if (currentPhase == GameState.END) {
+            turnLabel.setText("Calcolo classifica finale…");
+            turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
+            return;
+        }
+
         turnLabel.setText("Turno di " + currentPlayer);
         turnLabel.setStyle(labelStyle(13, "rgba(255,255,255,0.60)"));
         phaseLabel.setText("In attesa…");
