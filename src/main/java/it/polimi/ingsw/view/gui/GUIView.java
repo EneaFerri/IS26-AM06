@@ -163,7 +163,9 @@ public class GUIView implements ModelObserver {
         animBg.prefWidthProperty().bind(root.widthProperty());
         animBg.prefHeightProperty().bind(root.heightProperty());
 
-        stage.setScene(new Scene(root, 600, 720));
+        Scene scene = new Scene(root, 600, 720);
+        applyGlobalStyles(scene);
+        stage.setScene(scene);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -204,7 +206,9 @@ public class GUIView implements ModelObserver {
         animBg.prefWidthProperty().bind(root.widthProperty());
         animBg.prefHeightProperty().bind(root.heightProperty());
 
-        stage.setScene(new Scene(root, 560, 400));
+        Scene scene = new Scene(root, 560, 400);
+        applyGlobalStyles(scene);
+        stage.setScene(scene);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -222,6 +226,7 @@ public class GUIView implements ModelObserver {
         List<String> activeSpaces = getActiveSpaces(players.size());
         gameScreen = new GameScreen(server, model, nick, players, activeSpaces, spectator, this);
         Scene scene = gameScreen.build(stage);
+        applyGlobalStyles(scene);
         stage.setScene(scene);
         stage.setResizable(true);
     }
@@ -992,6 +997,14 @@ public class GUIView implements ModelObserver {
         return stats;
     }
 
+    private void applyGlobalStyles(Scene scene) {
+        if (scene == null) return;
+        var css = getClass().getResource("/gui/volume-slider.css");
+        if (css != null && !scene.getStylesheets().contains(css.toExternalForm())) {
+            scene.getStylesheets().add(css.toExternalForm());
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  SCHERMATA FINE PARTITA
     // ─────────────────────────────────────────────────────────────────────
@@ -1085,6 +1098,7 @@ public class GUIView implements ModelObserver {
         root.setTranslateY(10);
 
         Scene endScene = new Scene(root, sceneWidth, sceneHeight);
+        applyGlobalStyles(endScene);
         stage.setScene(endScene);
         stage.setResizable(keepResizable);
 
@@ -1267,42 +1281,60 @@ public class GUIView implements ModelObserver {
         musicLabel.setStyle(styleSmallCaps());
         HBox.setHgrow(musicLabel, Priority.ALWAYS);
 
-        // Valore del volume prima di mutare (per ripristinarlo)
-        double[] savedVolume = { Math.max(MusicPlayer.getVolume(), 0.20) };
+        double initialVol = MusicPlayer.getVolume();
+        double[] savedVolume = { initialVol > 0.0 ? initialVol : 0.35 };
 
-        // ── Slider ────────────────────────────────────────────────────────
-        Slider slider = new Slider(0.0, 1.0, MusicPlayer.getVolume());
-        slider.setPrefWidth(110);
-        slider.setStyle(
-                "-fx-control-inner-background: rgba(255,255,255,0.12);" +
-                        "-fx-accent: #007AFF;"
-        );
+        Slider slider = new Slider(0.0, 1.0, initialVol);
+        slider.setMinWidth(120);
+        slider.setPrefWidth(120);
+        slider.setMaxWidth(120);
+        slider.getStyleClass().add("liquid-volume-slider");
+        slider.setFocusTraversable(false);
+        slider.setShowTickMarks(false);
+        slider.setShowTickLabels(false);
+        slider.setBlockIncrement(0.02);
 
-        // ── Pulsante mute ─────────────────────────────────────────────────
-        boolean startsMuted = MusicPlayer.getVolume() == 0;
-        Button muteBtn = new Button(startsMuted ? "🔇" : "🔊");
-        muteBtn.setPrefSize(38, 34);
-        muteBtn.setStyle(styleSecondaryButton());
+        StackPane volumeShell = new StackPane(slider);
+        volumeShell.getStyleClass().add("liquid-volume-shell");
 
-        // Slider → volume live
+        Label bellIcon = new Label(initialVol == 0.0 ? "🔕" : "🔔");
+        bellIcon.getStyleClass().add(initialVol == 0.0 ? "bell-icon-off" : "bell-icon-on");
+
+        StackPane bellShell = new StackPane(bellIcon);
+        bellShell.getStyleClass().add("bell-shell");
+        bellShell.setMinWidth(28);
+        bellShell.setPrefWidth(28);
+        bellShell.setMaxWidth(28);
+
+        Button bellButton = new Button();
+        bellButton.setGraphic(bellShell);
+        bellButton.getStyleClass().add("bell-button");
+        bellButton.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        bellButton.setPrefSize(28, 28);
+        bellButton.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        bellButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+
         slider.valueProperty().addListener((obs, oldVal, newVal) -> {
             double v = newVal.doubleValue();
             MusicPlayer.setVolume(v);
-            muteBtn.setText(v == 0.0 ? "🔇" : "🔊");
+
+            bellIcon.getStyleClass().removeAll("bell-icon-on", "bell-icon-off");
+            bellIcon.setText(v == 0.0 ? "🔕" : "🔔");
+            bellIcon.getStyleClass().add(v == 0.0 ? "bell-icon-off" : "bell-icon-on");
+
             if (v > 0.0) savedVolume[0] = v;
         });
 
-        // Mute button toggle
-        muteBtn.setOnAction(e -> {
+        bellButton.setOnAction(e -> {
             if (MusicPlayer.getVolume() > 0.0) {
                 savedVolume[0] = MusicPlayer.getVolume();
-                slider.setValue(0.0);          // triggera il listener → setVolume(0)
+                slider.setValue(0.0);
             } else {
-                slider.setValue(savedVolume[0]); // ripristina
+                slider.setValue(savedVolume[0]);
             }
         });
 
-        HBox row = new HBox(10, musicLabel, slider, muteBtn);
+        HBox row = new HBox(10, musicLabel, volumeShell, bellButton);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(4, 0, 0, 0));
         return row;

@@ -59,6 +59,8 @@ public class GameScreen {
     // 72 ci siamo quasi 90 praticamente perfetto 95 siiiiiiii perfetto
     private static final double TOTEM_SLOT_LIFT_Y = 95;
 
+    private final StackPane muteIslandOverlay = new StackPane();
+    private final ImageView muteIslandImage = new ImageView();
 
     private AnimatedBackground animatedBg;
 
@@ -529,6 +531,8 @@ public class GameScreen {
 
         rootWrapper.getChildren().add(eventOverlay);
         StackPane.setAlignment(eventOverlay, Pos.CENTER);
+        rootWrapper.getChildren().add(buildMuteIslandOverlay());
+        StackPane.setAlignment(muteIslandOverlay, Pos.TOP_CENTER);
 
         rootWrapper.getChildren().add(buildPlayerCardsOverlay());
         StackPane.setAlignment(playerCardsOverlay, Pos.CENTER);
@@ -2002,38 +2006,64 @@ public class GameScreen {
         double[] savedVol = { initialVol > 0 ? initialVol : 0.35 };
 
         Slider volumeSlider = new Slider(0.0, 1.0, initialVol);
-        volumeSlider.setPrefWidth(90);
-        volumeSlider.setStyle("-fx-accent:#007AFF;");
+        volumeSlider.setMinWidth(172);
+        volumeSlider.setPrefWidth(120);
+        volumeSlider.setMaxWidth(120);
+        volumeSlider.getStyleClass().add("liquid-volume-slider");
+        volumeSlider.setFocusTraversable(false);
+        volumeSlider.setShowTickMarks(false);
+        volumeSlider.setShowTickLabels(false);
+        volumeSlider.setBlockIncrement(0.02);
 
-        Button muteBtn = new Button(initialVol == 0 ? "🔇" : "🔊");
-        muteBtn.setStyle("-fx-background-color:rgba(255,255,255,0.10);" +
-                "-fx-background-radius:20;-fx-text-fill:white;" +
-                "-fx-font-size:16;-fx-cursor:hand;" +
-                "-fx-border-color:rgba(255,255,255,0.15);" +
-                "-fx-border-radius:20;-fx-border-width:1;" +
-                "-fx-padding:4 12 4 12;");
+        StackPane volumeShell = new StackPane(volumeSlider);
+        volumeShell.getStyleClass().add("liquid-volume-shell");
 
-        // slider → aggiorna volume in tempo reale e sincronizza l'icona
+        Label bellIcon = new Label(initialVol == 0.0 ? "🔕" : "🔔");
+        bellIcon.getStyleClass().add(initialVol == 0.0 ? "bell-icon-off" : "bell-icon-on");
+
+        StackPane bellShell = new StackPane(bellIcon);
+        bellShell.getStyleClass().add("bell-shell");
+        bellShell.setMinWidth(28);
+        bellShell.setPrefWidth(28);
+        bellShell.setMaxWidth(28);
+
+        Button bellButton = new Button();
+        bellButton.setGraphic(bellShell);
+        bellButton.getStyleClass().add("bell-button");
+        bellButton.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        bellButton.setPrefSize(28, 28);
+        bellButton.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        bellButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+
         volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             double v = newVal.doubleValue();
             MusicPlayer.setVolume(v);
-            muteBtn.setText(v == 0.0 ? "🔇" : "🔊");
-            if (v > 0.0) savedVol[0] = v;
+
+            bellIcon.getStyleClass().removeAll("bell-icon-on", "bell-icon-off");
+            bellIcon.setText(v == 0.0 ? "🔕" : "🔔");
+            bellIcon.getStyleClass().add(v == 0.0 ? "bell-icon-off" : "bell-icon-on");
+
+            if (v > 0.0) {
+                savedVol[0] = v;
+            }
         });
 
-        // mute button → muove lo slider (che a sua volta aggiorna volume e icona)
-        muteBtn.setOnAction(e -> {
-            if (MusicPlayer.getVolume() > 0) {
+        bellButton.setOnAction(e -> {
+            boolean goingMuted = MusicPlayer.getVolume() > 0.0;
+
+            if (goingMuted) {
                 savedVol[0] = MusicPlayer.getVolume();
                 volumeSlider.setValue(0.0);
             } else {
                 volumeSlider.setValue(savedVol[0]);
             }
+
+            playMuteIslandAnimation(goingMuted);
         });
 
         HBox header = new HBox(16, eraLabel, separator_v(), phaseLabel,
                 separator_v(), turnLabel, spacer,
-                foodLabel, prestigeLabel, volumeSlider, muteBtn);
+                foodLabel, prestigeLabel, volumeShell, bellButton);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(14, 24, 14, 24));
         header.setStyle("-fx-background-color:rgba(0,0,0,0.45);" +
@@ -3468,6 +3498,103 @@ public class GameScreen {
         iv.setFitHeight(h);
         iv.setPreserveRatio(true);
         return iv;
+    }
+
+    private Image loadMuteIslandImage(boolean muted) {
+        String resource = muted
+                ? "/gui/island_sound_off.png"
+                : "/gui/island_sound_on.png";
+        var url = getClass().getResource(resource);
+        return url != null ? new Image(url.toExternalForm()) : null;
+    }
+
+    private StackPane buildMuteIslandOverlay() {
+        muteIslandImage.setPreserveRatio(true);
+        muteIslandImage.setSmooth(true);
+        muteIslandImage.setCache(true);
+        muteIslandImage.setFitWidth(220);
+
+        muteIslandOverlay.getChildren().setAll(muteIslandImage);
+        muteIslandOverlay.setVisible(false);
+        muteIslandOverlay.setMouseTransparent(true);
+        muteIslandOverlay.setOpacity(0.0);
+
+        StackPane.setAlignment(muteIslandImage, Pos.TOP_RIGHT);
+        StackPane.setMargin(muteIslandImage, new Insets(44, 26, 0, 0));
+
+        return muteIslandOverlay;
+    }
+
+    private void playMuteIslandAnimation(boolean muted) {
+        Image island = loadMuteIslandImage(muted);
+        if (island == null) return;
+
+        muteIslandImage.setImage(island);
+        muteIslandOverlay.setVisible(true);
+        muteIslandOverlay.setOpacity(1.0);
+        muteIslandOverlay.toFront();
+
+        muteIslandImage.setOpacity(0.0);
+        muteIslandImage.setScaleX(0.55);
+        muteIslandImage.setScaleY(0.55);
+        muteIslandImage.setTranslateX(18);
+        muteIslandImage.setTranslateY(-10);
+
+        javafx.animation.FadeTransition fadeIn =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(140), muteIslandImage);
+        fadeIn.setFromValue(0.0);
+        fadeIn.setToValue(1.0);
+
+        javafx.animation.ScaleTransition open =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(320), muteIslandImage);
+        open.setFromX(0.55);
+        open.setFromY(0.55);
+        open.setToX(1.0);
+        open.setToY(1.0);
+        open.setInterpolator(javafx.animation.Interpolator.SPLINE(0.2, 0.9, 0.2, 1.0));
+
+        javafx.animation.TranslateTransition settle =
+                new javafx.animation.TranslateTransition(javafx.util.Duration.millis(320), muteIslandImage);
+        settle.setFromX(18);
+        settle.setToX(0);
+        settle.setFromY(-10);
+        settle.setToY(0);
+        settle.setInterpolator(javafx.animation.Interpolator.SPLINE(0.2, 0.9, 0.2, 1.0));
+
+        javafx.animation.PauseTransition hold =
+                new javafx.animation.PauseTransition(javafx.util.Duration.millis(900));
+
+        javafx.animation.FadeTransition fadeOut =
+                new javafx.animation.FadeTransition(javafx.util.Duration.millis(180), muteIslandOverlay);
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+
+        javafx.animation.ScaleTransition close =
+                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(220), muteIslandImage);
+        close.setFromX(1.0);
+        close.setFromY(1.0);
+        close.setToX(0.60);
+        close.setToY(0.60);
+        close.setInterpolator(javafx.animation.Interpolator.SPLINE(0.4, 0.0, 0.2, 1.0));
+
+        javafx.animation.SequentialTransition seq =
+                new javafx.animation.SequentialTransition(
+                        new javafx.animation.ParallelTransition(fadeIn, open, settle),
+                        hold,
+                        new javafx.animation.ParallelTransition(fadeOut, close)
+                );
+
+        seq.setOnFinished(e -> {
+            muteIslandOverlay.setVisible(false);
+            muteIslandOverlay.setOpacity(1.0);
+            muteIslandImage.setOpacity(1.0);
+            muteIslandImage.setScaleX(1.0);
+            muteIslandImage.setScaleY(1.0);
+            muteIslandImage.setTranslateX(0);
+            muteIslandImage.setTranslateY(0);
+        });
+
+        seq.play();
     }
 
     private TotemColor assignTotemColor(String nick) {
