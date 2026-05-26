@@ -2,6 +2,8 @@ package it.polimi.ingsw.controller;
 
 import it.polimi.ingsw.VirtualView;
 import it.polimi.ingsw.model.Game;
+import it.polimi.ingsw.persistence.GameSnapshot;
+import it.polimi.ingsw.persistence.PersistenceManager;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -26,6 +28,30 @@ public class LobbyManager {
     private final List<GameController> lobbies = new ArrayList<>();
     private final List<VirtualView> lobbyListSubscribers = new ArrayList<>();
 
+    /** Contatore monotonico per assegnare ID univoci alle nuove partite. */
+    private int nextGameId = 1;
+
+    /**
+     * Costruttore: al riavvio del server ripristina automaticamente le partite
+     * salvate su disco (FA Persistenza).
+     */
+    public LobbyManager() {
+        List<GameSnapshot> saved = PersistenceManager.getInstance().loadAll();
+        for (GameSnapshot snap : saved) {
+            try {
+                Game restored = PersistenceManager.getInstance().restore(snap);
+                GameController gc = new GameController(restored, true);
+                lobbies.add(gc);
+                nextGameId = Math.max(nextGameId, snap.gameId() + 1);
+                System.out.println("[LobbyManager] Partita ripristinata: game_" + snap.gameId()
+                        + " (" + snap.numberOfPlayers() + " giocatori, stato=" + snap.gameState() + ")");
+            } catch (Exception e) {
+                System.err.println("[LobbyManager] Impossibile ripristinare snapshot game_"
+                        + snap.gameId() + ": " + e.getMessage());
+            }
+        }
+    }
+
     //  LOGIN
     /**
      * crate new lobby and register first player
@@ -34,7 +60,11 @@ public class LobbyManager {
     public synchronized void createLobby(String nickname, int numPlayers, VirtualView caller) {
         cleanFinishedLobbies();
         unregisterLobbyListSubscriber(caller);
-        GameController lobby = new GameController(new Game(1));
+
+        // FA Persistenza: se esiste una partita in recovery con questo nickname, riconnettiti
+        if (tryReconnect(nickname, caller)) return;
+
+        GameController lobby = new GameController(new Game(nextGameId++));
         lobbies.add(lobby);
         System.out.println("[LobbyManager] Lobby #" + lobbies.size()
                 + " creata da " + nickname + " (" + numPlayers + " giocatori)");
@@ -47,9 +77,10 @@ public class LobbyManager {
      * if no lobby avaible -> onNoLobbyAvailable().
      */
     public synchronized void joinLobby(String nickname, VirtualView caller) {
+        unregisterLobbyListSubscriber(caller);
+        if (tryReconnect(nickname, caller)) return;
         GameController available = findOpenLobby();
         if (available != null) {
-            unregisterLobbyListSubscriber(caller);
             int id = lobbies.indexOf(available) + 1;
             System.out.println("[LobbyManager] " + nickname + " → Lobby #" + id);
             available.login(nickname, caller);
@@ -68,7 +99,14 @@ public class LobbyManager {
      * CLI --> ordered list /  GUI --> button
      */
     public synchronized void joinSpecificLobby(String nickname, int lobbyId, VirtualView caller) {
+        // FA Persistenza: se questa lobby è in recovery e il player appartiene ad essa
         GameController lobby = findLobbyById(lobbyId);
+        if (lobby != null && lobby.isRecovering() && lobby.hasPlayerInGame(nickname)) {
+            unregisterLobbyListSubscriber(caller);
+            lobby.reconnectPlayer(nickname, caller);
+            broadcastLobbyListUpdate();
+            return;
+        }
         if (lobby == null) {
             try { caller.onError("Lobby #" + lobbyId + " non trovata."); }
             catch (Exception e) { System.err.println("[LobbyManager] joinSpecificLobby error: " + e.getMessage()); }
@@ -188,6 +226,21 @@ public class LobbyManager {
     // ================================================================== //
     //  UTILITY                                                            //
     // ================================================================== //
+
+    /**
+     * FA Persistenza: cerca una lobby in stato recovering che contenga il nickname
+     * come giocatore originale. Se trovata, vi riconnette il caller e ritorna true.
+     */
+    private boolean tryReconnect(String nickname, VirtualView caller) {
+        for (GameController lobby : lobbies) {
+            if (lobby.isRecovering() && lobby.hasPlayerInGame(nickname)) {
+                lobby.reconnectPlayer(nickname, caller);
+                broadcastLobbyListUpdate();
+                return true;
+            }
+        }
+        return false;
+    }
 
     /** Rimuove le lobby terminate (fix memory leak). */
     private void cleanFinishedLobbies() {

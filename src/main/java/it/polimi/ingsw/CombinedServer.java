@@ -4,7 +4,7 @@ import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.network.rmi.server.RmiServer;
 import it.polimi.ingsw.network.utils.NetworkUtils;
 import it.polimi.ingsw.network.socket.server.SocketServer;
-import it.polimi.ingsw.persistence.DatabaseManager;
+import it.polimi.ingsw.database.DatabaseManager;
 
 import java.rmi.RemoteException;
 

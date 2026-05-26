@@ -77,6 +77,16 @@ public class Game implements GameActions {
     public Age getCurrentAge()         { return currentAge; }
     public Board getBoard()            { return gameBoard; }
     public Deck getMainDeck()          { return mainDeck; }
+
+    // Getter aggiuntivi per la persistenza — non modificano lo stato
+    public List<TribeCard>   getDeckEraI()          { return deck_ERA_I; }
+    public List<TribeCard>   getDeckEraII()         { return deck_ERA_II; }
+    public List<TribeCard>   getDeckEraIII()        { return deck_ERA_III; }
+    public List<EventCard>   getFinalEvents()       { return finalEvents; }
+    public List<BuildingCard> getBuildingsInGame()  { return buldingsInGame; }
+    public int getTopPicks()                        { return topPicks; }
+    public int getBottomPicks()                     { return bottomPicks; }
+    public List<Player>      getCurrentRoundOrder() { return currentRoundOrder; }
     /**
      * Restituisce quante tribe card restano complessivamente nel gioco.
      * La GUI usa questo numero per il contatore del mazzo centrale,
@@ -638,6 +648,114 @@ public class Game implements GameActions {
 
         for (GameObserver obs : observers) {
             obs.onGameOver();
+        }
+    }
+
+    // ────────────────────────────────────────────────
+    //  RIPRISTINO DA SNAPSHOT (chiamato solo da PersistenceManager)
+    // ────────────────────────────────────────────────
+
+    /**
+     * Ricostruisce lo stato interno del Game da un snapshot precedentemente salvato.
+     * Viene chiamato una sola volta da PersistenceManager.restore() subito dopo
+     * la creazione del Game con new Game(gameId).
+     *
+     * Non tocca mainDeck (usato come catalogo per il lookup carte) né gli observer.
+     * Le liste e i riferimenti non-final vengono impostati direttamente.
+     *
+     * @param restoredPlayers      Player già ricostruiti con le loro carte e flag
+     * @param playerInTurnNick     nickname del giocatore di turno, null se nessuno
+     * @param roundOrderNicks      ordine del round corrente come lista di nickname
+     * @param state                GameState da ripristinare
+     * @param age                  Era corrente
+     * @param numPlayers           numero di giocatori
+     * @param deckI/II/III         carte residue nei deck per era
+     * @param finalEvts            eventi finali residui
+     * @param buildings            edifici in partita
+     * @param topPicks/bottomPicks contatori pescate correnti
+     * @param boardTopTribe etc.   righe carte del board
+     * @param spaceTotemColors     mappa lettera spazio → TotemColor.name() (null = libero)
+     * @param turnOrderTag         tag di configurazione TurnOrder
+     * @param blockTotemColors     colore totem per ogni block (null = libero)
+     */
+    public void restorePersistedState(
+            List<Player> restoredPlayers,
+            String playerInTurnNick,
+            List<String> roundOrderNicks,
+            GameState state, Age age, int numPlayers,
+            List<TribeCard> deckI, List<TribeCard> deckII, List<TribeCard> deckIII,
+            List<EventCard> finalEvts, List<BuildingCard> buildings,
+            int topPicks, int bottomPicks,
+            List<TribeCard> boardTopTribe, List<TribeCard> boardBottomTribe,
+            List<BuildingCard> boardTopBuild, List<BuildingCard> boardBottomBuild,
+            java.util.Map<Character, String> spaceTotemColors,
+            int turnOrderTag, List<String> blockTotemColors) {
+
+        // ── Players ──────────────────────────────────────────────────────────
+        this.players.clear();
+        this.players.addAll(restoredPlayers);
+        this.numberOfPlayers = numPlayers;
+
+        this.playerInTurn = playerInTurnNick == null ? null :
+                restoredPlayers.stream()
+                        .filter(p -> p.getNickname().equals(playerInTurnNick))
+                        .findFirst().orElse(null);
+
+        this.currentRoundOrder = roundOrderNicks.stream()
+                .map(nick -> restoredPlayers.stream()
+                        .filter(p -> p.getNickname().equals(nick))
+                        .findFirst().orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
+
+        // ── Game state ───────────────────────────────────────────────────────
+        this.gameState   = state;
+        this.currentAge  = age;
+        this.deck_ERA_I  = new ArrayList<>(deckI);
+        this.deck_ERA_II = new ArrayList<>(deckII);
+        this.deck_ERA_III = new ArrayList<>(deckIII);
+        this.finalEvents  = new ArrayList<>(finalEvts);
+        this.buldingsInGame = new ArrayList<>(buildings);
+        this.topPicks    = topPicks;
+        this.bottomPicks = bottomPicks;
+
+        // ── Board card rows ───────────────────────────────────────────────────
+        gameBoard.restoreCardRows(boardTopTribe, boardBottomTribe, boardTopBuild, boardBottomBuild);
+
+        // ── Totem su board spaces ─────────────────────────────────────────────
+        // Prima pulisco tutti gli spazi (il Board viene dalla new Game() con spazi vuoti)
+        gameBoard.clearBoardSpaces();
+        for (it.polimi.ingsw.model.board.BoardSpace space : gameBoard.getOfferField()) {
+            String colorName = spaceTotemColors.get(space.getLetter());
+            if (colorName != null) {
+                restoredPlayers.stream()
+                        .filter(p -> p.getTotem().getColor().name().equals(colorName))
+                        .findFirst()
+                        .ifPresent(p -> gameBoard.placeTotem(p.getTotem(), space));
+            }
+        }
+
+        // ── TurnOrder ────────────────────────────────────────────────────────
+        TurnOrder to = new TurnOrder(turnOrderTag);
+        List<it.polimi.ingsw.model.board.OrderBlock> blocks = to.getOrderBlocks();
+        for (int i = 0; i < blocks.size() && i < blockTotemColors.size(); i++) {
+            String colorName = blockTotemColors.get(i);
+            if (colorName != null) {
+                final it.polimi.ingsw.model.board.OrderBlock block = blocks.get(i);
+                restoredPlayers.stream()
+                        .filter(p -> p.getTotem().getColor().name().equals(colorName))
+                        .findFirst()
+                        .ifPresent(p -> {
+                            block.setTotem(p.getTotem());
+                            p.getTotem().remove(); // totem.position=null quando è sul TurnOrder
+                        });
+            }
+        }
+        this.turnOrder = to;
+
+        // ── inTurn flag ───────────────────────────────────────────────────────
+        for (Player p : this.players) {
+            p.setInTurn(p == this.playerInTurn);
         }
     }
 

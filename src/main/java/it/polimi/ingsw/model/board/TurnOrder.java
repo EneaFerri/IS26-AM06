@@ -51,6 +51,10 @@ public class TurnOrder {
         return tag;
     }
 
+    public List<OrderBlock> getOrderBlocks() {
+        return orderBlocks;
+    }
+
     public List<Player> getOrder(List<Player> allPlayers) {
         List<Player> playersOrder = new ArrayList<>();
         for (OrderBlock block : orderBlocks) {

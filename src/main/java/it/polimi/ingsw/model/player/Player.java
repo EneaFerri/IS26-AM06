@@ -214,7 +214,13 @@ public class Player {
         return extraFoodOnTurnOrder;}
 
     public boolean hasExtraCard() {
-        return extraCard; }
+        return extraCard;
+    }
+
+    public List<InventionType> getMyInventions()     { return Collections.unmodifiableList(myInventions); }
+    public boolean hasSetToCheck()                   { return setToCheck; }
+    public int     getSetNumberForExtraFood()        { return setNumberForExtraFood; }
+    public boolean hasInventorsToCheck()             { return inventorsToCheck; }
 
     public int getCollectorsFoodDiscount() {
         int numcollectors = 0;
@@ -355,6 +361,36 @@ public class Player {
 
     public int getTotalPoints() {
         return getTotalPointsPreEffect() + getPointsFromEndEffect();
+    }
+
+    /**
+     * Imposta direttamente tutti i campi di stato dal snapshot persistito.
+     * NON chiama onAddedToPlayer né altri side-effect: i flag sono già nella
+     * loro forma finale nel snapshot.
+     */
+    public void restoreState(int nuggets, int prestige,
+                             List<CharacterCard> chars, List<BuildingCard> buildings,
+                             List<InventionType> inventions,
+                             boolean doublePointForBuilder, boolean doublePointForRituals,
+                             boolean noMalusForRituals, boolean extraThreeStars,
+                             boolean extraFoodOnTurnOrder, boolean extraCard,
+                             boolean setToCheck, int setNumberForExtraFood,
+                             boolean inventorsToCheck, int foodDiscountFromBuildings) {
+        this.nuggets = nuggets;
+        this.prestige = prestige;
+        this.myCharacterCards = new ArrayList<>(chars);
+        this.myBuildingCards  = new ArrayList<>(buildings);
+        this.myInventions     = new ArrayList<>(inventions);
+        this.doublePointForBuilder   = doublePointForBuilder;
+        this.doublePointForRituals   = doublePointForRituals;
+        this.noMalusForRituals       = noMalusForRituals;
+        this.extraThreeStars         = extraThreeStars;
+        this.extraFoodOnTurnOrder    = extraFoodOnTurnOrder;
+        this.extraCard               = extraCard;
+        this.setToCheck              = setToCheck;
+        this.setNumberForExtraFood   = setNumberForExtraFood;
+        this.inventorsToCheck        = inventorsToCheck;
+        this.foodDiscountFromBuildings = foodDiscountFromBuildings;
     }
 
     public String toString() {

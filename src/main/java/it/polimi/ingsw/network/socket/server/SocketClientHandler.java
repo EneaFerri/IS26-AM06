@@ -8,7 +8,7 @@ import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 
 import java.io.*;
 import java.net.Socket;

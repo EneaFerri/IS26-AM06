@@ -3,7 +3,7 @@ package it.polimi.ingsw;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 
 import java.util.List;
 

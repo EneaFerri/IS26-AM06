@@ -5,7 +5,7 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.enums.TotemColor;
 import it.polimi.ingsw.network.GameServerProxy;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 import it.polimi.ingsw.view.ModelObserver;
 import javafx.animation.AnimationTimer;
@@ -51,6 +51,11 @@ public class GUIView implements ModelObserver {
     // === SPECTATOR ===
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
+
+    // === SERVER CRASH & RECONNECT ===
+    private int        savedNumPlayers  = 2;
+    private StackPane  reconnectOverlay = null;
+    // === END SERVER CRASH & RECONNECT ===
 
     // === DB RANKING ===
     private StackPane      endgameOverlayContainer;
@@ -318,6 +323,7 @@ public class GUIView implements ModelObserver {
 
     @Override
     public void onLoginAccepted(String nickname, int expectedPlayers) {
+        savedNumPlayers = expectedPlayers;
         Platform.runLater(() -> showWaitingScreen(1, expectedPlayers));
     }
 
@@ -411,7 +417,9 @@ public class GUIView implements ModelObserver {
             gameScreen.updatePhase(phase, nickname);
             parseAndUpdateStats(extraInfo);
             parseAndUpdateAllStats(extraInfo);
-            gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(extraInfo));
+            Map<String, List<Integer>> ownedByPlayer = parsePlayerOwnedCards(extraInfo);
+            gameScreen.updatePlayerOwnedCards(ownedByPlayer);
+            gameScreen.restoreHand(ownedByPlayer.getOrDefault(nick, List.of()));
 
             Age deckAge = parseDeckAge(extraInfo);
             int remainingDeck = parseDeckRemaining(extraInfo);
@@ -452,7 +460,9 @@ public class GUIView implements ModelObserver {
             // Passa sempre — updateBoardCards ignora le liste vuote internamente
             gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
-            gameScreen.updatePlayerOwnedCards(parsePlayerOwnedCards(boardSummary));
+            Map<String, List<Integer>> ownedByPlayerSnap = parsePlayerOwnedCards(boardSummary);
+            gameScreen.updatePlayerOwnedCards(ownedByPlayerSnap);
+            gameScreen.restoreHand(ownedByPlayerSnap.getOrDefault(nick, List.of()));
             Age deckAge = parseDeckAge(boardSummary);
             int remainingDeck = parseDeckRemaining(boardSummary);
             if (deckAge != null) {
@@ -752,6 +762,55 @@ public class GUIView implements ModelObserver {
         });
     }
     // === END TASK F ===
+
+    // === SERVER CRASH & RECONNECT ===
+
+    @Override
+    public void onWaitingForServer(String message) {
+        Platform.runLater(() -> {
+            Label title = new Label("Server non raggiungibile");
+            title.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                    "-fx-font-size:17;-fx-font-weight:bold;-fx-text-fill:white;");
+
+            Label msg = new Label("⚠  " + message);
+            msg.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
+                    "-fx-font-size:13;-fx-text-fill:rgba(255,255,255,0.80);-fx-text-alignment:center;");
+            msg.setWrapText(true);
+
+            VBox box = new VBox(12, title, msg);
+            box.setAlignment(Pos.CENTER);
+            box.setStyle("-fx-background-color:rgba(20,20,20,0.90);-fx-background-radius:16;" +
+                    "-fx-padding:32;");
+            box.setMaxWidth(380);
+
+            reconnectOverlay = new StackPane(box);
+            reconnectOverlay.setStyle("-fx-background-color:rgba(0,0,0,0.55);");
+
+            Scene scene = stage.getScene();
+            if (scene != null && scene.getRoot() instanceof StackPane root) {
+                root.getChildren().add(reconnectOverlay);
+            }
+        });
+    }
+
+    @Override
+    public void onServerReconnected() {
+        Platform.runLater(() -> {
+            if (reconnectOverlay != null) {
+                Scene scene = stage.getScene();
+                if (scene != null && scene.getRoot() instanceof StackPane root) {
+                    root.getChildren().remove(reconnectOverlay);
+                }
+                reconnectOverlay = null;
+            }
+        });
+        new Thread(() -> {
+            try { server.loginFirstPlayer(nick, savedNumPlayers); }
+            catch (Exception e) { System.err.println("[GUIView] Errore rientro: " + e.getMessage()); }
+        }, "gui-reconnect").start();
+    }
+
+    // === END SERVER CRASH & RECONNECT ===
 
     // === SPECTATOR ===
     @Override
