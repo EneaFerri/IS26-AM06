@@ -2,8 +2,6 @@ package it.polimi.ingsw.persistence;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.polimi.ingsw.model.Game;
-import it.polimi.ingsw.model.board.BoardSpace;
-import it.polimi.ingsw.model.board.OrderBlock;
 import it.polimi.ingsw.model.cards.*;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
