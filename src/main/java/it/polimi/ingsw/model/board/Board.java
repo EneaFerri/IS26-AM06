@@ -226,6 +226,15 @@ public class Board {
 
     }
 
+    /** Sovrascrive le quattro righe carte — usato solo dal PersistenceManager al ripristino. */
+    public void restoreCardRows(List<TribeCard> topTribe, List<TribeCard> bottomTribe,
+                                List<BuildingCard> topBuild, List<BuildingCard> bottomBuild) {
+        this.topTribeCards    = new ArrayList<>(topTribe);
+        this.bottomTribeCards = new ArrayList<>(bottomTribe);
+        this.topBuildingCards = new ArrayList<>(topBuild);
+        this.bottomBuildingCards = new ArrayList<>(bottomBuild);
+    }
+
     public void clearBoardSpaces(){
         for (BoardSpace space : offerField) {
             space.removeTotem();

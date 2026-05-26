@@ -3,7 +3,7 @@ package it.polimi.ingsw.view;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 
 import java.util.List;
 
@@ -65,6 +65,12 @@ public interface ModelObserver {
     // --- DISCONNESSIONE ---
     /** Called when another player disconnects mid-game. */
     void onPlayerDisconnected(String nickname);
+
+    // --- SERVER CRASH & RECONNECT ---
+    /** Called when the connection to the server is lost. The view should show a waiting message. */
+    void onWaitingForServer(String message);
+    /** Called when the connection to the server is restored. The view should re-login automatically. */
+    void onServerReconnected();
 
     // === SPECTATOR ===
     /**

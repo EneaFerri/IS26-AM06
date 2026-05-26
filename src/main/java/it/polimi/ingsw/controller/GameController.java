@@ -19,8 +19,9 @@ import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.model.player.Player;
 import it.polimi.ingsw.model.player.Totem;
 import it.polimi.ingsw.model.enums.TotemColor;
-import it.polimi.ingsw.persistence.DatabaseManager;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.DatabaseManager;
+import it.polimi.ingsw.database.RankingEntry;
+import it.polimi.ingsw.persistence.PersistenceManager;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -44,6 +45,9 @@ public class GameController implements GameObserver {
     private final List<String> nicks = new CopyOnWriteArrayList<>();
     private int expectedPlayers = -1;
 
+    /** true durante il periodo in cui si aspetta che i giocatori si riconnettano dopo un crash. */
+    private boolean recovering = false;
+
     // === SPECTATOR ===
     private final List<VirtualView> spectators = new CopyOnWriteArrayList<>();
     private final List<String> spectatorNicks = new CopyOnWriteArrayList<>();
@@ -53,6 +57,15 @@ public class GameController implements GameObserver {
 
     public GameController(Game game) {
         this.game = game;
+        game.addObserver(this);
+    }
+
+    /** Costruttore per partite ripristinate da disco: recovering=true blocca il salvataggio
+     *  e attende che tutti i giocatori si riconnettano prima di riprendere. */
+    public GameController(Game game, boolean recovering) {
+        this.game = game;
+        this.expectedPlayers = game.getNumberOfPlayers();
+        this.recovering = recovering;
         game.addObserver(this);
     }
 
@@ -87,6 +100,38 @@ public class GameController implements GameObserver {
     // True if a player with that nickname is registered in this lobby.
     public boolean hasPlayer(String nickname) {
         return nicks.contains(nickname);
+    }
+
+    public boolean isRecovering() { return recovering; }
+
+    /** True se il Game model (ripristinato da disco) contiene un Player con questo nickname.
+     *  A differenza di hasPlayer(), non richiede una connessione attiva. */
+    public boolean hasPlayerInGame(String nickname) {
+        return game.getPlayers().stream().anyMatch(p -> p.getNickname().equals(nickname));
+    }
+
+    /**
+     * Riconnette un client che si sta ricollegando dopo un crash del server.
+     * Quando tutti i giocatori attesi si sono riconnessi, riprende la partita
+     * inviando onGameStarting + il turno corrente.
+     */
+    public synchronized void reconnectPlayer(String nickname, VirtualView caller) {
+        clients.add(caller);
+        nicks.add(nickname);
+        try { caller.onLoginAccepted(nickname, expectedPlayers); } catch (Exception ignored) {}
+        System.out.println("[GameController] Reconnected: " + nickname
+                + " (" + nicks.size() + "/" + expectedPlayers + ")");
+
+        if (nicks.size() == expectedPlayers) {
+            recovering = false;
+            List<String> allNicks = game.getPlayers().stream()
+                    .map(Player::getNickname).toList();
+            broadcast(v -> v.onGameStarting(allNicks));
+            Player cur = game.getCurrentPlayer();
+            if (cur != null) {
+                onTurnStarted(cur.getNickname(), game.getStatus());
+            }
+        }
     }
 
     // === SPECTATOR ===
@@ -353,6 +398,9 @@ public class GameController implements GameObserver {
         } catch (Exception e) {
             System.err.println("[Controller] onTurnStarted: " + e.getMessage());
         }
+
+        // ── Persistenza: salva dopo ogni cambio turno (non durante il recovery) ──
+        if (!recovering) PersistenceManager.getInstance().save(game);
     }
 
     @Override
@@ -399,6 +447,7 @@ public class GameController implements GameObserver {
     @Override
     public void onNewEraStarted(Age newEra) {
         broadcast(v -> v.onNewEraStarted(newEra));
+        if (!recovering) PersistenceManager.getInstance().save(game);
     }
 
     @Override
@@ -430,6 +479,9 @@ public class GameController implements GameObserver {
         } catch (Exception e) {
             System.err.println("[DB] Ranking unavailable: " + e.getMessage());
         }
+
+        // FA Persistenza: partita finita normalmente → elimina il file di salvataggio
+        PersistenceManager.getInstance().delete(game.getGameID());
     }
 
     /**

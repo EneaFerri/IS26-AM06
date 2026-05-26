@@ -5,7 +5,7 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.GameServerProxy;
 import it.polimi.ingsw.network.rmi.server.VirtualViewRmi;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 
 import java.rmi.NotBoundException;
@@ -35,8 +35,9 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     private static final int    RMI_PORT         = 1099;
     private static final int    HEARTBEAT_SEC    = 10;
 
-    private final VirtualServerRmi server;
-    private final ClientModel      model;
+    private volatile VirtualServerRmi server;
+    private final ClientModel         model;
+    private String                    hostname;
 
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
@@ -53,6 +54,7 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
         Registry registry = LocateRegistry.getRegistry(host, RMI_PORT);
         VirtualServerRmi serverStub = (VirtualServerRmi) registry.lookup(SERVER_NAME);
         RmiClient client = new RmiClient(serverStub, model);
+        client.hostname = host;
         client.startHeartbeat();
         return client;
     }
@@ -79,8 +81,28 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     }
 
     private synchronized void handleServerDisconnect() {
-        model.onError("Connessione al server persa. Chiudi e riavvia il client.");
-        System.exit(1);
+        System.err.println("\n[RmiClient] Connessione al server persa.");
+        model.onWaitingForServer("Connessione RMI al server persa. Attendo che il server si riavvii...");
+        startReconnectLoop();
+    }
+
+    private void startReconnectLoop() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try { Thread.sleep(5000); } catch (InterruptedException ie) { return; }
+                try {
+                    Registry registry = LocateRegistry.getRegistry(hostname, RMI_PORT);
+                    server = (VirtualServerRmi) registry.lookup(SERVER_NAME);
+                    startHeartbeat();
+                    model.onServerReconnected();
+                    return;
+                } catch (Exception e) {
+                    System.err.println("[RmiClient] Reconnect failed: " + e.getMessage());
+                }
+            }
+        }, "rmi-reconnect");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ─────────────────────────────────────────────────────────────────────

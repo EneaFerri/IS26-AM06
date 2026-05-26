@@ -2701,6 +2701,13 @@ public class GameScreen {
         handBox.getChildren().add(card);
     }
 
+    public void restoreHand(List<Integer> cardIds) {
+        handBox.getChildren().clear();
+        for (int cardId : cardIds) {
+            addCardToHand(cardId);
+        }
+    }
+
     private StackPane buildHandCardNode(int cardId) {
         return buildCardSlot(cardId, true);
     }

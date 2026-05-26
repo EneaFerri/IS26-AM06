@@ -19,7 +19,7 @@ import java.util.Map;
  */
 public class SocketServerProxy implements GameServerProxy {
 
-    private final PrintWriter  out;
+    private PrintWriter out;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public SocketServerProxy(PrintWriter out) {
@@ -79,6 +79,10 @@ public class SocketServerProxy implements GameServerProxy {
     }
 
     // === END SPECTATOR ===
+
+    // ── Reconnect ─────────────────────────────────────────────────────────
+
+    public synchronized void updateOutput(PrintWriter out) { this.out = out; }
 
     // ── Heartbeat ─────────────────────────────────────────────────────────
 

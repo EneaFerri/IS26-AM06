@@ -1,4 +1,4 @@
-package it.polimi.ingsw.persistence;
+package it.polimi.ingsw.database;
 
 import it.polimi.ingsw.model.player.Player;
 

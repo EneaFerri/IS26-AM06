@@ -1,4 +1,4 @@
-package it.polimi.ingsw.persistence;
+package it.polimi.ingsw.database;
 
 import java.io.Serializable;
 import java.time.LocalDate;

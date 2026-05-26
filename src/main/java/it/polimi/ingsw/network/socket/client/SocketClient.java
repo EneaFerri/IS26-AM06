@@ -7,7 +7,7 @@ import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.utils.PingPongManager;
 import it.polimi.ingsw.network.utils.message.MessageType;
 import it.polimi.ingsw.network.utils.message.NetworkMessage;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 import it.polimi.ingsw.view.ClientModel;
 
 import java.io.*;
@@ -27,7 +27,8 @@ import java.util.stream.Collectors;
  *     and calls the corresponding ClientModel.onXxx() methods.
  *  4. Manages a HeartbeatManager: responds to PING with PONG; sends its own
  *     PING to detect server unavailability.
- *  5. On disconnection, notifies ClientModel so CLIView can show the error.
+ *  5. On disconnection, notifies ClientModel and starts a reconnect loop that
+ *     retries every 5s until the server comes back.
  */
 public class SocketClient {
 
@@ -35,7 +36,9 @@ public class SocketClient {
 
     private final ClientModel      model;
     private final ObjectMapper     mapper    = new ObjectMapper();
-    private final PingPongManager heartbeat = new PingPongManager();
+
+    private PingPongManager heartbeat;
+    private String          hostname;
 
     private SocketServerProxy proxy;
     private volatile boolean  running = true;
@@ -59,6 +62,8 @@ public class SocketClient {
      * @return the SocketServerProxy that CLIView should use as its GameServerProxy
      */
     public SocketServerProxy connect(String host) throws IOException {
+        this.hostname = host;
+
         Socket socket = new Socket(host, SOCKET_PORT);
         System.out.println("[SocketClient] Connected to " + host + ":" + SOCKET_PORT);
 
@@ -69,7 +74,7 @@ public class SocketClient {
 
         proxy = new SocketServerProxy(out);
 
-        // Heartbeat: we send PINGs to detect server disappearance.
+        heartbeat = new PingPongManager();
         heartbeat.start(
                 () -> { try { proxy.ping(); } catch (Exception e) { handleServerDisconnect(); } },
                 ()  -> handleServerDisconnect()
@@ -235,7 +240,7 @@ public class SocketClient {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  DISCONNECTION
+    //  DISCONNECTION & RECONNECT
     // ─────────────────────────────────────────────────────────────────────
 
     private synchronized void handleServerDisconnect() {
@@ -243,7 +248,41 @@ public class SocketClient {
         running = false;
         heartbeat.stop();
         System.err.println("\n[SocketClient] Connessione al server persa.");
-        model.onError("Connessione al server persa. Chiudi e riavvia il client.");
-        System.exit(1);
+        model.onWaitingForServer("Connessione al server persa. Attendo che il server si riavvii...");
+        startReconnectLoop();
+    }
+
+    private void startReconnectLoop() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try { Thread.sleep(5000); } catch (InterruptedException ie) { return; }
+                try {
+                    Socket socket = new Socket(hostname, SOCKET_PORT);
+                    PrintWriter out = new PrintWriter(new BufferedWriter(
+                            new OutputStreamWriter(socket.getOutputStream(), "UTF-8")), true);
+                    BufferedReader in = new BufferedReader(
+                            new InputStreamReader(socket.getInputStream(), "UTF-8"));
+
+                    proxy.updateOutput(out);
+                    running = true;
+                    heartbeat = new PingPongManager();
+                    heartbeat.start(
+                            () -> { try { proxy.ping(); } catch (Exception e) { handleServerDisconnect(); } },
+                            ()  -> handleServerDisconnect()
+                    );
+
+                    Thread reader = new Thread(() -> readLoop(in, socket), "socket-reader");
+                    reader.setDaemon(true);
+                    reader.start();
+
+                    model.onServerReconnected();
+                    return;
+                } catch (IOException e) {
+                    System.err.println("[SocketClient] Reconnect failed: " + e.getMessage());
+                }
+            }
+        }, "socket-reconnect");
+        t.setDaemon(true);
+        t.start();
     }
 }

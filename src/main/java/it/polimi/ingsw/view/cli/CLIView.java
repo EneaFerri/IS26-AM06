@@ -4,7 +4,7 @@ import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
 import it.polimi.ingsw.network.GameServerProxy;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 import it.polimi.ingsw.view.ModelObserver;
 
 import java.util.List;
@@ -42,8 +42,9 @@ public class CLIView implements ModelObserver {
     /** "OK" = action accepted | "RETRY:<msg>" = action rejected */
     private final LinkedBlockingQueue<String> actionResultQueue = new LinkedBlockingQueue<>(1);
 
-    private volatile String  myNick      = "";
-    private volatile Thread  inputThread = null;
+    private volatile String  myNick           = "";
+    private volatile Thread  inputThread      = null;
+    private          int     savedNumPlayers  = 2;
     // === SPECTATOR ===
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
@@ -99,6 +100,7 @@ public class CLIView implements ModelObserver {
     @Override
     public void onLoginAccepted(String nickname, int expectedPlayers) {
         myNick = nickname;
+        savedNumPlayers = expectedPlayers;
         printBanner("LOGIN ACCETTATO!");
         System.out.printf("  Benvenuto, %s%n", nickname);
         System.out.printf("  In attesa di %d giocatori...%n", expectedPlayers);
@@ -479,6 +481,25 @@ public class CLIView implements ModelObserver {
         System.out.println("  Il giocatore " + nickname + " si è disconnesso.");
         System.out.println("  La partita potrebbe non poter continuare.");
         printLine();
+    }
+
+    // --- SERVER CRASH & RECONNECT ---
+
+    @Override
+    public void onWaitingForServer(String message) {
+        System.out.println();
+        printBanner("SERVER NON RAGGIUNGIBILE");
+        System.out.println("  ⚠  " + message);
+        printLine();
+    }
+
+    @Override
+    public void onServerReconnected() {
+        printBanner("SERVER RICONNESSO!");
+        System.out.println("  ✓  Rientro nella partita...");
+        printLine();
+        try { server.loginFirstPlayer(myNick, savedNumPlayers); }
+        catch (Exception e) { System.err.println("  ✗ Errore rientro: " + e.getMessage()); }
     }
 
     // === SPECTATOR ===

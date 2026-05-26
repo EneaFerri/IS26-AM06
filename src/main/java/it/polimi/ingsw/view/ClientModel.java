@@ -3,7 +3,7 @@ package it.polimi.ingsw.view;
 import it.polimi.ingsw.controller.LobbyManager;
 import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.GameState;
-import it.polimi.ingsw.persistence.RankingEntry;
+import it.polimi.ingsw.database.RankingEntry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -124,6 +124,14 @@ public class ClientModel {
         observers.forEach(o -> o.onSpectatorJoined(currentPlayerNick, boardSummary));
     }
     // === END SPECTATOR ===
+
+    // --- SERVER CRASH & RECONNECT ---
+    public void onWaitingForServer(String message) {
+        observers.forEach(o -> o.onWaitingForServer(message));
+    }
+    public void onServerReconnected() {
+        observers.forEach(o -> o.onServerReconnected());
+    }
 
     // --- Getters ---
     public String       getMyNickname()      { return myNickname; }
