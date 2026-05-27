@@ -25,7 +25,9 @@ import it.polimi.ingsw.persistence.PersistenceManager;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,12 @@ public class GameController implements GameObserver {
     /** true durante il periodo in cui si aspetta che i giocatori si riconnettano dopo un crash. */
     private boolean recovering = false;
 
+    /** true quando tutti i giocatori reali si sono disconnessi — i bot smettono di agire. */
+    private volatile boolean gameAborted = false;
+
+    /** Nickname dei player attualmente sostituiti da un bot (sia in gioco che durante il recovery). */
+    private final Set<String> botNicknames = new HashSet<>();
+
     // === SPECTATOR ===
     private final List<VirtualView> spectators = new CopyOnWriteArrayList<>();
     private final List<String> spectatorNicks = new CopyOnWriteArrayList<>();
@@ -66,6 +74,19 @@ public class GameController implements GameObserver {
         this.game = game;
         this.expectedPlayers = game.getNumberOfPlayers();
         this.recovering = recovering;
+        game.addObserver(this);
+    }
+
+    /**
+     * Costruttore per partite ripristinate da disco con bot salvati.
+     * I nickname in savedBotNicknames non devono riconnettersi: vengono ricreati
+     * automaticamente come Bot non appena tutti i player reali sono tornati.
+     */
+    public GameController(Game game, boolean recovering, List<String> savedBotNicknames) {
+        this.game = game;
+        this.expectedPlayers = game.getNumberOfPlayers();
+        this.recovering = recovering;
+        if (savedBotNicknames != null) this.botNicknames.addAll(savedBotNicknames);
         game.addObserver(this);
     }
 
@@ -103,11 +124,13 @@ public class GameController implements GameObserver {
     }
 
     public boolean isRecovering() { return recovering; }
+    public boolean isAborted()    { return gameAborted; }
 
-    /** True se il Game model (ripristinato da disco) contiene un Player con questo nickname.
-     *  A differenza di hasPlayer(), non richiede una connessione attiva. */
+    /** True se il Game model (ripristinato da disco) contiene un Player con questo nickname
+     *  E quel player non era già un bot al momento del crash (i bot si riconnettono in automatico). */
     public boolean hasPlayerInGame(String nickname) {
-        return game.getPlayers().stream().anyMatch(p -> p.getNickname().equals(nickname));
+        return game.getPlayers().stream().anyMatch(p -> p.getNickname().equals(nickname))
+                && !botNicknames.contains(nickname);
     }
 
     /**
@@ -119,10 +142,22 @@ public class GameController implements GameObserver {
         clients.add(caller);
         nicks.add(nickname);
         try { caller.onLoginAccepted(nickname, expectedPlayers); } catch (Exception ignored) {}
-        System.out.println("[GameController] Reconnected: " + nickname
-                + " (" + nicks.size() + "/" + expectedPlayers + ")");
 
-        if (nicks.size() == expectedPlayers) {
+        // I player "reali" da attendere sono quelli che non erano bot al momento del crash.
+        int realExpected = expectedPlayers - botNicknames.size();
+        System.out.println("[GameController] Reconnected: " + nickname
+                + " (" + nicks.size() + "/" + realExpected + " reali, "
+                + botNicknames.size() + " bot da respawnare)");
+
+        if (nicks.size() == realExpected) {
+            // Tutti i player reali sono tornati → ricrea i bot per i posti mancanti
+            for (String botNick : botNicknames) {
+                Bot bot = new Bot(botNick, this, game);
+                clients.add(bot);
+                nicks.add(botNick);
+                System.out.println("[GameController] Bot ricreato per: " + botNick);
+            }
+
             recovering = false;
             List<String> allNicks = game.getPlayers().stream()
                     .map(Player::getNickname).toList();
@@ -400,7 +435,7 @@ public class GameController implements GameObserver {
         }
 
         // ── Persistenza: salva dopo ogni cambio turno (non durante il recovery) ──
-        if (!recovering) PersistenceManager.getInstance().save(game);
+        if (!recovering) PersistenceManager.getInstance().save(game, botNicknames);
     }
 
     @Override
@@ -447,7 +482,7 @@ public class GameController implements GameObserver {
     @Override
     public void onNewEraStarted(Age newEra) {
         broadcast(v -> v.onNewEraStarted(newEra));
-        if (!recovering) PersistenceManager.getInstance().save(game);
+        if (!recovering) PersistenceManager.getInstance().save(game, botNicknames);
     }
 
     @Override
@@ -486,12 +521,92 @@ public class GameController implements GameObserver {
 
     /**
      * Called by LobbyManager when a client connection drops unexpectedly.
-     * Broadcasts onPlayerDisconnected to all remaining clients in this lobby.
-     * The game state is left intact — a future reconnection mechanism could resume.
+     *
+     * If real players remain, the disconnected player's VirtualView is replaced
+     * by a BotVirtualView that continues the game with random choices.
+     * If NO real players remain, the game is marked as aborted and the lobby
+     * will be removed by LobbyManager.
      */
     public synchronized void onPlayerDisconnected(String nickname) {
         System.out.println("[GameController] Player disconnected: " + nickname);
-        broadcast(v -> v.onPlayerDisconnected(nickname));
+
+        int idx = nicks.indexOf(nickname);
+        if (idx < 0) {
+            // Player not in the active list (spectator path already handled by LobbyManager).
+            broadcast(v -> v.onPlayerDisconnected(nickname));
+            return;
+        }
+
+        // Se il player è già rappresentato da un Bot, questa notifica è stale:
+        // arriva dalla nuova connessione creata dal loop FA4 (che non ha trovato un
+        // recovering game e ha aperto una nuova lobby). Ignorare per evitare abort improprio.
+        if (clients.get(idx) instanceof Bot) {
+            System.out.println("[GameController] Player " + nickname
+                    + " è già un bot — notifica stale ignorata.");
+            return;
+        }
+
+        // Count real (non-bot) clients that will remain after this disconnection.
+        long realRemaining = countRealClients() - 1;
+
+        if (realRemaining <= 0) {
+            // No real player left — abort the game without spawning a bot.
+            System.out.println("[GameController] All players disconnected — aborting game " + game.getGameID());
+            broadcast(v -> v.onPlayerDisconnected(nickname));
+            gameAborted = true;
+            return;
+        }
+
+        // Replace the disconnected player's VirtualView with a bot.
+        Bot bot = new Bot(nickname, this, game);
+        clients.set(idx, bot);
+        botNicknames.add(nickname);  // traccia il posto come "bot" per la persistenza
+
+        broadcast(v -> v.onPlayerDisconnected(nickname));    // "X si è disconnesso"
+        broadcast(v -> v.onPlayerReplacedByBot(nickname));   // "X verrà sostituito da un bot"
+
+        // If it was the disconnected player's turn, re-trigger the turn for the bot.
+        Player cur = game.getCurrentPlayer();
+        if (cur != null && cur.getNickname().equals(nickname)) {
+            onTurnStarted(nickname, game.getStatus());
+        }
+    }
+
+    /**
+     * Forces the end of a bot's turn when no valid card pick is available.
+     * Package-private so BotVirtualView (same package) can call it.
+     *
+     * Replicates the exact advancement logic that Game.pickCard() executes
+     * after the last pick: returnTotemToTurnOrder → advanceNextPlayer →
+     * resolveEvents (if needed) → notify next player.
+     * All three Game methods are public, so Game.java is not modified.
+     */
+    synchronized void skipBotPick(String nickname) {
+        Player player = findPlayer(nickname);
+        if (player == null) return;
+        game.returnTotemToTurnOrder(player);
+        game.advanceNextPlayer();
+        if (game.getStatus() == GameState.EVENTS) {
+            game.resolveEvents();
+            return;
+        }
+        Player next = game.getCurrentPlayer();
+        if (next != null) onTurnStarted(next.getNickname(), game.getStatus());
+    }
+
+    /** Number of connected clients that are real players (not BotVirtualView instances). */
+    private long countRealClients() {
+        return clients.stream().filter(v -> !(v instanceof Bot)).count();
+    }
+
+    /**
+     * True se il player con quel nickname è attualmente rappresentato da un Bot
+     * (non da un client di rete reale). Usato da LobbyManager per preferire
+     * le lobby dove il player è ancora un client reale.
+     */
+    public synchronized boolean isBotPlayer(String nickname) {
+        int idx = nicks.indexOf(nickname);
+        return idx >= 0 && clients.get(idx) instanceof Bot;
     }
 
 

@@ -65,6 +65,8 @@ public interface ModelObserver {
     // --- DISCONNESSIONE ---
     /** Called when another player disconnects mid-game. */
     void onPlayerDisconnected(String nickname);
+    /** Called when a disconnected player is replaced by a bot. */
+    void onPlayerReplacedByBot(String nickname);
 
     // --- SERVER CRASH & RECONNECT ---
     /** Called when the connection to the server is lost. The view should show a waiting message. */

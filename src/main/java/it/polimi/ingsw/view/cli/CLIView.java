@@ -479,7 +479,15 @@ public class CLIView implements ModelObserver {
         System.out.println();
         printBanner("⚠ DISCONNESSIONE: " + nickname.toUpperCase());
         System.out.println("  Il giocatore " + nickname + " si è disconnesso.");
-        System.out.println("  La partita potrebbe non poter continuare.");
+        printLine();
+    }
+
+    @Override
+    public void onPlayerReplacedByBot(String nickname) {
+        System.out.println();
+        printBanner("🤖 BOT ATTIVATO: " + nickname.toUpperCase());
+        System.out.println("  Il giocatore '" + nickname + "' è stato disconnesso.");
+        System.out.println("  Un bot continuerà la partita al suo posto.");
         printLine();
     }
 

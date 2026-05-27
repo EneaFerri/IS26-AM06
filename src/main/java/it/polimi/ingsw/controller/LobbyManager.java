@@ -40,7 +40,9 @@ public class LobbyManager {
         for (GameSnapshot snap : saved) {
             try {
                 Game restored = PersistenceManager.getInstance().restore(snap);
-                GameController gc = new GameController(restored, true);
+                // Passa i nickname dei bot salvati: verranno ricreati automaticamente
+                // quando tutti i player reali si riconnetteranno.
+                GameController gc = new GameController(restored, true, snap.botNicknames());
                 lobbies.add(gc);
                 nextGameId = Math.max(nextGameId, snap.gameId() + 1);
                 System.out.println("[LobbyManager] Partita ripristinata: game_" + snap.gameId()
@@ -172,6 +174,10 @@ public class LobbyManager {
         }
         System.out.println("[LobbyManager] Broadcasting disconnect of: " + nickname);
         lobby.onPlayerDisconnected(nickname);
+        if (lobby.isAborted()) {
+            lobbies.remove(lobby);   // tutti i player si sono disconnessi → rimuovi la lobby
+            System.out.println("[LobbyManager] Lobby rimossa (tutti i giocatori disconnessi).");
+        }
         broadcastLobbyListUpdate();
     }
 
@@ -255,12 +261,25 @@ public class LobbyManager {
                 .orElse(null);
     }
 
-    /** Lobby che contiene già il giocatore con quel nickname. */
+    /**
+     * Lobby che contiene già il giocatore con quel nickname.
+     *
+     * Preferisce la lobby in cui il player è un client reale (non un Bot):
+     * quando il loop FA4 riconnette un player già sostituito da un bot, crea una
+     * seconda lobby (GameN) con quel nickname. Se GameN si disconnette, vogliamo
+     * trovare GameN (dove il player è reale) e non la lobby originale (dove è già
+     * un bot), altrimenti quella verrebbe abbortita impropriamente.
+     */
     private GameController findLobbyOf(String nickname) {
+        // Prima cerca una lobby dove il player è un client reale (non bot)
+        GameController real = lobbies.stream()
+                .filter(l -> l.hasPlayer(nickname) && !l.isBotPlayer(nickname))
+                .findFirst().orElse(null);
+        if (real != null) return real;
+        // Fallback: qualsiasi lobby che contiene quel nickname (es. solo bot)
         return lobbies.stream()
                 .filter(l -> l.hasPlayer(nickname))
-                .findFirst()
-                .orElse(null);
+                .findFirst().orElse(null);
     }
 
     /** Lobby con un ID specifico (1-based). */

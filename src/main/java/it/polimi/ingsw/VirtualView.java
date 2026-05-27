@@ -67,6 +67,8 @@ public interface VirtualView {
     // --- DISCONNESSIONE ---
     /** Broadcast to all remaining clients when a player disconnects mid-game. */
     void onPlayerDisconnected(String nickname)                           throws Exception;
+    /** Broadcast to all remaining clients when the disconnected player is replaced by a bot. */
+    void onPlayerReplacedByBot(String nickname)                          throws Exception;
 
     // === SPECTATOR ===
     /**

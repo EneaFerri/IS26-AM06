@@ -25,5 +25,6 @@ public record GameSnapshot(
         List<Integer> buildingsInGameIds,    // cardId edifici in partita
 
         int topPicks,
-        int bottomPicks
+        int bottomPicks,
+        List<String> botNicknames            // nickname dei player sostituiti da bot al momento del salvataggio
 ) {}

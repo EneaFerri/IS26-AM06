@@ -54,6 +54,7 @@ public interface VirtualViewRmi extends Remote, VirtualView {
 
     // --- DISCONNESSIONE ---
     @Override void onPlayerDisconnected(String nickname)                             throws RemoteException;
+    @Override void onPlayerReplacedByBot(String nickname)                            throws RemoteException;
 
     // === SPECTATOR ===
     @Override void onSpectatorJoined(String currentPlayerNick, String boardSummary)  throws RemoteException;

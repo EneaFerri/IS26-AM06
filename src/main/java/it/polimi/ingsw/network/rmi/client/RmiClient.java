@@ -213,6 +213,9 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     @Override public void onPlayerDisconnected(String nickname) throws RemoteException {
         model.onPlayerDisconnected(nickname);
     }
+    @Override public void onPlayerReplacedByBot(String nickname) throws RemoteException {
+        model.onPlayerReplacedByBot(nickname);
+    }
 
     // === SPECTATOR ===
     @Override public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws RemoteException {

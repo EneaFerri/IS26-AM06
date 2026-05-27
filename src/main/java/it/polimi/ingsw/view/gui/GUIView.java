@@ -761,6 +761,17 @@ public class GUIView implements ModelObserver {
             }
         });
     }
+
+    @Override
+    public void onPlayerReplacedByBot(String nickname) {
+        Platform.runLater(() -> {
+            if (gameScreen != null) {
+                gameScreen.showToast("🤖  " + nickname + " è disconnesso — sostituito da un bot.");
+            } else if (lobbyStatusLabel != null) {
+                lobbyStatusLabel.setText("🤖  " + nickname + " è disconnesso — sostituito da un bot.");
+            }
+        });
+    }
     // === END TASK F ===
 
     // === SERVER CRASH & RECONNECT ===

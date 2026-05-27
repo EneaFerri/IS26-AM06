@@ -81,6 +81,8 @@ public enum MessageType {
     // ── S→C  disconnection ────────────────────────────────────────────────
     /** Broadcast when a player disconnects. Payload: nickname */
     ON_PLAYER_DISCONNECTED,
+    /** Broadcast when a disconnected player is replaced by a bot. Payload: nickname */
+    ON_PLAYER_REPLACED_BY_BOT,
 
     // ── ↔  heartbeat ──────────────────────────────────────────────────────
     PING,

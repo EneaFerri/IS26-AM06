@@ -15,6 +15,9 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /*
@@ -30,7 +33,8 @@ import java.util.stream.Collectors;
  *     LobbyManager so the other players in the lobby are informed.
  *
  * ── Thread safety ───────────────────────────────────────────────────────────
- *  send() serialises JSON outside the lock, then sendRaw() acquires it to write.
+ *  send() serialises JSON and enqueues it (non-blocking); senderLoop() writes to the socket
+ *  on a dedicated daemon thread, never holding any game lock.
  *  out/nickname/running are volatile for cross-thread visibility.
  *  handleDisconnect() is idempotent (guarded by `running`).
  */
@@ -44,6 +48,11 @@ public class SocketClientHandler implements VirtualView, Runnable {
     private volatile PrintWriter  out;
     private volatile String       nickname;       // set on successful login
     private volatile boolean      running = true;
+
+    // Per-client async send queue: VirtualView methods enqueue JSON and return immediately.
+    // The senderThread drains the queue and writes to the socket without holding any game lock.
+    private final BlockingQueue<String> sendQueue = new LinkedBlockingQueue<>(256);
+    private volatile Thread senderThread;
 
     public SocketClientHandler(Socket socket, LobbyManager lobbyManager) {
         this.socket      = socket;
@@ -63,6 +72,11 @@ public class SocketClientHandler implements VirtualView, Runnable {
                     new InputStreamReader(socket.getInputStream(), "UTF-8"));
 
             System.out.println("[SocketHandler] Client connected: " + socket.getRemoteSocketAddress());
+
+            senderThread = new Thread(this::senderLoop,
+                    "sender-" + socket.getRemoteSocketAddress());
+            senderThread.setDaemon(true);
+            senderThread.start();
 
             heartbeat.start(
                     () -> send(new NetworkMessage(MessageType.PING)),
@@ -85,6 +99,27 @@ public class SocketClientHandler implements VirtualView, Runnable {
             }
         } finally {
             handleDisconnect("connection closed");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  ASYNC SENDER LOOP
+    // ─────────────────────────────────────────────────────────────────────
+
+    private void senderLoop() {
+        try {
+            while (running) {
+                String json = sendQueue.poll(5, TimeUnit.SECONDS);
+                if (json == null) continue; // idle timeout — re-check running
+                out.println(json);
+                if (out.checkError()) throw new IOException("PrintWriter error");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            System.err.println("[SocketHandler] Sender error for "
+                    + (nickname != null ? nickname : "unknown") + ": " + e.getMessage());
+            handleDisconnect("send failure");
         }
     }
 
@@ -285,6 +320,12 @@ public class SocketClientHandler implements VirtualView, Runnable {
                 Map.of("nickname", disconnectedNick)));
     }
 
+    @Override
+    public void onPlayerReplacedByBot(String nickname) throws Exception {
+        send(new NetworkMessage(MessageType.ON_PLAYER_REPLACED_BY_BOT,
+                Map.of("nickname", nickname)));
+    }
+
     // === SPECTATOR ===
     @Override
     public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception {
@@ -294,29 +335,18 @@ public class SocketClientHandler implements VirtualView, Runnable {
     // === END SPECTATOR ===
 
     // ─────────────────────────────────────────────────────────────────────
-    //  SEND  (synchronised — multiple server threads may call VirtualView)
+    //  SEND  (non-blocking — enqueues JSON for the senderLoop thread)
     // ─────────────────────────────────────────────────────────────────────
 
     private void send(NetworkMessage msg) {
-        String json;
         try {
-            json = mapper.writeValueAsString(msg); // serializzazione fuori dal lock
+            String json = mapper.writeValueAsString(msg);
+            if (running && !sendQueue.offer(json)) {
+                System.err.println("[SocketHandler] Send queue full for "
+                        + (nickname != null ? nickname : "unknown") + " — dropping message");
+            }
         } catch (Exception e) {
             System.err.println("[SocketHandler] Serialization error: " + e.getMessage());
-            return;
-        }
-        sendRaw(json);
-    }
-
-    private synchronized void sendRaw(String json) {
-        if (!running || out == null) return;
-        try {
-            out.println(json);
-            if (out.checkError()) throw new IOException("PrintWriter error");
-        } catch (Exception e) {
-            System.err.println("[SocketHandler] Send error to "
-                    + (nickname != null ? nickname : "unknown") + ": " + e.getMessage());
-            handleDisconnect("send failure");
         }
     }
 
@@ -331,12 +361,16 @@ public class SocketClientHandler implements VirtualView, Runnable {
             running = false;
             heartbeat.stop();
             try { socket.close(); } catch (IOException ignored) {}
+            // Interrupt the sender thread so it exits its poll() immediately
+            // instead of waiting up to 5 seconds for the next idle timeout.
+            if (senderThread != null) senderThread.interrupt();
+            sendQueue.clear();
             System.out.println("[SocketHandler] Disconnected: "
                     + (nickname != null ? nickname : "unknown") + " — " + reason);
             nick = nickname;
         }
         // LobbyManager chiamato fuori dal lock per evitare deadlock:
-        // heartbeat thread: SocketClientHandler → LobbyManager → GameController
+        // senderLoop thread: SocketClientHandler → LobbyManager → GameController
         // read loop thread: LobbyManager → GameController → SocketClientHandler
         // rilasciando il lock prima di chiamare LobbyManager si spezza il ciclo.
         if (nick != null) {

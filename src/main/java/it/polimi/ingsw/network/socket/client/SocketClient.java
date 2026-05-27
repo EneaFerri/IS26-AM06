@@ -224,6 +224,9 @@ public class SocketClient {
             case ON_PLAYER_DISCONNECTED ->
                     model.onPlayerDisconnected(msg.str("nickname"));
 
+            case ON_PLAYER_REPLACED_BY_BOT ->
+                    model.onPlayerReplacedByBot(msg.str("nickname"));
+
             // === SPECTATOR ===
             case ON_SPECTATOR_JOINED ->
                     model.onSpectatorJoined(msg.str("currentPlayerNick"), msg.str("boardSummary"));

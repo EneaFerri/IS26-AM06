@@ -50,10 +50,10 @@ public class PersistenceManager {
     //  SAVE
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Serializza lo stato corrente della partita su disco. */
-    public void save(Game game) {
+    /** Serializza lo stato corrente della partita su disco, includendo i nickname dei bot attivi. */
+    public void save(Game game, Collection<String> botNicknames) {
         try {
-            GameSnapshot snap = toSnapshot(game);
+            GameSnapshot snap = toSnapshot(game, botNicknames);
             File file = saveFile(game.getGameID());
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, snap);
         } catch (Exception e) {
@@ -170,7 +170,7 @@ public class PersistenceManager {
     //  CONVERSIONE Game → GameSnapshot
     // ─────────────────────────────────────────────────────────────────────────
 
-    private GameSnapshot toSnapshot(Game game) {
+    private GameSnapshot toSnapshot(Game game, Collection<String> botNicknames) {
         // Players
         List<PlayerSnapshot> playerSnaps = game.getPlayers().stream()
                 .map(this::playerToSnapshot)
@@ -205,7 +205,8 @@ public class PersistenceManager {
                 roundOrderNicks,
                 playerSnaps, boardSnap, toSnap,
                 deckI, deckII, deckIII, finals, bldgs,
-                game.getTopPicks(), game.getBottomPicks()
+                game.getTopPicks(), game.getBottomPicks(),
+                new ArrayList<>(botNicknames)
         );
     }
 

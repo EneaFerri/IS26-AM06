@@ -119,6 +119,10 @@ public class ClientModel {
         observers.forEach(o -> o.onPlayerDisconnected(nickname));
     }
 
+    public void onPlayerReplacedByBot(String nickname) {
+        observers.forEach(o -> o.onPlayerReplacedByBot(nickname));
+    }
+
     // === SPECTATOR ===
     public void onSpectatorJoined(String currentPlayerNick, String boardSummary) {
         observers.forEach(o -> o.onSpectatorJoined(currentPlayerNick, boardSummary));
