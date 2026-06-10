@@ -38,8 +38,8 @@ public class GameScreen {
     // ── Costanti layout ───────────────────────────────────────────────────
     private static final double BOARD_TILE_W  = 110;
     private static final double BOARD_TILE_H  = 155;
-    private static final double BLOCK_W       = 88;
-    private static final double BLOCK_H       = 125;
+    private static final double BLOCK_W       = 110;
+    private static final double BLOCK_H       = 155;
     private static final double CARD_W = 95;
     private static final double CARD_H = 134;
 
@@ -881,6 +881,16 @@ public class GameScreen {
                 rootWrapper.widthProperty().multiply(0.40 * CARD_H / CARD_W)
         ));
         cardDetailImage.setSmooth(true);
+
+        cardDetailImage.setPreserveRatio(false);   // così le bind mantengono il ratio corretto
+
+        Rectangle detailClip = new Rectangle();
+        detailClip.setArcWidth(20);
+        detailClip.setArcHeight(20);
+        detailClip.widthProperty().bind(cardDetailImage.fitWidthProperty());    // si aggiorna automaticamente
+        detailClip.heightProperty().bind(cardDetailImage.fitHeightProperty());
+        cardDetailImage.setClip(detailClip);
+
         cardDetailImage.setCache(true);
         cardDetailImage.setEffect(new DropShadow(30, Color.rgb(0, 0, 0, 0.50)));
 
@@ -1516,10 +1526,11 @@ public class GameScreen {
     private StackPane buildOwnedCardPreview(int cardId) {
         Image img = buildCardDetailImage(cardId);
         ImageView view = new ImageView(img);
-        view.setPreserveRatio(true);
+        // view.setPreserveRatio(true);
         view.setFitWidth(CARD_W * 1.25);
         view.setFitHeight(CARD_H * 1.25);
         view.setSmooth(true);
+        applyRoundedClip(view, CARD_W * 1.25, CARD_H * 1.25);
 
         StackPane slot = new StackPane(view);
         slot.setPadding(new Insets(3));
@@ -2087,14 +2098,17 @@ public class GameScreen {
         botRowBox.setPadding(new Insets(8, 0, 8, 0));
         botRowBox.setMaxWidth(Region.USE_PREF_SIZE);
 
-        boardRowBox = new HBox(10);
+        boardRowBox = new HBox(0);   // nessun gap globale
         boardRowBox.setAlignment(Pos.CENTER);
         boardRowBox.setFillHeight(false);
 
-        // il mazzo deve stare nel cuore della partita, non in una sidebar laterale:
-        // lo aggancio qui, subito prima dell'ordine totem, così resta leggibile e coerente col board.
-        boardRowBox.getChildren().add(buildDeckTrack());
-        boardRowBox.getChildren().add(buildTurnOrderTrack());
+        VBox deckNode = buildDeckTrack();
+        HBox.setMargin(deckNode, new Insets(0, 10, 0, 0));   // 10px solo a destra del mazzo
+        boardRowBox.getChildren().add(deckNode);
+
+        VBox turnOrderNode = buildTurnOrderTrack();
+        HBox.setMargin(turnOrderNode, new Insets(0, 10, 0, 0));   // 10px solo a destra dell'ordine
+        boardRowBox.getChildren().add(turnOrderNode);
 
         for (String letter : activeSpaces)
             boardRowBox.getChildren().add(buildBoardSpace(letter));
@@ -2178,7 +2192,7 @@ public class GameScreen {
                 "-fx-font-size:11;-fx-font-weight:bold;" +
                 "-fx-text-fill:rgba(255,255,255,0.70);");
 
-        StackPane tile = new StackPane(bg, totemSlot, letterLbl);
+        StackPane tile = new StackPane(bg, totemSlot);
         // clippo la tile alla sua dimensione reale:
         // il totem può uscire visivamente verso l'alto, ma l'area interattiva della tessera
         // deve restare solo quella del board space, altrimenti sposta la hitbox sopra le carte.
@@ -2221,6 +2235,7 @@ public class GameScreen {
         if (cardId != null) {
             ImageView front = loadImage("/gui/cards/card_" + cardId + ".png",
                     CARD_W, CARD_H);
+            applyRoundedClip(front, CARD_W, CARD_H);
             if (front.getImage() != null && !front.getImage().isError()) {
                 slot.getChildren().add(front);
                 return slot;
@@ -2231,6 +2246,14 @@ public class GameScreen {
                 : "/gui/cards/backs/back_build1.png";
         slot.getChildren().add(loadImage(backPath, CARD_W, CARD_H));
         return slot;
+    }
+
+    private void applyRoundedClip(ImageView iv, double w, double h) {
+        iv.setPreserveRatio(false);
+        Rectangle clip = new Rectangle(w, h);
+        clip.setArcWidth(14);
+        clip.setArcHeight(14);
+        iv.setClip(clip);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -2687,7 +2710,7 @@ public class GameScreen {
             TotemColor color = totemColors.getOrDefault(nick, TotemColor.BLUE);
             applyPlayerTotemColor(nick, color);
             ImageView tv = loadImage(
-                    "/gui/totems/totem_" + color.name().toLowerCase() + ".png", 22, 28);
+                    "/gui/totems/totem_" + color.name().toLowerCase() + ".png", 28, 36);
             turnOrderTotemSlots.getChildren().add(tv);
         }
     }
@@ -3497,13 +3520,14 @@ public class GameScreen {
         try {
             var url = getClass().getResource(path);
             if (url != null) {
-                Image img = new Image(url.toExternalForm(), w, h, true, true);
+                Image img = new Image(url.toExternalForm());
                 iv.setImage(img);
             }
         } catch (Exception ignored) {}
         iv.setFitWidth(w);
         iv.setFitHeight(h);
         iv.setPreserveRatio(true);
+        iv.setSmooth(true);
         return iv;
     }
 
