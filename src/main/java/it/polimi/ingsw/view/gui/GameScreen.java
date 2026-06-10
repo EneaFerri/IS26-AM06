@@ -49,7 +49,7 @@ public class GameScreen {
     private static final int CARD_DEAL_DURATION_MS = 700;
 
     private static final int CARD_COLLAPSE_DURATION_MS = 340;
-    private static final int CARD_TO_HAND_DURATION_MS = 540;
+    private static final int CARD_TO_HAND_DURATION_MS = 720;
     private static final double CARD_SLOT_SPAN = CARD_W + 8;
 
     private static final int EVENT_TRANSFER_STAGGER_MS  = 85;
@@ -3081,6 +3081,7 @@ public class GameScreen {
         flyer.setFitWidth(sourceBoundsScene.getWidth());
         flyer.setFitHeight(sourceBoundsScene.getHeight());
         flyer.setPreserveRatio(true);
+        flyer.setSmooth(true);
         flyer.setMouseTransparent(true);
         flyer.setManaged(false);
         flyer.setTranslateX(sourceInRoot.getX());
@@ -3092,19 +3093,25 @@ public class GameScreen {
         flyer.toFront();
         sourceCard.setOpacity(0.0);
 
+        // Spacer invisibile: riserva lo spazio nella mano senza artefatti visivi
         handBox.getChildren().removeIf(n -> n instanceof Label);
-        StackPane handCard = buildHandCardNode(cardId);
-        handCard.setOpacity(0.0);
-        handCard.setScaleX(0.92);
-        handCard.setScaleY(0.92);
-        handCard.setOnMouseClicked(e -> showCardDetail(cardId));
-        handBox.getChildren().add(handCard);
+        Region spacer = new Region();
+        spacer.setPrefSize(CARD_W, CARD_H);
+        spacer.setMinSize(CARD_W, CARD_H);
+        spacer.setMaxSize(CARD_W, CARD_H);
+        handBox.getChildren().add(spacer);
 
         rootWrapper.applyCss();
         rootWrapper.layout();
 
-        Bounds targetBoundsScene = handCard.localToScene(handCard.getBoundsInLocal());
+        Bounds targetBoundsScene = spacer.localToScene(spacer.getBoundsInLocal());
         Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+        double scaleX = targetBoundsScene.getWidth()  / Math.max(1.0, sourceBoundsScene.getWidth());
+        double scaleY = targetBoundsScene.getHeight() / Math.max(1.0, sourceBoundsScene.getHeight());
+
+        // Forte decelerazione finale → atterraggio soft
+        javafx.animation.Interpolator softLand =
+                javafx.animation.Interpolator.SPLINE(0.22, 0.0, 0.08, 1.0);
 
         javafx.animation.Timeline fly = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
@@ -3112,40 +3119,56 @@ public class GameScreen {
                         new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
                         new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
                         new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0),
                         new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0)
                 ),
+                // Piena opacità per il 70% del volo, poi dissolvenza
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS * 0.70),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0)
+                ),
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
-                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, sourceBoundsScene.getWidth()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, sourceBoundsScene.getHeight()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(), softLand),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(), softLand),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), scaleX, softLand),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), scaleY, softLand),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 0.0,
+                                javafx.animation.Interpolator.EASE_IN),
                         new javafx.animation.KeyValue(flyer.rotateProperty(), fromTopToHandRotation(pendingPickedFromTop),
                                 javafx.animation.Interpolator.EASE_BOTH)
                 )
         );
 
-        javafx.animation.FadeTransition revealHand =
-                new javafx.animation.FadeTransition(javafx.util.Duration.millis(170), handCard);
-        revealHand.setFromValue(0.0);
-        revealHand.setToValue(1.0);
+        // Carta aggiunta alla mano SOLO a volo concluso → zero ghost layer
+        fly.setOnFinished(e -> {
+            rootWrapper.getChildren().remove(flyer);
+            int idx = handBox.getChildren().indexOf(spacer);
 
-        javafx.animation.ScaleTransition handSettle =
-                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(170), handCard);
-        handSettle.setFromX(0.92);
-        handSettle.setFromY(0.92);
-        handSettle.setToX(1.0);
-        handSettle.setToY(1.0);
+            StackPane handCard = buildHandCardNode(cardId);
+            handCard.setOpacity(0.0);
+            handCard.setScaleX(0.88);
+            handCard.setScaleY(0.88);
+            handCard.setOnMouseClicked(evt -> showCardDetail(cardId));
+            if (idx >= 0) handBox.getChildren().set(idx, handCard);
+            else handBox.getChildren().add(handCard);
 
-        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
-                fly,
-                new javafx.animation.ParallelTransition(revealHand, handSettle)
-        );
-        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
-        return seq;
+            javafx.animation.FadeTransition land =
+                    new javafx.animation.FadeTransition(javafx.util.Duration.millis(200), handCard);
+            land.setFromValue(0.0);
+            land.setToValue(1.0);
+            land.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+
+            javafx.animation.ScaleTransition spring =
+                    new javafx.animation.ScaleTransition(javafx.util.Duration.millis(220), handCard);
+            spring.setFromX(0.88);
+            spring.setFromY(0.88);
+            spring.setToX(1.0);
+            spring.setToY(1.0);
+            spring.setInterpolator(javafx.animation.Interpolator.SPLINE(0.34, 1.56, 0.64, 1.0));
+
+            new javafx.animation.ParallelTransition(land, spring).play();
+        });
+
+        return fly;
     }
 
     private javafx.animation.Animation buildFlyToHandAnimation(int cardId, CardFlightSnapshot snapshot) {
@@ -3155,6 +3178,7 @@ public class GameScreen {
         flyer.setFitWidth(snapshot.sceneBounds.getWidth());
         flyer.setFitHeight(snapshot.sceneBounds.getHeight());
         flyer.setPreserveRatio(true);
+        flyer.setSmooth(true);
         flyer.setMouseTransparent(true);
         flyer.setManaged(false);
         flyer.setTranslateX(sourceInRoot.getX());
@@ -3166,18 +3190,22 @@ public class GameScreen {
         flyer.toFront();
 
         handBox.getChildren().removeIf(n -> n instanceof Label);
-        StackPane handCard = buildHandCardNode(cardId);
-        handCard.setOpacity(0.0);
-        handCard.setScaleX(0.92);
-        handCard.setScaleY(0.92);
-        handCard.setOnMouseClicked(e -> showCardDetail(cardId));
-        handBox.getChildren().add(handCard);
+        Region spacer = new Region();
+        spacer.setPrefSize(CARD_W, CARD_H);
+        spacer.setMinSize(CARD_W, CARD_H);
+        spacer.setMaxSize(CARD_W, CARD_H);
+        handBox.getChildren().add(spacer);
 
         rootWrapper.applyCss();
         rootWrapper.layout();
 
-        Bounds targetBoundsScene = handCard.localToScene(handCard.getBoundsInLocal());
+        Bounds targetBoundsScene = spacer.localToScene(spacer.getBoundsInLocal());
         Point2D targetInRoot = rootWrapper.sceneToLocal(targetBoundsScene.getMinX(), targetBoundsScene.getMinY());
+        double scaleX = targetBoundsScene.getWidth()  / Math.max(1.0, snapshot.sceneBounds.getWidth());
+        double scaleY = targetBoundsScene.getHeight() / Math.max(1.0, snapshot.sceneBounds.getHeight());
+
+        javafx.animation.Interpolator softLand =
+                javafx.animation.Interpolator.SPLINE(0.22, 0.0, 0.08, 1.0);
 
         javafx.animation.Timeline fly = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
@@ -3185,40 +3213,54 @@ public class GameScreen {
                         new javafx.animation.KeyValue(flyer.translateYProperty(), sourceInRoot.getY()),
                         new javafx.animation.KeyValue(flyer.scaleXProperty(), 1.0),
                         new javafx.animation.KeyValue(flyer.scaleYProperty(), 1.0),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0),
                         new javafx.animation.KeyValue(flyer.rotateProperty(), 0.0)
                 ),
+                new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS * 0.70),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 1.0)
+                ),
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(CARD_TO_HAND_DURATION_MS),
-                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleXProperty(), targetBoundsScene.getWidth() / Math.max(1.0, snapshot.sceneBounds.getWidth()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
-                        new javafx.animation.KeyValue(flyer.scaleYProperty(), targetBoundsScene.getHeight() / Math.max(1.0, snapshot.sceneBounds.getHeight()),
-                                javafx.animation.Interpolator.SPLINE(0.16, 0.86, 0.18, 1.0)),
+                        new javafx.animation.KeyValue(flyer.translateXProperty(), targetInRoot.getX(), softLand),
+                        new javafx.animation.KeyValue(flyer.translateYProperty(), targetInRoot.getY(), softLand),
+                        new javafx.animation.KeyValue(flyer.scaleXProperty(), scaleX, softLand),
+                        new javafx.animation.KeyValue(flyer.scaleYProperty(), scaleY, softLand),
+                        new javafx.animation.KeyValue(flyer.opacityProperty(), 0.0,
+                                javafx.animation.Interpolator.EASE_IN),
                         new javafx.animation.KeyValue(flyer.rotateProperty(), fromTopToHandRotation(pendingPickedFromTop),
                                 javafx.animation.Interpolator.EASE_BOTH)
                 )
         );
 
-        javafx.animation.FadeTransition revealHand =
-                new javafx.animation.FadeTransition(javafx.util.Duration.millis(170), handCard);
-        revealHand.setFromValue(0.0);
-        revealHand.setToValue(1.0);
+        fly.setOnFinished(e -> {
+            rootWrapper.getChildren().remove(flyer);
+            int idx = handBox.getChildren().indexOf(spacer);
 
-        javafx.animation.ScaleTransition handSettle =
-                new javafx.animation.ScaleTransition(javafx.util.Duration.millis(170), handCard);
-        handSettle.setFromX(0.92);
-        handSettle.setFromY(0.92);
-        handSettle.setToX(1.0);
-        handSettle.setToY(1.0);
+            StackPane handCard = buildHandCardNode(cardId);
+            handCard.setOpacity(0.0);
+            handCard.setScaleX(0.88);
+            handCard.setScaleY(0.88);
+            handCard.setOnMouseClicked(evt -> showCardDetail(cardId));
+            if (idx >= 0) handBox.getChildren().set(idx, handCard);
+            else handBox.getChildren().add(handCard);
 
-        javafx.animation.SequentialTransition seq = new javafx.animation.SequentialTransition(
-                fly,
-                new javafx.animation.ParallelTransition(revealHand, handSettle)
-        );
-        seq.setOnFinished(e -> rootWrapper.getChildren().remove(flyer));
-        return seq;
+            javafx.animation.FadeTransition land =
+                    new javafx.animation.FadeTransition(javafx.util.Duration.millis(200), handCard);
+            land.setFromValue(0.0);
+            land.setToValue(1.0);
+            land.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+
+            javafx.animation.ScaleTransition spring =
+                    new javafx.animation.ScaleTransition(javafx.util.Duration.millis(220), handCard);
+            spring.setFromX(0.88);
+            spring.setFromY(0.88);
+            spring.setToX(1.0);
+            spring.setToY(1.0);
+            spring.setInterpolator(javafx.animation.Interpolator.SPLINE(0.34, 1.56, 0.64, 1.0));
+
+            new javafx.animation.ParallelTransition(land, spring).play();
+        });
+
+        return fly;
     }
 
     private javafx.animation.Animation buildFadeOutSnapshotAnimation(CardFlightSnapshot snapshot) {
