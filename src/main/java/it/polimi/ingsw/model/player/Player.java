@@ -322,7 +322,6 @@ public class Player {
 
 
     public int countSet() {
-        //TODO
         // contiamo quante carte ha il player per ciascuno dei 6 tipi "veri"
         // un set completo richiede almeno 1 carta per ogni tipo
         Map<CharacterType, Integer> counts = new EnumMap<>(CharacterType.class);

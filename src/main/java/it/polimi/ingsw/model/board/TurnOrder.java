@@ -70,10 +70,6 @@ public class TurnOrder {
         return playersOrder;
     }
 
-    //TODO: SERVE? 0 USAGE E 0 CODICE LOL
-    public void updateOrderFromBoard(List<BoardSpace> spaces, List<Player> players) {
-    }
-
     public void placeTotemFirstFree(Player player) {
         for (OrderBlock block : orderBlocks) {
             if (block.isFree()) {
@@ -114,18 +110,6 @@ public class TurnOrder {
             }
         }
         throw new IllegalStateException("No free blocks on TurnOrder tile");
-    }
-
-
-
-    //TODO: SERVE? 0 USAGE
-    public void clearAll() {
-        for (OrderBlock block : orderBlocks) {
-            if (!block.isFree()) {
-                block.getTotemOn().remove();
-                block.removeTotem();
-            }
-        }
     }
 
     public void clearBlock(Totem t) {
