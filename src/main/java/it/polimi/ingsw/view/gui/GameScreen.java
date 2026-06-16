@@ -3557,15 +3557,19 @@ public class GameScreen {
         return cardId >= 200;
     }
 
+    private static final java.util.Map<String, Image> IMAGE_CACHE = new java.util.HashMap<>();
+
     private ImageView loadImage(String path, double w, double h) {
         ImageView iv = new ImageView();
-        try {
+        Image img = IMAGE_CACHE.get(path);
+        if (img == null) {
             var url = getClass().getResource(path);
             if (url != null) {
-                Image img = new Image(url.toExternalForm());
-                iv.setImage(img);
+                img = new Image(url.toExternalForm());
+                IMAGE_CACHE.put(path, img);
             }
-        } catch (Exception ignored) {}
+        }
+        if (img != null) iv.setImage(img);
         iv.setFitWidth(w);
         iv.setFitHeight(h);
         iv.setPreserveRatio(true);
