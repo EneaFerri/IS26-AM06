@@ -8,8 +8,5 @@ public enum CharacterType {
     COLLECTOR,
     ARTIST,
     SET_OF_CHAR //caso sspeciale per building che da prestigio in base a quanti set, si puo modificare?
-    /*
-    NONE
-    */
 }
 

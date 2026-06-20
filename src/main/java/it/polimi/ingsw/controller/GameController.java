@@ -554,6 +554,7 @@ public class GameController implements GameObserver {
             System.out.println("[GameController] All players disconnected — aborting game " + game.getGameID());
             broadcast(v -> v.onPlayerDisconnected(nickname));
             gameAborted = true;
+            PersistenceManager.getInstance().delete(game.getGameID()); // nessun giocatore rimasto → pulisci il file
             return;
         }
 
@@ -660,7 +661,8 @@ public class GameController implements GameObserver {
                 topCards.addAll(game.getBoard().getAvailableUpperTribeCards());
                 topCards.addAll(game.getBoard().getAvailableUpperBuildingCards());
                 for (int i = 0; i < topCards.size(); i++) {
-                    sb.append(String.format("  │  [%d] %s%n", i, topCards.get(i)));
+                    Card c = topCards.get(i);
+                    sb.append(String.format("  │  [%d] %-49s (CardId: %d)%n", i, c.toDisplayString(), c.getID()));
                 }
                 sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
             }
@@ -672,7 +674,8 @@ public class GameController implements GameObserver {
                 botCards.addAll(game.getBoard().getAvailableBottomTribeCards());
                 botCards.addAll(game.getBoard().getAvailableBottomBuildingCards());
                 for (int i = 0; i < botCards.size(); i++) {
-                    sb.append(String.format("  │  [%d] %s%n", i, botCards.get(i)));
+                    Card c = botCards.get(i);
+                    sb.append(String.format("  │  [%d] %-49s (CardId: %d)%n", i, c.toDisplayString(), c.getID()));
                 }
                 sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
             }
@@ -725,7 +728,7 @@ public class GameController implements GameObserver {
         } else {
             sb.append("  │  [Personaggi]\n");
             for (it.polimi.ingsw.model.cards.CharacterCard c : chars) {
-                sb.append("  │    • ").append(c).append("\n");
+                sb.append("  │    • ").append(c.toDisplayString()).append("\n");
             }
         }
 
@@ -734,7 +737,7 @@ public class GameController implements GameObserver {
         } else {
             sb.append("  │  [Edifici]\n");
             for (it.polimi.ingsw.model.cards.BuildingCard c : buildings) {
-                sb.append("  │    • ").append(c).append("\n");
+                sb.append("  │    • ").append(c.toDisplayString()).append("\n");
             }
         }
 
@@ -753,8 +756,8 @@ public class GameController implements GameObserver {
         if (topTribe.isEmpty() && topBld.isEmpty()) {
             sb.append("  │  (vuota)\n");
         } else {
-            for (TribeCard c : topTribe)   sb.append("  │  [T] ").append(c).append("\n");
-            for (BuildingCard c : topBld)  sb.append("  │  [B] ").append(c).append("\n");
+            for (TribeCard c : topTribe)   sb.append(String.format("  │  [T] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
+            for (BuildingCard c : topBld)  sb.append(String.format("  │  [B] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
@@ -785,8 +788,8 @@ public class GameController implements GameObserver {
         if (botTribe.isEmpty() && botBld.isEmpty()) {
             sb.append("  │  (vuota)\n");
         } else {
-            for (TribeCard c : botTribe)   sb.append("  │  [T] ").append(c).append("\n");
-            for (BuildingCard c : botBld)  sb.append("  │  [B] ").append(c).append("\n");
+            for (TribeCard c : botTribe)   sb.append(String.format("  │  [T] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
+            for (BuildingCard c : botBld)  sb.append(String.format("  │  [B] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
         }
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 

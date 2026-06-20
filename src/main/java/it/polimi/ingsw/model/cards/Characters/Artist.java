@@ -10,6 +10,11 @@ public class Artist extends CharacterCard {
         super(cardID, cardAge, tag, CharacterType.ARTIST);
     }
 
+    @Override
+    public String toDisplayString() {
+        return "Artista (" + ageLabel() + ")";
+    }
+
     public String toString(){
         return super.toString() + "} ";
     }

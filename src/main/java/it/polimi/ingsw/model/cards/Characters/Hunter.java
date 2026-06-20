@@ -24,6 +24,11 @@ public class Hunter extends CharacterCard {
             player.addFood(player.getNumHunters());
         }
     }
+    @Override
+    public String toDisplayString() {
+        return "Cacciatore" + (nuggets > 0 ? " [+Cibo]" : "") + " (" + ageLabel() + ")";
+    }
+
     public String toString(){
         return super.toString() + ", nuggets: " + nuggets + "} ";
     }

@@ -50,6 +50,27 @@ public class BuildingEvent extends BuildingCard {
     public EventType getEventToRespond()          { return eventToRespond; }
     public CharacterType getCharacterToConsider() { return characterToConsider; }
 
+    @Override
+    public String toDisplayString() {
+        String eventLabel = switch (eventToRespond) {
+            case HUNT       -> "Caccia";
+            case PICTURES   -> "Pitture Rupestri";
+            case RITUAL     -> "Rituale Sciamanico";
+            case SUSTENANCE -> "Sostentamento";
+        };
+        String charLabel = switch (characterToConsider) {
+            case ARTIST      -> "Artisti";
+            case BUILDER     -> "Costruttori";
+            case COLLECTOR   -> "Raccoglitori";
+            case HUNTER      -> "Cacciatori";
+            case INVENTOR    -> "Inventori";
+            case SHAMAN      -> "Sciamani";
+            case SET_OF_CHAR -> "set completi";
+        };
+        return "Edificio (" + ageLabel() + ")  [" + eventLabel + ": bonus su "
+                + charLabel + " | costo: " + getFoodCost() + " | PP: " + getPrestigePoint() + "]";
+    }
+
     public String toString(){
         return " { BUILDING_EVENT, " + super.toString() + ", event to respond: " + eventToRespond + ", character to consider: " + characterToConsider + "} ";
     }

@@ -32,6 +32,11 @@ public class Builder extends CharacterCard {
         return prestigeValue;
     }
 
+    @Override
+    public String toDisplayString() {
+        return "Costruttore (" + ageLabel() + ")  [-" + buildDiscount + " Cibo Edifici | +" + prestigeValue + " PP]";
+    }
+
     public String toString(){
         return super.toString() + ", prestige value:" + prestigeValue + ", build discount " + buildDiscount + "} ";
     }

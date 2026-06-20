@@ -30,12 +30,7 @@ public class BuildingEnd extends BuildingCard {
     @Override
     public int getEndEffectPoints(Player player) {
 
-        /*
-        // caso speciale che da 25 punti fissi
-        if (characterToConsider == CharacterType.NONE) {
-            return prestigeEndEffect; // 25 punti fissi
-        }
-        */
+
 
         if(characterToConsider == CharacterType.SET_OF_CHAR) {
             int n = player.countSet();
@@ -51,6 +46,27 @@ public class BuildingEnd extends BuildingCard {
         }
 
         return count * this.prestigeEndEffect;
+    }
+
+    @Override
+    public String toDisplayString() {
+        if (prestigeEndEffect == 0)
+            return "Edificio (" + ageLabel() + ")  [costo: " + getFoodCost() + " | PP: " + getPrestigePoint() + "]";
+        return "Edificio (" + ageLabel() + ")  [fine partita: +" + prestigeEndEffect
+                + " PP per " + charLabel(characterToConsider)
+                + " | costo: " + getFoodCost() + " | PP: " + getPrestigePoint() + "]";
+    }
+
+    private String charLabel(CharacterType t) {
+        return switch (t) {
+            case ARTIST      -> "Artisti";
+            case BUILDER     -> "Costruttori";
+            case COLLECTOR   -> "Raccoglitori";
+            case HUNTER      -> "Cacciatori";
+            case INVENTOR    -> "Inventori";
+            case SHAMAN      -> "Sciamani";
+            case SET_OF_CHAR -> "set completi (6 tipi diversi)";
+        };
     }
 
     public String toString(){

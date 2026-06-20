@@ -67,6 +67,11 @@ public class Ritual extends EventCard {
         return stars;
     }
 
+    @Override
+    public String toDisplayString() {
+        return "⚑ Rituale Sciamanico (" + ageLabel() + ")  [max: +" + maxBonus + " PP | min: -" + maxMalus + " PP]";
+    }
+
     public String toString(){
         return super.toString() + "maxBonus" + maxBonus + "maxMalus" + maxMalus + "} ";
     }

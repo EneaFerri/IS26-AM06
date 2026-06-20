@@ -10,6 +10,11 @@ public class Collector extends CharacterCard {
         super(cardID, cardAge, tag, CharacterType.COLLECTOR);
     }
 
+    @Override
+    public String toDisplayString() {
+        return "Raccoglitore (" + ageLabel() + ")  [-3 Cibo al Sostentamento]";
+    }
+
     public String toString(){
         return super.toString() + "} ";
     }

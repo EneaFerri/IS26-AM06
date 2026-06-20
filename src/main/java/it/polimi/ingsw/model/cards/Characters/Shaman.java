@@ -22,6 +22,11 @@ public class Shaman extends CharacterCard {
         return getStars();
     }
 
+    @Override
+    public String toDisplayString() {
+        return "Sciamano (" + ageLabel() + ")  [" + "✦".repeat(stars) + "]";
+    }
+
     public String toString(){
         return super.toString() + ", stars: " + stars + "} ";
     }

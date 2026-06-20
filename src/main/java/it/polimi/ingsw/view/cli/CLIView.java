@@ -49,6 +49,20 @@ public class CLIView implements ModelObserver {
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
 
+    private volatile int  cachedWidth   = -1;
+    private volatile long widthCachedAt = 0;
+
+    // ── Colori ANSI (disabilitati — testo plain) ────────────────────────────
+    private static final String RST  = "";
+    private static final String CYN  = "";
+    private static final String BCYN = "";
+    private static final String YLW  = "";
+    private static final String BYLW = "";
+    private static final String GRN  = "";
+    private static final String BGRN = "";
+    private static final String MGT  = "";
+    private static final String GRY  = "";
+
     // ─────────────────────────────────────────────────────────────────────
 
     /** Called by ClientLauncher once the network adapter is ready. */
@@ -413,12 +427,13 @@ public class CLIView implements ModelObserver {
 
     @Override
     public void onTurnOrderUpdated(List<String> ordered) {
+        int w = terminalWidth();
         System.out.println();
-        System.out.println("  ┌── Ordine turno ─────────────────────────────┐");
+        System.out.println(boxTop(w, "── ⟳ Ordine turno "));
         for (int i = 0; i < ordered.size(); i++) {
-            System.out.printf("  │  %d. %-43s│%n", i + 1, ordered.get(i));
+            System.out.println(boxLine(w, (i + 1) + ". " + ordered.get(i)));
         }
-        System.out.println("  └─────────────────────────────────────────────┘");
+        System.out.println(boxBottom(w));
     }
 
     @Override
@@ -428,7 +443,11 @@ public class CLIView implements ModelObserver {
 
     @Override
     public void onBoardUpdated() {
-        System.out.println("  ─── Tabellone aggiornato ───");
+        int w = terminalWidth();
+        String label = " ◉ Tabellone aggiornato ";
+        int half = (w - label.length()) / 2;
+        int rest = Math.max(0, w - half - label.length());
+        System.out.println(CYN + "─".repeat(half) + RST + YLW + label + RST + CYN + "─".repeat(rest) + RST);
     }
 
     @Override
@@ -439,9 +458,10 @@ public class CLIView implements ModelObserver {
 
     @Override
     public void onGameOver(String results) {
+        int w = terminalWidth();
         System.out.println();
         printBanner("PARTITA TERMINATA!");
-        System.out.println("  ┌── Classifica finale ───────────────────────┐");
+        System.out.println(boxTop(w, "── ✦ Classifica finale "));
         if (results != null && !results.isEmpty()) {
             String[] medals = {"🥇", "🥈", "🥉"};
             String[] entries = results.split(",");
@@ -450,27 +470,34 @@ public class CLIView implements ModelObserver {
                 String name = p.length > 0 ? p[0] : "?";
                 String pts  = p.length > 1 ? p[1] : "?";
                 String m    = i < medals.length ? medals[i] : "  ";
-                System.out.printf("  │  %s %-22s %5s pt         │%n", m, name, pts);
+                System.out.println(boxLine(w, String.format("%s %-22s %5s pt", m, name, pts)));
             }
         }
-        System.out.println("  └─────────────────────────────────────────────┘");
+        System.out.println(boxBottom(w));
     }
 
     @Override
     public void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
+        int w = terminalWidth();
+        // Totale riga = 34 + nickWidth; la colonna nickname si espande con il terminale
+        int nickWidth = Math.max(24, w - 34);
+        int nickCol   = nickWidth + 2; // dashes separatore = nick + 2 spazi
         System.out.println();
         int np = fullRanking.isEmpty() ? 0 : fullRanking.get(0).numPlayers();
         printBanner("CLASSIFICA GLOBALE (" + np + " GIOCATORI)");
         System.out.printf("  La tua posizione: #%d su %d partite storiche%n", myRank, totalEntries);
-        System.out.println("  ┌─────┬──────────────────────────┬────────┬────────────┐");
-        System.out.println("  │ Pos │ Nickname                 │ Punti  │ Data       │");
-        System.out.println("  ├─────┼──────────────────────────┼────────┼────────────┤");
+        System.out.println(CYN + "  ┌─────┬" + "─".repeat(nickCol) + "┬────────┬────────────┐" + RST);
+        System.out.printf(        "  │ " + YLW + "Pos" + RST + " │ " + YLW + "%-" + nickWidth + "s" + RST + " │ " + YLW + "Punti  " + RST + "│ " + YLW + "Data       " + RST + "│%n", "Nickname");
+        System.out.println(CYN + "  ├─────┼" + "─".repeat(nickCol) + "┼────────┼────────────┤" + RST);
         for (RankingEntry e : fullRanking) {
-            String marker = e.nickname().equals(myNick) ? " ◄" : "  ";
-            System.out.printf("  │ %3d │ %-24s │ %6d │ %s%s%n",
-                    e.rank(), e.nickname(), e.score(), e.date(), marker);
+            boolean isMe = e.nickname().equals(myNick);
+            String marker = isMe ? BYLW + " ◄" + RST : "  ";
+            String nick   = isMe ? BYLW + String.format("%-" + nickWidth + "s", e.nickname()) + RST
+                                 : String.format("%-" + nickWidth + "s", e.nickname());
+            System.out.printf("  │ %3d │ %s │ %6d │ %s%s%n",
+                    e.rank(), nick, e.score(), e.date(), marker);
         }
-        System.out.println("  └─────┴──────────────────────────┴────────┴────────────┘");
+        System.out.println(CYN + "  └─────┴" + "─".repeat(nickCol) + "┴────────┴────────────┘" + RST);
         printLine();
     }
 
@@ -551,21 +578,174 @@ public class CLIView implements ModelObserver {
 
     private String stripMachineBlock(String text) {
         if (text == null) return "";
-        int start = text.indexOf("##PLAYER_CARDS_BEGIN##");
-        int end   = text.indexOf("##PLAYER_CARDS_END##");
-        if (start < 0 || end < start) return text;
-        return text.substring(0, start)
-                 + text.substring(end + "##PLAYER_CARDS_END##".length());
+        text = stripBlock(text, "##DECK_STATUS_BEGIN##", "##DECK_STATUS_END##");
+        text = stripBlock(text, "##PLAYER_CARDS_BEGIN##", "##PLAYER_CARDS_END##");
+        return fitToTerminal(text);
+    }
+
+    private String stripBlock(String text, String begin, String end) {
+        int start = text.indexOf(begin);
+        int stop  = text.indexOf(end);
+        if (start < 0 || stop < start) return text;
+        return text.substring(0, start) + text.substring(stop + end.length());
+    }
+
+    private String fitToTerminal(String text) {
+        int width = terminalWidth();
+        StringBuilder out = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            out.append(adaptLine(line, width)).append("\n");
+        }
+        return out.toString();
+    }
+
+    private String adaptLine(String line, int width) {
+        // Top border "  ┌── LABEL ─────┐" — espande + colora
+        if (line.endsWith("┐") && line.contains("┌")) {
+            int idx    = line.indexOf('┌');
+            String indent = line.substring(0, idx);
+            String inner  = line.substring(idx + 1, line.length() - 1);
+            int lastNonDash = inner.length() - 1;
+            while (lastNonDash >= 0 && inner.charAt(lastNonDash) == '─') lastNonDash--;
+            String label = addSectionIcon(inner.substring(0, lastNonDash + 1));
+            int targetInner = Math.max(2, width - indent.length() - 2);
+            int dashes = Math.max(1, targetInner - label.length());
+            return CYN + indent + "┌" + YLW + label + CYN + "─".repeat(dashes) + "┐" + RST;
+        }
+        // Bottom border "  └──────────────┘" — espande + colora
+        if (line.endsWith("┘") && line.contains("└")) {
+            int idx = line.indexOf('└');
+            String indent = line.substring(0, idx);
+            int targetInner = Math.max(1, width - indent.length() - 2);
+            return CYN + indent + "└" + "─".repeat(targetInner) + "┘" + RST;
+        }
+        // Righe carte: "  │  [T]", "  │  [B]", "  │  [0]" ecc.
+        if (line.length() > 7 && line.startsWith("  │  [") && line.charAt(7) == ']') {
+            return colorCardLine(line);
+        }
+        // Intestazioni categoria personaggi/edifici
+        if (line.startsWith("  │  [Personaggi]")) {
+            boolean empty = line.contains("nessuna carta");
+            return CYN + "  │  " + RST + (empty ? GRY : BGRN)
+                   + "⚔ Personaggi" + (empty ? " — nessuna carta" : "") + RST;
+        }
+        if (line.startsWith("  │  [Edifici]")) {
+            boolean empty = line.contains("nessuna carta");
+            return CYN + "  │  " + RST + (empty ? GRY : BYLW)
+                   + "▦ Edifici" + (empty ? " — nessuna carta" : "") + RST;
+        }
+        // Bullet carte in mano: "  │    • Artista..."
+        if (line.startsWith("  │    • ")) {
+            String cardName = line.substring(9);
+            String c = cardName.contains("⚑") ? MGT
+                     : cardName.startsWith("Edificio") ? BYLW : GRN;
+            return CYN + "  │    • " + RST + c + cardName + RST;
+        }
+        // Altre righe con │ bordo
+        if (line.startsWith("  │")) {
+            return CYN + "  │" + RST + line.substring(3);
+        }
+        // Riga troppo lunga: tronca
+        if (line.length() > width) return line.substring(0, width - 1) + "…";
+        return line;
+    }
+
+    private String colorCardLine(String line) {
+        int cardIdStart = line.lastIndexOf("(CardId:");
+        String beforeId = cardIdStart >= 0 ? line.substring(0, cardIdStart) : line;
+        String idPart   = cardIdStart >= 0 ? line.substring(cardIdStart)   : "";
+
+        String cardColor;
+        if (beforeId.contains("⚑"))       cardColor = MGT;   // evento (⚑)
+        else if (beforeId.contains("[B]"))     cardColor = BYLW;  // edificio
+        else                                   cardColor = GRN;   // personaggio
+
+        if (beforeId.length() < 8)
+            return CYN + "  │" + RST + beforeId.substring(3) + GRY + idPart + RST;
+
+        String boxPfx  = beforeId.substring(0, 5);  // "  │  "
+        String typeTag = beforeId.substring(5, 8);   // "[T]", "[B]", "[0]"…
+        String rest    = beforeId.substring(8);      // " Inventore…" (con spazi di padding)
+
+        return CYN + boxPfx + RST + YLW + typeTag + RST + cardColor + rest + RST
+             + GRY + idPart + RST;
+    }
+
+    private String addSectionIcon(String label) {
+        if (label.contains("SUPERIORE"))       return label.replace("SUPERIORE",       "↑ SUPERIORE");
+        if (label.contains("INFERIORE"))       return label.replace("INFERIORE",       "↓ INFERIORE");
+        if (label.contains("Spazi Offerta"))   return label.replace("Spazi Offerta",   "◉ Spazi Offerta");
+        if (label.contains("Stato giocatori")) return label.replace("Stato giocatori", "◈ Stato giocatori");
+        if (label.contains("Le tue carte"))    return label.replace("Le tue carte",    "◆ Le tue carte");
+        return label;
+    }
+
+    // Larghezza terminale reale: stty size legge /dev/tty anche da subprocess (cache 5s)
+    private int terminalWidth() {
+        long now = System.currentTimeMillis();
+        if (cachedWidth > 0 && now - widthCachedAt < 5_000) return cachedWidth;
+        // 1) variabile d'ambiente (export COLUMNS=... la imposta esplicitamente)
+        String cols = System.getenv("COLUMNS");
+        if (cols != null) {
+            try { return cacheWidth(Math.max(40, Integer.parseInt(cols.trim())), now); }
+            catch (NumberFormatException ignored) {}
+        }
+        // 2) stty size </dev/tty → stampa "rows cols" leggendo il terminale reale
+        try {
+            Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty 2>/dev/null")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes()).trim();
+            p.destroyForcibly();
+            String[] parts = out.split("\\s+");
+            if (parts.length >= 2) {
+                int w = Integer.parseInt(parts[1]);
+                if (w > 0) return cacheWidth(Math.max(40, w), now);
+            }
+        } catch (Exception ignored) {}
+        // 3) tput cols come ulteriore fallback
+        try {
+            Process p = new ProcessBuilder("sh", "-c", "tput cols 2>/dev/null")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes()).trim();
+            p.destroyForcibly();
+            int w = Integer.parseInt(out);
+            if (w > 0) return cacheWidth(Math.max(40, w), now);
+        } catch (Exception ignored) {}
+        return cacheWidth(80, now);
+    }
+
+    private int cacheWidth(int w, long t) { cachedWidth = w; widthCachedAt = t; return w; }
+
+    // "  ┌{label}{dashes}┐" colorata — larghezza totale = width
+    private String boxTop(int width, String label) {
+        int dashes = Math.max(1, width - 4 - label.length());
+        return CYN + "  ┌" + YLW + label + CYN + "─".repeat(dashes) + "┐" + RST;
+    }
+
+    // "  └{dashes}┘" colorata — larghezza totale = width
+    private String boxBottom(int width) {
+        return CYN + "  └" + "─".repeat(Math.max(1, width - 4)) + "┘" + RST;
+    }
+
+    // "  │  {content paddato}│" colorata — larghezza totale = width
+    private String boxLine(int width, String content) {
+        int fieldWidth = Math.max(1, width - 6);
+        if (content.length() > fieldWidth) content = content.substring(0, fieldWidth);
+        return CYN + "  │  " + RST + String.format("%-" + fieldWidth + "s", content)
+             + CYN + "│" + RST;
     }
 
     private void printBanner(String title) {
-        String line = "═".repeat(46);
-        System.out.println("╔" + line + "╗");
-        System.out.printf("║  %-44s  ║%n", title);
-        System.out.println("╚" + line + "╝");
+        int w  = terminalWidth();
+        int cw = Math.max(1, w - 6);
+        String inner = "═".repeat(Math.max(2, w - 2));
+        System.out.println(BCYN + "╔" + inner + "╗" + RST);
+        System.out.println(BCYN + "║" + RST + BYLW + "  "
+                + String.format("%-" + cw + "s", title) + "  " + RST + BCYN + "║" + RST);
+        System.out.println(BCYN + "╚" + inner + "╝" + RST);
     }
 
     private void printLine() {
-        System.out.println("─".repeat(48));
+        System.out.println(CYN + "─".repeat(terminalWidth()) + RST);
     }
 }

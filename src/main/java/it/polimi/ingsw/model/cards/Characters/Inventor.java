@@ -29,6 +29,11 @@ public class Inventor extends CharacterCard {
         return getInvention().equals(inventionType);
     }
 
+    @Override
+    public String toDisplayString() {
+        return "Inventore (" + ageLabel() + ")  [icona: " + invention.name() + "]";
+    }
+
     public String toString(){
         return super.toString() + "invention: " + invention + "} ";
     }

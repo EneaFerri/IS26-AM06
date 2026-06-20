@@ -46,6 +46,11 @@ public class Hunt extends EventCard {
         }
     }
 
+    @Override
+    public String toDisplayString() {
+        return "⚑ Caccia (" + ageLabel() + ")  [+1 Cibo +" + prestigeBonus + " PP per Cacciatore]";
+    }
+
     public String toString(){
         return super.toString() + "food bonus" + FOOD_BONUS + "prestige bonus" + prestigeBonus + "} ";
     }

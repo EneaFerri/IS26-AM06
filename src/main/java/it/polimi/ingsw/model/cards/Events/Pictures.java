@@ -50,6 +50,12 @@ public class Pictures extends EventCard {
         }
     }
 
+    @Override
+    public String toDisplayString() {
+        return "⚑ Pitture Rupestri (" + ageLabel() + ")  [soglia: " + minimumArtists + " Art. | ≥: +"
+                + prestigeBonus + " PP/Art. | <: -" + prestigeMalus + " PP]";
+    }
+
     public String toString(){
         return super.toString() + "minimumArtists" + minimumArtists + "prestigeMalus" + prestigeMalus + "prestigeBonus" + prestigeBonus + "} ";
     }

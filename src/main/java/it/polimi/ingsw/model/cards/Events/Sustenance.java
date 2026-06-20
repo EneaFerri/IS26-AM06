@@ -51,6 +51,11 @@ public class Sustenance extends EventCard {
         }
     }
 
+    @Override
+    public String toDisplayString() {
+        return "⚑ Sostentamento (" + ageLabel() + ")  [-" + prestigeMalus + " PP per Personaggio non sfamato]";
+    }
+
     public String toString(){
         return super.toString() + "food price" + FOOD_PRICE + "prestigeMalus" + prestigeMalus + "} ";
     }

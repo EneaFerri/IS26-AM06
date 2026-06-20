@@ -47,5 +47,18 @@ public abstract class Card {
         return "CardId: " + cardID + ", Age: " + cardAge;
     }
 
+    protected String ageLabel() {
+        return switch (cardAge) {
+            case Era_I      -> "Era I";
+            case Era_II     -> "Era II";
+            case Era_III    -> "Era III";
+            case Last_Event -> "Era Finale";
+        };
+    }
+
+    public String toDisplayString() {
+        return ageLabel();
+    }
+
 
 }
