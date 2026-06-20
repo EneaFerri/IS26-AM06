@@ -98,14 +98,6 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
     }
 
     @Override
-    public synchronized void login(String nickname,
-                                   VirtualViewRmi clientView) throws RemoteException {
-        System.out.println("[RmiServer] login: " + nickname);
-        lobbyManager.joinLobby(nickname, clientView);
-        startClientHeartbeat(nickname, clientView);
-    }
-
-    @Override
     public synchronized void loginToLobby(String nickname, int lobbyId,
                                           VirtualViewRmi clientView) throws RemoteException {
         System.out.println("[RmiServer] loginToLobby: " + nickname + " → Lobby #" + lobbyId);

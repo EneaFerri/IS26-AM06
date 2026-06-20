@@ -3674,11 +3674,6 @@ public class GameScreen {
         seq.play();
     }
 
-    private TotemColor assignTotemColor(String nick) {
-        TotemColor[] colors = TotemColor.values();
-        return colors[Math.abs(nick.hashCode()) % colors.length];
-    }
-
 
     private String labelStyle(int size, String color) {
         return "-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +

@@ -140,9 +140,6 @@ public class SocketClientHandler implements VirtualView, Runnable {
             case LOGIN_FIRST -> lobbyManager.createLobby(
                     msg.str("nickname"), msg.num("numPlayers"), this);
 
-            case LOGIN -> lobbyManager.joinLobby(
-                    msg.str("nickname"), this);
-
             case LOGIN_TO_LOBBY -> lobbyManager.joinSpecificLobby(
                     msg.str("nickname"), msg.num("lobbyId"), this);
 

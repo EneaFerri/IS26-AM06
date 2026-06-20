@@ -115,11 +115,6 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     }
 
     @Override
-    public void login(String nickname) throws RemoteException {
-        server.login(nickname, this);
-    }
-
-    @Override
     public void loginToLobby(String nickname, int lobbyId) throws RemoteException {
         server.loginToLobby(nickname, lobbyId, this);
     }

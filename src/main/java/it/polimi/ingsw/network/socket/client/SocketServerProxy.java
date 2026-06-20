@@ -35,11 +35,6 @@ public class SocketServerProxy implements GameServerProxy {
     }
 
     @Override
-    public void login(String nickname) throws Exception {
-        send(new NetworkMessage(MessageType.LOGIN, Map.of("nickname", nickname)));
-    }
-
-    @Override
     public void loginToLobby(String nickname, int lobbyId) throws Exception {
         send(new NetworkMessage(MessageType.LOGIN_TO_LOBBY,
                 Map.of("nickname", nickname, "lobbyId", lobbyId)));

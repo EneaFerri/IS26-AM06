@@ -19,9 +19,6 @@ public interface GameServerProxy {
      */
     void loginFirstPlayer(String nickname, int numPlayers) throws Exception;
 
-    /** Joins the first available open lobby. */
-    void login(String nickname) throws Exception;
-
     /** Joins a specific lobby by ID (avoids landing in the wrong one). */
     void loginToLobby(String nickname, int lobbyId) throws Exception;
 

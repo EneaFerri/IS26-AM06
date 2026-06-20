@@ -4,7 +4,6 @@ public interface VirtualServer<V extends VirtualView> {
 
     // --- LOBBY ---
     void loginFirstPlayer(String nickname, int numPlayers, V clientView) throws Exception;
-    void login(String nickname, V clientView)                             throws Exception;
     /** Entra in una lobby specifica per ID (evita di finire nella prima disponibile). */
     void loginToLobby(String nickname, int lobbyId, V clientView)        throws Exception;
     /** Richiede la lista di tutte le lobby attive (aperte + in corso). */

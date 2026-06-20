@@ -17,8 +17,6 @@ public interface VirtualServerRmi extends Remote, VirtualServer<VirtualViewRmi> 
     @Override
     void loginFirstPlayer(String nickname, int numPlayers, VirtualViewRmi clientStub) throws RemoteException;
     @Override
-    void login(String nickname, VirtualViewRmi clientStub)                            throws RemoteException;
-    @Override
     void loginToLobby(String nickname, int lobbyId, VirtualViewRmi clientStub)        throws RemoteException;
 
     @Override

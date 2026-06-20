@@ -14,8 +14,7 @@ import java.util.List;
  *
  * Responsability:
  *  - createLobby()         → if first player or player who decide to create a lobby
- *  - joinLobby()           → find the first free lobby; if there is not -> noptify client ---OLD VERSION
- *  - joinSpecificLobby()   → client choose and join an existing lobby ---NEW VERSION
+ *  - joinSpecificLobby()   → client choose and join an existing lobby
  *  - getActiveLobbies()    → snapshot of all active lobbies (free and running)
  *
  *  - placeTotem/pickCard   → find player lobby and delegate
@@ -74,29 +73,7 @@ public class LobbyManager {
         broadcastLobbyListUpdate();
     }
 
-    /** OLD VERSION, NO REAL USAGE
-     * client added in the first free lobby
-     * if no lobby avaible -> onNoLobbyAvailable().
-     */
-    public synchronized void joinLobby(String nickname, VirtualView caller) {
-        unregisterLobbyListSubscriber(caller);
-        if (tryReconnect(nickname, caller)) return;
-        GameController available = findOpenLobby();
-        if (available != null) {
-            int id = lobbies.indexOf(available) + 1;
-            System.out.println("[LobbyManager] " + nickname + " → Lobby #" + id);
-            available.login(nickname, caller);
-            broadcastLobbyListUpdate();
-        } else {
-            try {
-                caller.onNoLobbyAvailable();
-            } catch (Exception e) {
-                System.err.println("[LobbyManager] onNoLobbyAvailable: " + e.getMessage());
-            }
-        }
-    }
-
-    /** NEW VERSION
+    /**
      * client added on a specific lobby chosen by ID.
      * CLI --> ordered list /  GUI --> button
      */

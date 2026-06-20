@@ -13,8 +13,6 @@ public enum MessageType {
     // ── C→S  login ────────────────────────────────────────────────────────
     /** Create a new lobby and register as first player. Payload: nickname, numPlayers */
     LOGIN_FIRST,
-    /** Join the first available open lobby.           Payload: nickname              */
-    LOGIN,
     /** Join a specific lobby by ID.                   Payload: nickname, lobbyId     */
     LOGIN_TO_LOBBY,
     /** Request the list of active lobbies.            Payload: (none)                */
