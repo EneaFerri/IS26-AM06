@@ -13,6 +13,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Pictures.resolve:
+ * - Players meeting the minimum artist count receive the prestige bonus.
+ * - Players below the threshold receive the prestige malus.
+ * - Each player is evaluated independently.
+ * - Building applyEventEffect is triggered for each player.
+ */
 class PicturesTest {
 
     @Test

@@ -11,6 +11,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Tests Ritual.resolve:
+ * - The player(s) with the most shaman stars receive the max prestige bonus.
+ * - The player(s) with the fewest stars receive the prestige malus.
+ * - Ties for maximum and minimum are handled correctly (all tied players share the outcome).
+ * - Edge case: a single player receives both bonus and malus (max == min).
+ */
 class RitualTest {
 
     @Test

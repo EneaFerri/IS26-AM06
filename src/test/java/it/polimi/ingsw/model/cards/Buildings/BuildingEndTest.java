@@ -10,6 +10,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests BuildingEnd.getEndEffectPoints:
+ * - SET_OF_CHAR type: multiplies the player's complete-set count by the per-set bonus.
+ * - Specific CharacterType: counts matching character cards owned by the player.
+ */
 class BuildingEndTest {
 
     @Test

@@ -10,6 +10,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests EventCard non-getter methods:
+ * - pick: always throws IllegalArgumentException (event cards cannot be picked by players).
+ * - isCharacter / isEvent: correct type-flag values for the event card hierarchy.
+ */
 class EventCardTest {
 
     private EventCard testEventCard;

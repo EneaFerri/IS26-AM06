@@ -9,6 +9,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests BuildingCard non-getter methods:
+ * - pick: delegates to Game.pickBuildingCard.
+ * - applyEventEffect / onAddedToPlayer / getEndEffectPoints: default no-op / zero implementations.
+ */
 class BuildingCardTest {
 
     private BuildingCard testBuildingCard;

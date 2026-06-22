@@ -6,6 +6,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Totem.place and Totem.remove:
+ * - place: sets the position reference to the given BoardSpace.
+ * - remove: clears the position reference back to null.
+ */
 class TotemTest {
 
     @Test

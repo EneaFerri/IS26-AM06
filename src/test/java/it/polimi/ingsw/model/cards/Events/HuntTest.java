@@ -13,6 +13,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Hunt.resolve:
+ * - Each hunter grants 1 food and prestige equal to the card's bonus.
+ * - Players with no hunters receive nothing.
+ * - Both nugget-bearing and plain hunters are counted.
+ * - Building applyEventEffect is triggered for each player.
+ */
 class HuntTest {
 
     @Test

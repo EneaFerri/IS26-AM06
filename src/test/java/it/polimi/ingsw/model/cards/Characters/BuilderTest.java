@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests that Builder correctly stores its prestige value and building discount alongside inherited fields. */
 class BuilderTest {
 
     private Builder testBuilder;

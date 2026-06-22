@@ -8,6 +8,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Card non-getter methods on the abstract base class via an anonymous subclass:
+ * - markAsDrawed: sets the drawed flag to true.
+ * - isBuilding / isTribe: default return values (both false at the base level).
+ */
 class CardTest {
 
     private Card testCard;

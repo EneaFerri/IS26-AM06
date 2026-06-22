@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests that Shaman correctly stores the star count and sets CharacterType.SHAMAN. */
 class ShamanTest {
 
     private Shaman testShaman;

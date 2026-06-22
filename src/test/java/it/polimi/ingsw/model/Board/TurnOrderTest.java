@@ -13,48 +13,72 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests TurnOrder non-getter methods:
+ * - placeTotemFirstFree: positive block gives food + extra-food flag bonus; negative block deducts food.
+ * - placeTotemFirstFree: throws IllegalStateException when all blocks are occupied.
+ * - getOrder: returns players sorted by their block position.
+ */
 class TurnOrderTest {
 
 
     @Test
-    void placeTotemFirstFreeShouldDistributeBonusAndMalus() throws Exception {
+    void placeTotemFirstFree_positiveFoodBlock_givesFoodPlusExtraWhenFlagSet() throws Exception {
         TurnOrder turnOrder = new TurnOrder(1);
 
-        // Creiamo due blocchi finti: uno occupato e uno libero con cibo bonus e nessun malus
         OrderBlock occupiedBlock = new OrderBlock(0, 0);
         occupiedBlock.setTotem(new Totem(TotemColor.BLUE));
-
-        OrderBlock freeBlock = new OrderBlock(2, -1); // +2 cibo, -1 prestigio (o paga 1 cibo)
+        OrderBlock freeBlock = new OrderBlock(2, 0); // +2 food bonus, no prestige malus
 
         List<OrderBlock> blocks = new ArrayList<>();
         blocks.add(occupiedBlock);
         blocks.add(freeBlock);
 
-        // Usiamo la Reflection per inserire la lista in TurnOrder (visto che manca un metodo addOrderBlock)
         Field field = TurnOrder.class.getDeclaredField("orderBlocks");
         field.setAccessible(true);
         field.set(turnOrder, blocks);
 
-        // Prepariamo un giocatore finto
         final int[] foodChanges = {0};
         final int[] prestigeChanges = {0};
 
         Player fakePlayer = new Player("Mario", new Totem(TotemColor.RED)) {
-            @Override public void addFood(int amount) { foodChanges[0] += amount; }
-            @Override public int getFood() { return foodChanges[0]; } // serve per simulare il check su if (player.getFood() > 0)
-            @Override public void removeFood(int amount) { foodChanges[0] -= amount; }
+            @Override public void addFood(int amount)    { foodChanges[0] += amount; }
             @Override public void addPrestige(int amount) { prestigeChanges[0] += amount; }
-            @Override public boolean hasExtraFoodOnTurnOrder() { return true; } // testiamo anche la flag del bonus!
+            @Override public boolean hasExtraFoodOnTurnOrder() { return true; }
         };
 
         turnOrder.placeTotemFirstFree(fakePlayer);
 
-        // Verifica: il totem deve essere andato sul secondo blocco
         assertEquals(fakePlayer.getTotem(), freeBlock.getTotemOn());
+        // +2 from block, +1 from extra food flag = 3
+        assertEquals(3, foodChanges[0], "Food should be: +2 from block + 1 from extra food flag.");
+        assertEquals(0, prestigeChanges[0], "No prestige change expected for a positive food block.");
+    }
 
-        // Verifica cibo: +2 di base dal blocco, +1 dal bonus hasExtraFoodOnTurnOrder, -1 per pagare il malus (visto che getFood > 0) = Totale 2
-        assertEquals(2, foodChanges[0], "Il calcolo del cibo non è corretto.");
-        assertEquals(0, prestigeChanges[0], "Non doveva subire malus prestigio perché aveva cibo per pagare.");
+    @Test
+    void placeTotemFirstFree_negativeFoodBlock_playerPaysFood_whenFoodAvailable() throws Exception {
+        TurnOrder turnOrder = new TurnOrder(1);
+
+        OrderBlock freeBlock = new OrderBlock(-1, -3); // food malus: pay 1 food or lose 3 prestige
+
+        Field field = TurnOrder.class.getDeclaredField("orderBlocks");
+        field.setAccessible(true);
+        field.set(turnOrder, new ArrayList<>(List.of(freeBlock)));
+
+        final int[] food = {5}; // player starts with 5 food
+        final int[] prestige = {0};
+
+        Player fakePlayer = new Player("Mario", new Totem(TotemColor.RED)) {
+            @Override public void removeFood(int amount)  { food[0] -= amount; }
+            @Override public int getFood()                { return food[0]; }
+            @Override public void addPrestige(int amount) { prestige[0] += amount; }
+        };
+
+        turnOrder.placeTotemFirstFree(fakePlayer);
+
+        assertEquals(fakePlayer.getTotem(), freeBlock.getTotemOn());
+        assertEquals(4, food[0],    "Player should lose 1 food when food is available.");
+        assertEquals(0, prestige[0], "Prestige should not change when player can pay with food.");
     }
 
     @Test

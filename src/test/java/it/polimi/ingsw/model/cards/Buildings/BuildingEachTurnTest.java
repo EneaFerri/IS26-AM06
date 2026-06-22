@@ -7,6 +7,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests BuildingEachTurn.onAddedToPlayer for all seven BuildingEachTurnType values,
+ * verifying that each type activates the correct player flag/ability.
+ */
 class BuildingEachTurnTest {
 
     @Test

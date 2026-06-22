@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests that Artist correctly sets CharacterType.ARTIST and passes ID, age, and tag to the parent. */
 class ArtistTest {
 
     private Artist testArtist;

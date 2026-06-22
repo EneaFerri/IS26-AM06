@@ -8,6 +8,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests TribeCard default method implementations on the abstract base class:
+ * - isCharacter / isEvent: both false by default.
+ * - isAvailableForPlayers: true by default.
+ * - isBuilding / isTribe: false and true respectively (inherited overrides from Card).
+ */
 class TribeCardTest {
 
     private TribeCard testTribeCard;

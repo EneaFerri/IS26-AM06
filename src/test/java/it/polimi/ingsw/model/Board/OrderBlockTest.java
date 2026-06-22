@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests OrderBlock.setTotem/removeTotem occupancy tracking and the isFree flag. */
 class OrderBlockTest {
 
     @Test

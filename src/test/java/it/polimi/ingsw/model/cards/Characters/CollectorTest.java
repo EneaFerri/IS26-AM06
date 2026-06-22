@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests that Collector correctly sets CharacterType.COLLECTOR and passes inherited fields to the parent. */
 class CollectorTest {
 
     private Collector testCollector;

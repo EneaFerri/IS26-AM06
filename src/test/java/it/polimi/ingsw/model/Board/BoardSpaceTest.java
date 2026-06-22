@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests BoardSpace.setTotem/removeTotem state transitions and the isFree occupancy flag. */
 class BoardSpaceTest {
 
     @Test

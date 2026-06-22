@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Tests that Hunter correctly stores the nugget count and sets CharacterType.HUNTER. */
 class HunterTest {
 
     private Hunter testHunter;

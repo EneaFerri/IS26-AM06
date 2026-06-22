@@ -11,6 +11,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests BuildingEvent.applyEventEffect:
+ * - No-op when the event type does not match the card's trigger.
+ * - SUSTENANCE trigger: adds a food discount equal to the count of matching characters.
+ * - PICTURES trigger: adds food equal to the player's artist count.
+ * - HUNT trigger: adds food equal to the player's hunter count.
+ */
 class BuildingEventTest {
 
     @Test

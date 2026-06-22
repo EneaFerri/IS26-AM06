@@ -26,6 +26,20 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests all public non-getter Game methods:
+ * - addPlayer: rejects additions after game start.
+ * - startGame: throws when player count is out of range.
+ * - placeTotemOnOfferSpace: state transitions (OFFER_SPACE_CHOOSE → PICKING_CARD), occupancy
+ *   enforcement, and leftmost-player-first ordering.
+ * - pickBuildingCard: deducts food cost, transfers the card to the player, removes it from the board.
+ * - pickCharacterCard: adds the card to the player and removes it from the board.
+ * - pickCard: decrements top/bottom pick counters; throws when the player has no picks remaining.
+ * - returnTotemToTurnOrder: moves the totem off the board back to the TurnOrder.
+ * - advanceNextPlayer: advances the turn pointer; transitions to EVENTS after the last player.
+ * - resolveEvents: applies Sustenance food payment and prestige-malus when food is insufficient.
+ * - endGame / getWinners: returns all players tied for the highest score.
+ */
 class GameTest {
 
     // =========================================================
@@ -261,6 +275,9 @@ class GameTest {
 
         BoardSpace b = game.getBoard().getBoardSpace('B');
         BoardSpace c = game.getBoard().getBoardSpace('C');
+        // cards must be present before placing totems so notifyCurrentPlayerTurn does not auto-advance
+        game.getBoard().addTopTribeCards(new Artist(99, Age.Era_I, 2));
+        game.getBoard().addBottomTribeCardsFirstTurn(new Artist(98, Age.Era_I, 2));
 
         game.placeTotemOnOfferSpace(p1, b);
         assertEquals(GameState.OFFER_SPACE_CHOOSE, game.getStatus());
@@ -357,11 +374,14 @@ class GameTest {
         Game game = createGameReadyToPlay(p1, p2);
 
         BoardSpace b = game.getBoard().getBoardSpace('B');
+        // cards must be present before placing totems so notifyCurrentPlayerTurn does not auto-advance
+        game.getBoard().addTopTribeCards(new Artist(99, Age.Era_I, 2));
+        game.getBoard().addBottomTribeCardsFirstTurn(new Artist(98, Age.Era_I, 2));
+
         game.placeTotemOnOfferSpace(p1, b);
         game.placeTotemOnOfferSpace(p2, game.getBoard().getBoardSpace('C'));
 
-        // stato è PICKING_CARD, ritorniamo il totem di p2 (leftmost = p2 su B? no,
-        // p1 è su B quindi p1 è leftmost)
+        // state is PICKING_CARD; p1 is leftmost (on B) so return p1's totem
         game.returnTotemToTurnOrder(p1);
 
         // il totem di p1 non è più sul board
@@ -482,12 +502,13 @@ class GameTest {
         // p1 su B (1 top, 0 bottom), p2 su C
         BoardSpace b = game.getBoard().getBoardSpace('B');
         BoardSpace c = game.getBoard().getBoardSpace('C');
+        // cards must be present before placing totems so notifyCurrentPlayerTurn does not auto-advance
+        Artist artist = new Artist(200, Age.Era_I, 2);
+        game.getBoard().addTopTribeCards(artist);
+        game.getBoard().addBottomTribeCardsFirstTurn(new Artist(198, Age.Era_I, 2));
+
         game.placeTotemOnOfferSpace(p1, b);
         game.placeTotemOnOfferSpace(p2, c);
-
-        // aggiungi una carta nella fila superiore
-        Artist artist = new Artist(200, Age.Era_I, 2);
-        game.getBoard().getTopRowTribe().add(artist);
 
         // p1 è leftmost (B < C)
         assertEquals(p1, game.getCurrentPlayer());
@@ -506,13 +527,15 @@ class GameTest {
 
         BoardSpace b = game.getBoard().getBoardSpace('B');
         BoardSpace c = game.getBoard().getBoardSpace('C');
-        game.placeTotemOnOfferSpace(p1, b);
-        game.placeTotemOnOfferSpace(p2, c);
-
+        // cards must be present before placing totems so notifyCurrentPlayerTurn does not auto-advance
         Artist artist1 = new Artist(200, Age.Era_I, 2);
         Artist artist2 = new Artist(201, Age.Era_I, 2);
-        game.getBoard().getTopRowTribe().add(artist1);
-        game.getBoard().getTopRowTribe().add(artist2);
+        game.getBoard().addTopTribeCards(artist1);
+        game.getBoard().addTopTribeCards(artist2);
+        game.getBoard().addBottomTribeCardsFirstTurn(new Artist(199, Age.Era_I, 2));
+
+        game.placeTotemOnOfferSpace(p1, b);
+        game.placeTotemOnOfferSpace(p2, c);
 
         // p1 pesca la sua unica carta top → avanza automaticamente a p2
         game.pickCard(p1, artist1);
@@ -531,14 +554,15 @@ class GameTest {
         // p1 su B (1 top, 0 bottom), p2 su C (0 top, 1 bottom)
         BoardSpace b = game.getBoard().getBoardSpace('B');
         BoardSpace c = game.getBoard().getBoardSpace('C');
+        // cards must be present before placing totems so notifyCurrentPlayerTurn does not auto-advance
+        Artist artist = new Artist(200, Age.Era_I, 2);
+        game.getBoard().getLowRowTribe().add(artist);
+        game.getBoard().addTopTribeCards(new Artist(198, Age.Era_I, 2));
+
         game.placeTotemOnOfferSpace(p1, b);
         game.placeTotemOnOfferSpace(p2, c);
 
-        Artist artist = new Artist(200, Age.Era_I, 2);
-        game.getBoard().getLowRowTribe().add(artist);
-
-        // p1 è leftmost ma ha 0 bottom picks — p2 ha 1 bottom pick
-        // avanziamo a p2
+        // p1 is leftmost but has 0 bottom picks; skip to p2
         game.advanceNextPlayer();
 
         assertEquals(1, game.getRemainingBottomPicks(p2));

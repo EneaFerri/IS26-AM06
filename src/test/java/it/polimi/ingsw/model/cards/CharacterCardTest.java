@@ -9,6 +9,12 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests CharacterCard non-getter methods:
+ * - pick: delegates to Game.pickCharacterCard.
+ * - isAvailableForPlayers: returns true only when the player count meets the card tag threshold.
+ * - Default scoring overrides (getShamanStars, getPrestigeContribution, etc.) return zero/false.
+ */
 class CharacterCardTest {
 
     private CharacterCard testCharacterCard;

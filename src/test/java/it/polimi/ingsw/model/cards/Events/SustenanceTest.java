@@ -14,6 +14,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Sustenance.resolve:
+ * - Players pay 1 food per character card; excess food is kept.
+ * - Players with insufficient food lose prestige for each missing food unit.
+ * - Collector cards reduce the food cost (discount applied before payment).
+ * - Building applyEventEffect is triggered for each player.
+ */
 class SustenanceTest {
 
     @Test

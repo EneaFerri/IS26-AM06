@@ -9,6 +9,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests Inventor non-getter methods:
+ * - hasInvention: true for a matching InventionType, false otherwise.
+ * - onAddedToPlayer: calls Player.inventorsCountAndCheck with the card itself.
+ */
 class InventorTest {
 
     private Inventor testInventor;
