@@ -35,3 +35,7 @@ build/
 .DS_Store
 
 
+
+### Build output ###
+target/
+test_output.txt
