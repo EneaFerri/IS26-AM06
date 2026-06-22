@@ -10,8 +10,20 @@ import jdk.jfr.Event;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Factory class for creating card instances from JSON configuration nodes.
+ *
+ * <p>Used by {@link Deck} to deserialise card data loaded from JSON resource files
+ * into the appropriate concrete card subclasses.</p>
+ */
 public abstract class DeckConfiguration {
 
+    /**
+     * Creates the appropriate {@link CharacterCard} subclass from a JSON node.
+     *
+     * @param node the JSON node containing card data (id, era, tag, type, and type-specific fields)
+     * @return the constructed {@link CharacterCard}, or {@code null} if the type is unrecognised
+     */
     public static CharacterCard createCharacterCard(JsonNode node){
 
         int id = node.get("id").asInt();
@@ -49,6 +61,13 @@ public abstract class DeckConfiguration {
 
     }
 
+    /**
+     * Creates the appropriate {@link BuildingCard} subclass from a JSON node.
+     *
+     * @param node the JSON node containing card data (id, era, foodCost, prestigePoints,
+     *             buildingType, and type-specific fields)
+     * @return the constructed {@link BuildingCard}, or {@code null} if the building type is unrecognised
+     */
     public static BuildingCard createBuildingCard(JsonNode node){
 
         int id = node.get("id").asInt();
@@ -78,6 +97,12 @@ public abstract class DeckConfiguration {
         }
     }
 
+    /**
+     * Creates the appropriate {@link EventCard} subclass from a JSON node.
+     *
+     * @param node the JSON node containing card data (id, era, eventType, and type-specific fields)
+     * @return the constructed {@link EventCard}, or {@code null} if the event type is unrecognised
+     */
     public  static EventCard createEventCard(JsonNode node){
 
         int id = node.get("id").asInt();

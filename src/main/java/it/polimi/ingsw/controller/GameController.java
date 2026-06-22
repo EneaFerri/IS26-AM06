@@ -47,19 +47,22 @@ public class GameController implements GameObserver {
     private final List<String> nicks = new CopyOnWriteArrayList<>();
     private int expectedPlayers = -1;
 
-    /** true durante il periodo in cui si aspetta che i giocatori si riconnettano dopo un crash. */
+    /** True while the server waits for players to reconnect after a crash. */
     private boolean recovering = false;
 
-    /** true quando tutti i giocatori reali si sono disconnessi — i bot smettono di agire. */
+    /** True when all real players have disconnected — bots stop acting. */
     private volatile boolean gameAborted = false;
 
-    /** Nickname dei player attualmente sostituiti da un bot (sia in gioco che durante il recovery). */
+    /** Nicknames of players currently replaced by a bot (both during gameplay and recovery). */
     private final Set<String> botNicknames = new HashSet<>();
 
+    /*
     // === SPECTATOR ===
     private final List<VirtualView> spectators = new CopyOnWriteArrayList<>();
     private final List<String> spectatorNicks = new CopyOnWriteArrayList<>();
     // === END SPECTATOR ===
+
+     */
 
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
 
@@ -68,8 +71,13 @@ public class GameController implements GameObserver {
         game.addObserver(this);
     }
 
-    /** Costruttore per partite ripristinate da disco: recovering=true blocca il salvataggio
-     *  e attende che tutti i giocatori si riconnettano prima di riprendere. */
+    /**
+     * Constructor for games restored from disk: {@code recovering=true} blocks auto-save
+     * and waits for all players to reconnect before resuming.
+     *
+     * @param game       the restored game model
+     * @param recovering whether the game is in recovery mode
+     */
     public GameController(Game game, boolean recovering) {
         this.game = game;
         this.expectedPlayers = game.getNumberOfPlayers();
@@ -78,9 +86,13 @@ public class GameController implements GameObserver {
     }
 
     /**
-     * Costruttore per partite ripristinate da disco con bot salvati.
-     * I nickname in savedBotNicknames non devono riconnettersi: vengono ricreati
-     * automaticamente come Bot non appena tutti i player reali sono tornati.
+     * Constructor for games restored from disk that had active bots.
+     * Nicknames in {@code savedBotNicknames} do not need to reconnect: they are automatically
+     * recreated as {@link Bot} instances once all real players have returned.
+     *
+     * @param game              the restored game model
+     * @param recovering        whether the game is in recovery mode
+     * @param savedBotNicknames nicknames that were represented by bots at crash time
      */
     public GameController(Game game, boolean recovering, List<String> savedBotNicknames) {
         this.game = game;
@@ -106,51 +118,71 @@ public class GameController implements GameObserver {
     }
 
 
+    /** Returns true if this game has finished (reached the END state). */
     public synchronized boolean isFinished() {
         return game.getStatus() == GameState.END;
     }
 
+    /** Returns true if the game is running and is no longer accepting new players. */
     public synchronized boolean isInProgress() {
         return !isOpen() && !isFinished();
     }
 
+    /** Returns the number of players currently registered in this lobby. */
     public synchronized int getCurrentPlayers()  { return game.getNumberOfPlayers(); }
 
+    /** Returns the total number of players this lobby is configured to accept. */
     public int getExpectedPlayers() { return expectedPlayers; }
 
-    // True if a player with that nickname is registered in this lobby.
+    /**
+     * Returns true if a player with the given nickname is registered in this lobby.
+     *
+     * @param nickname the player's nickname
+     * @return true if the nickname is present in the player list
+     */
     public boolean hasPlayer(String nickname) {
         return nicks.contains(nickname);
     }
 
+    /** Returns true if the game is in recovery mode (waiting for players to reconnect). */
     public boolean isRecovering() { return recovering; }
+
+    /** Returns true if the game has been aborted due to all players disconnecting. */
     public boolean isAborted()    { return gameAborted; }
 
-    /** True se il Game model (ripristinato da disco) contiene un Player con questo nickname
-     *  E quel player non era già un bot al momento del crash (i bot si riconnettono in automatico). */
+    /**
+     * Returns true if the restored game model contains a player with this nickname
+     * and that player was not a bot at the time of the crash (bots reconnect automatically).
+     *
+     * @param nickname the player's nickname to look up
+     * @return true if the nickname belongs to a real player in the saved game
+     */
     public boolean hasPlayerInGame(String nickname) {
         return game.getPlayers().stream().anyMatch(p -> p.getNickname().equals(nickname))
                 && !botNicknames.contains(nickname);
     }
 
     /**
-     * Riconnette un client che si sta ricollegando dopo un crash del server.
-     * Quando tutti i giocatori attesi si sono riconnessi, riprende la partita
-     * inviando onGameStarting + il turno corrente.
+     * Reconnects a client that is rejoining after a server crash.
+     * When all expected players have reconnected, resumes the game by broadcasting
+     * {@code onGameStarting} and triggering the current player's turn.
+     *
+     * @param nickname the reconnecting player's nickname
+     * @param caller   the player's VirtualView (new network connection)
      */
     public synchronized void reconnectPlayer(String nickname, VirtualView caller) {
         clients.add(caller);
         nicks.add(nickname);
         try { caller.onLoginAccepted(nickname, expectedPlayers); } catch (Exception ignored) {}
 
-        // I player "reali" da attendere sono quelli che non erano bot al momento del crash.
+        // Real players to wait for are those who were not bots at the time of the crash.
         int realExpected = expectedPlayers - botNicknames.size();
         System.out.println("[GameController] Reconnected: " + nickname
                 + " (" + nicks.size() + "/" + realExpected + " reali, "
                 + botNicknames.size() + " bot da respawnare)");
 
         if (nicks.size() == realExpected) {
-            // Tutti i player reali sono tornati → ricrea i bot per i posti mancanti
+            // All real players are back — recreate bots for the missing slots.
             for (String botNick : botNicknames) {
                 Bot bot = new Bot(botNick, this, game);
                 clients.add(bot);
@@ -169,6 +201,7 @@ public class GameController implements GameObserver {
         }
     }
 
+    /*
     // === SPECTATOR ===
     //True if a spectator with that nickname is registered in this lobby.
     public boolean hasSpectator(String nickname) {
@@ -178,7 +211,7 @@ public class GameController implements GameObserver {
     /**
      * Adds a spectator: receives all public broadcast events but never onYourTurn.
      * Sends an immediate board snapshot so the spectator sees the current state.
-     */
+
     public void addSpectator(String nick, VirtualView view) {
         spectators.add(view);
         spectatorNicks.add(nick);
@@ -197,7 +230,7 @@ public class GameController implements GameObserver {
         }, "spectator-snapshot-" + nick).start();
     }
 
-    /** Removes a spectator by view reference. */
+    /** Removes a spectator by view reference.
     public void removeSpectator(String nick) {
         int idx = spectatorNicks.indexOf(nick);
         if (idx >= 0) {
@@ -206,12 +239,20 @@ public class GameController implements GameObserver {
         }
     }
     // === END SPECTATOR ===
+    */
 
 
     // ─────────────────────────────────────────────────────────────────────
     //  LOBBY
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new lobby and registers the first player.
+     *
+     * @param nickname   the creating player's nickname
+     * @param numPlayers the total number of players expected (2–5)
+     * @param caller     the creating player's VirtualView
+     */
     public synchronized void loginFirstPlayer(String nickname, int numPlayers, VirtualView caller) {
         try {
             if (numPlayers < 2 || numPlayers > 5) {
@@ -235,6 +276,12 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Registers an additional player in an existing lobby.
+     *
+     * @param nickname the joining player's nickname
+     * @param caller   the joining player's VirtualView
+     */
     public synchronized void login(String nickname, VirtualView caller) {
         try {
             if (expectedPlayers == -1) {
@@ -288,6 +335,12 @@ public class GameController implements GameObserver {
     //  ACTIONS CLIENT → GAME
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Handles a player's request to place their totem on an offer space.
+     *
+     * @param nickname the acting player's nickname
+     * @param letter   the letter identifying the target offer space
+     */
     public synchronized void placeTotem(String nickname, char letter) {
         try {
             Player player = findPlayer(nickname);
@@ -318,6 +371,13 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Handles a player's request to pick a card from one of the board rows.
+     *
+     * @param nickname  the acting player's nickname
+     * @param cardIndex 0-based index of the card within the chosen row
+     * @param fromTop   true to pick from the top row, false for the bottom row
+     */
     public synchronized void pickCard(String nickname, int cardIndex, boolean fromTop) {
         try {
             Player player = findPlayer(nickname);
@@ -377,9 +437,15 @@ public class GameController implements GameObserver {
     //  GameObserver — model notify → client callback
     // ─────────────────────────────────────────────────────────────────────
 
+    /** No-op: player join notifications are managed directly in {@link #broadcastPlayerJoined}. */
     @Override public void onPlayerJoined(String nickname) { /* managed in broadcastPlayerJoined */ }
 
-    @Override // errors sended to right clients
+    /**
+     * Forwards a model-level error to the currently active player.
+     *
+     * @param message the error message to deliver
+     */
+    @Override
     public void onPlayerError(String message) {
         try {
             Player current = game.getCurrentPlayer();
@@ -391,6 +457,7 @@ public class GameController implements GameObserver {
         }
     }
 
+    /** No-op: game start is broadcast directly in {@link #checkAndStartIfReady}. */
     @Override public void onGameStarted() { /* managed in checkAndStartIfReady */ }
 
     /**
@@ -415,6 +482,7 @@ public class GameController implements GameObserver {
                 }
             }
 
+            /*
             // === SPECTATOR: snapshot sent to all spectators at every turn ===
             for (VirtualView spectator : spectators) {
                 try { spectator.onTurnSnapshot(nickname, boardSummary); }
@@ -423,6 +491,8 @@ public class GameController implements GameObserver {
                 }
             }
             // === END SPECTATOR ===
+
+             */
 
             // ── 2. Full action panel → active player only ─────────────────
             VirtualView target = viewOf(nickname);
@@ -434,15 +504,27 @@ public class GameController implements GameObserver {
             System.err.println("[Controller] onTurnStarted: " + e.getMessage());
         }
 
-        // ── Persistenza: salva dopo ogni cambio turno (non durante il recovery) ──
+        // Persistence: save after each turn change (skipped during recovery).
         if (!recovering) PersistenceManager.getInstance().save(game, botNicknames);
     }
 
+    /**
+     * Broadcasts a totem-placed event to all clients.
+     *
+     * @param nickname    the player who placed the totem
+     * @param boardSpaceId identifier of the offer space where the totem was placed
+     */
     @Override
     public void onTotemPlaced(String nickname, String boardSpaceId) {
         broadcast(v -> v.onTotemPlaced(nickname, boardSpaceId));
     }
 
+    /**
+     * Forwards an invalid-action notification to the specific target player.
+     *
+     * @param nicknameTarget the player who attempted the invalid action
+     * @param errorMessage   description of why the action was rejected
+     */
     @Override
     public void onInvalidAction(String nicknameTarget, String errorMessage) {
         try {
@@ -453,32 +535,60 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Broadcasts a card-taken event to all clients.
+     *
+     * @param nickname the player who picked the card
+     * @param cardId   identifier of the card that was taken
+     */
     @Override
     public void onCardTaken(String nickname, String cardId) {
         broadcast(v -> v.onCardTaken(nickname, cardId));
     }
 
+    /**
+     * Broadcasts a player-updated event so all clients can refresh the player's stats.
+     *
+     * @param nickname the player whose state changed
+     */
     @Override
     public void onPlayerUpdated(String nickname) {
         broadcast(v -> v.onPlayerUpdated(nickname));
     }
 
+    /**
+     * Broadcasts the new turn order to all clients after totems are returned.
+     *
+     * @param ordered list of player nicknames in the new turn order
+     */
     @Override
     public void onTurnOrderUpdated(List<String> ordered) {
         broadcast(v -> v.onTurnOrderUpdated(ordered));
     }
 
+    /**
+     * Broadcasts an event-resolved notification with an animation payload to all clients.
+     *
+     * @param eventName name of the event that was resolved
+     * @param details   raw detail string from the model, enriched with per-player stats
+     */
     @Override
     public void onEventResolved(String eventName, String details) {
         String payload = buildEventAnimationPayload(details);
         broadcast(v -> v.onEventResolved(eventName, payload));
     }
 
+    /** Broadcasts a board-updated notification to all clients. */
     @Override
     public void onBoardUpdated() {
         broadcast(v -> v.onBoardUpdated());
     }
 
+    /**
+     * Broadcasts a new-era notification and persists the updated game state.
+     *
+     * @param newEra the era that has just started
+     */
     @Override
     public void onNewEraStarted(Age newEra) {
         broadcast(v -> v.onNewEraStarted(newEra));
@@ -515,7 +625,7 @@ public class GameController implements GameObserver {
             System.err.println("[DB] Ranking unavailable: " + e.getMessage());
         }
 
-        // FA Persistenza: partita finita normalmente → elimina il file di salvataggio
+        // Persistence: game ended normally — delete the save file.
         PersistenceManager.getInstance().delete(game.getGameID());
     }
 
@@ -537,9 +647,9 @@ public class GameController implements GameObserver {
             return;
         }
 
-        // Se il player è già rappresentato da un Bot, questa notifica è stale:
-        // arriva dalla nuova connessione creata dal loop FA4 (che non ha trovato un
-        // recovering game e ha aperto una nuova lobby). Ignorare per evitare abort improprio.
+        // If the player is already represented by a Bot, this notification is stale:
+        // it comes from a new connection created by the reconnect loop (which did not find a
+        // recovering game and opened a new lobby instead). Ignore to avoid spurious abort.
         if (clients.get(idx) instanceof Bot) {
             System.out.println("[GameController] Player " + nickname
                     + " è già un bot — notifica stale ignorata.");
@@ -554,17 +664,17 @@ public class GameController implements GameObserver {
             System.out.println("[GameController] All players disconnected — aborting game " + game.getGameID());
             broadcast(v -> v.onPlayerDisconnected(nickname));
             gameAborted = true;
-            PersistenceManager.getInstance().delete(game.getGameID()); // nessun giocatore rimasto → pulisci il file
+            PersistenceManager.getInstance().delete(game.getGameID()); // no players left — clean up the save file
             return;
         }
 
         // Replace the disconnected player's VirtualView with a bot.
         Bot bot = new Bot(nickname, this, game);
         clients.set(idx, bot);
-        botNicknames.add(nickname);  // traccia il posto come "bot" per la persistenza
+        botNicknames.add(nickname);  // track this slot as a bot for persistence
 
-        broadcast(v -> v.onPlayerDisconnected(nickname));    // "X si è disconnesso"
-        broadcast(v -> v.onPlayerReplacedByBot(nickname));   // "X verrà sostituito da un bot"
+        broadcast(v -> v.onPlayerDisconnected(nickname));    // "X has disconnected"
+        broadcast(v -> v.onPlayerReplacedByBot(nickname));   // "X will be replaced by a bot"
 
         // If it was the disconnected player's turn, re-trigger the turn for the bot.
         Player cur = game.getCurrentPlayer();
@@ -601,9 +711,12 @@ public class GameController implements GameObserver {
     }
 
     /**
-     * True se il player con quel nickname è attualmente rappresentato da un Bot
-     * (non da un client di rete reale). Usato da LobbyManager per preferire
-     * le lobby dove il player è ancora un client reale.
+     * Returns true if the player with the given nickname is currently represented by a {@link Bot}
+     * rather than a real network client.
+     * Used by LobbyManager to prefer lobbies where the player is still a real client.
+     *
+     * @param nickname the player's nickname
+     * @return true if a {@link Bot} is acting on behalf of this nickname
      */
     public synchronized boolean isBotPlayer(String nickname) {
         int idx = nicks.indexOf(nickname);
@@ -695,7 +808,7 @@ public class GameController implements GameObserver {
     private String buildBoardSummaryForWatchers() {
         StringBuilder sb = new StringBuilder();
 
-        // inserisco uno snapshot del mazzo corrente la GUI lo usa per tenere sincronizzati era, back della carta e contatore residuo
+        // include a deck status snapshot — the GUI uses it to keep era, card back, and remaining count in sync
         appendDeckStatus(sb);
 
         appendBoardDisplay(sb);
@@ -705,9 +818,11 @@ public class GameController implements GameObserver {
     }
 
     /**
-     * Aggiunge un piccolo blocco machine-readable con lo stato del mazzo attivo.
-     * Lo tengo separato dal testo umano così la GUI può leggerlo in modo robusto
-     * senza fare parsing fragile di label o descrizioni di gioco.
+     * Appends a machine-readable block with the current deck status.
+     * Kept separate from human-readable text so the GUI can parse it robustly
+     * without fragile parsing of game labels or descriptions.
+     *
+     * @param sb the target StringBuilder
      */
     private void appendDeckStatus(StringBuilder sb) {
         sb.append("##DECK_STATUS_BEGIN##\n");
@@ -821,7 +936,7 @@ public class GameController implements GameObserver {
 
     //players card section
     private void appendAllPlayersCardsSummary(StringBuilder sb) {
-        // Blocco machine-readable — la GUI cerca PLAYER= / CARD= / END_PLAYER
+        // Machine-readable block — the GUI looks for PLAYER= / CARD= / END_PLAYER
         sb.append("\n##PLAYER_CARDS_BEGIN##\n");
         for (Player p : game.getPlayers()) {
             sb.append("PLAYER=").append(p.getNickname()).append("\n");
@@ -833,7 +948,7 @@ public class GameController implements GameObserver {
         }
         sb.append("##PLAYER_CARDS_END##\n");
 
-        // Sezione human-readable — solo per TUI; la GUI ignora questo testo
+        // Human-readable section — TUI only; the GUI ignores this text
         sb.append("\n┌── Riepilogo carte giocatori ─────────────────────────────\n");
         for (Player p : game.getPlayers()) {
             sb.append("│\n│  ").append(p.getNickname()).append("\n");
@@ -992,12 +1107,15 @@ public class GameController implements GameObserver {
             catch (Exception e) { System.err.println("[Controller] broadcast: " + e.getMessage()); }
         }
 
+        /*
         // === SPECTATOR: spectators receive all public game events ===
         for (VirtualView v : spectators) {
             try { action.execute(v); }
             catch (Exception e) { System.err.println("[Controller] broadcast→spectator: " + e.getMessage()); }
         }
         // === END SPECTATOR ===
+
+         */
 
     }
 }

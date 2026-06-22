@@ -20,23 +20,21 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/*
+/**
  * Handles one Socket client connection on the server side.
  *
- * ── Responsibilities ────────────────────────────────────────────────────────
- *  1. Read loop: deserialises incoming JSON lines and dispatches them
- *     to LobbyManager (same interface used by RmiServer).
- *  2. VirtualView: serialises all server-to-client callbacks to JSON
- *     and writes them over the socket.
- *  3. Heartbeat: sends PING every 10 s; if no PONG arrives, disconnects.
- *  4. Disconnection: on any IOException or heartbeat timeout, notifies
- *     LobbyManager so the other players in the lobby are informed.
+ * <p><b>Responsibilities:</b></p>
+ * <ol>
+ *   <li>Read loop: deserialises incoming JSON lines and dispatches them to {@link LobbyManager}.</li>
+ *   <li>VirtualView: serialises all server-to-client callbacks to JSON and writes them over the socket.</li>
+ *   <li>Heartbeat: sends PING every 10 s; if no PONG arrives, disconnects.</li>
+ *   <li>Disconnection: on any IOException or heartbeat timeout, notifies LobbyManager.</li>
+ * </ol>
  *
- * ── Thread safety ───────────────────────────────────────────────────────────
- *  send() serialises JSON and enqueues it (non-blocking); senderLoop() writes to the socket
- *  on a dedicated daemon thread, never holding any game lock.
- *  out/nickname/running are volatile for cross-thread visibility.
- *  handleDisconnect() is idempotent (guarded by `running`).
+ * <p><b>Thread safety:</b> {@code send()} serialises JSON and enqueues it (non-blocking);
+ * {@code senderLoop()} writes to the socket on a dedicated daemon thread without holding any game lock.
+ * {@code out}, {@code nickname}, and {@code running} are {@code volatile} for cross-thread visibility.
+ * {@code handleDisconnect()} is idempotent (guarded by {@code running}).</p>
  */
 public class SocketClientHandler implements VirtualView, Runnable {
 
@@ -54,6 +52,12 @@ public class SocketClientHandler implements VirtualView, Runnable {
     private final BlockingQueue<String> sendQueue = new LinkedBlockingQueue<>(256);
     private volatile Thread senderThread;
 
+    /**
+     * Creates a handler for a newly accepted client connection.
+     *
+     * @param socket       the accepted TCP socket
+     * @param lobbyManager the shared lobby manager
+     */
     public SocketClientHandler(Socket socket, LobbyManager lobbyManager) {
         this.socket      = socket;
         this.lobbyManager = lobbyManager;
@@ -63,6 +67,10 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  MAIN READ LOOP
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Main entry point for the per-client thread: opens streams, starts the sender thread
+     * and heartbeat, then runs the read loop until the connection closes.
+     */
     @Override
     public void run() {
         try {
@@ -106,6 +114,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  ASYNC SENDER LOOP
     // ─────────────────────────────────────────────────────────────────────
 
+    /** Drains the send queue and writes each JSON line to the socket. Runs on a dedicated daemon thread. */
     private void senderLoop() {
         try {
             while (running) {
@@ -127,6 +136,11 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  MESSAGE DISPATCH  (Client → Server)
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Routes an incoming client message to the appropriate {@link LobbyManager} method.
+     *
+     * @param msg the deserialized message received from the client
+     */
     private void dispatch(NetworkMessage msg) {
         MessageType type;
         try {
@@ -146,7 +160,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
             case REQUEST_LOBBY_LIST -> {
                 lobbyManager.requestLobbyList(this);
             }
-
+            /*
             // === SPECTATOR ===
             case JOIN_AS_SPECTATOR -> {
                 String spectatorNick = msg.str("nickname");
@@ -161,6 +175,8 @@ public class SocketClientHandler implements VirtualView, Runnable {
                 }
             }
             // === END SPECTATOR ===
+
+             */
 
             case PLACE_TOTEM -> {
                 String letter = msg.str("letter");
@@ -187,6 +203,7 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  VirtualView implementation  (Server → Client callbacks)
     // ─────────────────────────────────────────────────────────────────────
 
+    /** {@inheritDoc} */
     @Override
     public void onLoginAccepted(String nick, int expectedPlayers) throws Exception {
         this.nickname = nick;   // capture so PLACE_TOTEM / PICK_CARD can be routed
@@ -194,28 +211,33 @@ public class SocketClientHandler implements VirtualView, Runnable {
                 Map.of("nickname", nick, "expectedPlayers", expectedPlayers)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onPlayerJoined(String nick, int currentCount, int expected) throws Exception {
         send(new NetworkMessage(MessageType.ON_PLAYER_JOINED,
                 Map.of("nickname", nick, "currentCount", currentCount, "expected", expected)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onGameStarting(List<String> playerNicknames) throws Exception {
         send(new NetworkMessage(MessageType.ON_GAME_STARTING,
                 Map.of("playerNicknames", playerNicknames)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onError(String message) throws Exception {
         send(new NetworkMessage(MessageType.ON_ERROR, Map.of("message", message)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onNoLobbyAvailable() throws Exception {
         send(new NetworkMessage(MessageType.ON_NO_LOBBY_AVAILABLE));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) throws Exception {
         List<Map<String, Object>> list = lobbies.stream()
@@ -231,68 +253,80 @@ public class SocketClientHandler implements VirtualView, Runnable {
         send(new NetworkMessage(MessageType.ON_LOBBY_LIST, Map.of("lobbies", list)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onTurnSnapshot(String currentPlayerNick, String boardSummary) throws Exception {
         send(new NetworkMessage(MessageType.ON_TURN_SNAPSHOT,
                 Map.of("currentPlayerNick", currentPlayerNick, "boardSummary", boardSummary)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onYourTurn(String nick, GameState phase, String extraInfo) throws Exception {
         send(new NetworkMessage(MessageType.ON_YOUR_TURN,
                 Map.of("nickname", nick, "phase", phase.name(), "extraInfo", extraInfo)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onTotemPlaced(String nick, String boardSpaceId) throws Exception {
         send(new NetworkMessage(MessageType.ON_TOTEM_PLACED,
                 Map.of("nickname", nick, "boardSpaceId", boardSpaceId)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onInvalidAction(String nicknameTarget, String errorMessage) throws Exception {
         send(new NetworkMessage(MessageType.ON_INVALID_ACTION,
                 Map.of("nicknameTarget", nicknameTarget, "errorMessage", errorMessage)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onCardTaken(String nick, String cardId) throws Exception {
         send(new NetworkMessage(MessageType.ON_CARD_TAKEN,
                 Map.of("nickname", nick, "cardId", cardId)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onPlayerUpdated(String nick) throws Exception {
         send(new NetworkMessage(MessageType.ON_PLAYER_UPDATED, Map.of("nickname", nick)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onTurnOrderUpdated(List<String> ordered) throws Exception {
         send(new NetworkMessage(MessageType.ON_TURN_ORDER_UPDATED, Map.of("ordered", ordered)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onEventResolved(String eventName, String details) throws Exception {
         send(new NetworkMessage(MessageType.ON_EVENT_RESOLVED,
                 Map.of("eventName", eventName, "details", details)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onBoardUpdated() throws Exception {
         send(new NetworkMessage(MessageType.ON_BOARD_UPDATED));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onNewEraStarted(Age newEra) throws Exception {
         send(new NetworkMessage(MessageType.ON_NEW_ERA_STARTED,
                 Map.of("era", newEra.name())));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onGameOver(String results) throws Exception {
         send(new NetworkMessage(MessageType.ON_GAME_OVER, Map.of("results", results)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onRankingData(int myRank, int totalEntries,
                               List<RankingEntry> fullRanking) throws Exception {
@@ -311,19 +345,23 @@ public class SocketClientHandler implements VirtualView, Runnable {
                 Map.of("myRank", myRank, "totalEntries", totalEntries, "ranking", list)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onPlayerDisconnected(String disconnectedNick) throws Exception {
         send(new NetworkMessage(MessageType.ON_PLAYER_DISCONNECTED,
                 Map.of("nickname", disconnectedNick)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onPlayerReplacedByBot(String nickname) throws Exception {
         send(new NetworkMessage(MessageType.ON_PLAYER_REPLACED_BY_BOT,
                 Map.of("nickname", nickname)));
     }
-
+    /*
     // === SPECTATOR ===
+
+    /** {@inheritDoc}
     @Override
     public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception {
         send(new NetworkMessage(MessageType.ON_SPECTATOR_JOINED,
@@ -331,10 +369,19 @@ public class SocketClientHandler implements VirtualView, Runnable {
     }
     // === END SPECTATOR ===
 
+     */
+
+
     // ─────────────────────────────────────────────────────────────────────
     //  SEND  (non-blocking — enqueues JSON for the senderLoop thread)
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Serialises {@code msg} to JSON and enqueues it for the sender thread (non-blocking).
+     * Drops the message if the queue is full and logs a warning.
+     *
+     * @param msg the message to enqueue
+     */
     private void send(NetworkMessage msg) {
         try {
             String json = mapper.writeValueAsString(msg);
@@ -351,6 +398,12 @@ public class SocketClientHandler implements VirtualView, Runnable {
     //  DISCONNECTION (idempotent)
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Idempotent disconnect handler: stops the heartbeat, closes the socket, clears the send queue,
+     * and notifies LobbyManager.
+     *
+     * @param reason human-readable explanation of why the connection is being closed
+     */
     private void handleDisconnect(String reason) {
         String nick;
         synchronized (this) {
@@ -366,10 +419,10 @@ public class SocketClientHandler implements VirtualView, Runnable {
                     + (nickname != null ? nickname : "unknown") + " — " + reason);
             nick = nickname;
         }
-        // LobbyManager chiamato fuori dal lock per evitare deadlock:
+        // LobbyManager is called outside the lock to avoid a deadlock cycle:
         // senderLoop thread: SocketClientHandler → LobbyManager → GameController
-        // read loop thread: LobbyManager → GameController → SocketClientHandler
-        // rilasciando il lock prima di chiamare LobbyManager si spezza il ciclo.
+        // read loop thread:  LobbyManager → GameController → SocketClientHandler
+        // Releasing the lock before calling LobbyManager breaks the cycle.
         if (nick != null) {
             lobbyManager.handleDisconnect(nick);
         }

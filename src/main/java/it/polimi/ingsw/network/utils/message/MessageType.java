@@ -86,14 +86,18 @@ public enum MessageType {
     PING,
     PONG,
 
+    /*
     // === SPECTATOR ===
     // ── C→S  spectator ────────────────────────────────────────────────────
-    /** Join a game in progress as read-only spectator. Payload: nickname, lobbyId */
+    /** Join a game in progress as read-only spectator. Payload: nickname, lobbyId
     JOIN_AS_SPECTATOR,
-    /** Leave spectator mode and return to lobby.       Payload: nickname           */
+    /** Leave spectator mode and return to lobby.       Payload: nickname
     LEAVE_SPECTATOR,
     // ── S→C  spectator ────────────────────────────────────────────────────
-    /** Initial snapshot sent when spectator joins. Payload: currentPlayerNick, boardSummary */
+    /** Initial snapshot sent when spectator joins. Payload: currentPlayerNick, boardSummary
     ON_SPECTATOR_JOINED
     // === END SPECTATOR ===
+
+     */
+
 }

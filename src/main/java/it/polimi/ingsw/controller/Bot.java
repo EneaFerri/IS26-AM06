@@ -213,5 +213,8 @@ public class Bot implements VirtualView {
                                         java.util.List<RankingEntry> fullRanking)         throws Exception {}
     @Override public void onPlayerDisconnected(String nickname)                           throws Exception {}
     @Override public void onPlayerReplacedByBot(String nickname)                          throws Exception {}
+    /*
     @Override public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception {}
+
+     */
 }

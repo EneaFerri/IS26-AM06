@@ -20,6 +20,11 @@ import java.rmi.RemoteException;
  */
 public class CombinedServer {
 
+    /**
+     * Application entry point. Starts the RMI and Socket servers and blocks on the Socket server.
+     *
+     * @param args command-line arguments (not used)
+     */
     public static void main(String[] args) {
         String ip = NetworkUtils.resolveLocalIp();
         System.setProperty("java.rmi.server.hostname", ip);
@@ -35,7 +40,7 @@ public class CombinedServer {
         try {
             RmiServer rmi = new RmiServer(sharedLobbyManager);
             rmi.start();
-            //System.out.println("[CombinedServer] RMI server avviato.");
+            //System.out.println("[CombinedServer] RMI server started.");
         } catch (RemoteException e) {
             System.err.println("[CombinedServer] RMI startup failed: " + e.getMessage());
         }
@@ -45,7 +50,7 @@ public class CombinedServer {
         try {
 
             socket.start();
-            //System.out.println("[CombinedServer] Socket server avviato.");
+            //System.out.println("[CombinedServer] Socket server started.");
 
         } catch (Exception e) {
             System.err.println("[CombinedServer] Socket startup failed: " + e.getMessage());

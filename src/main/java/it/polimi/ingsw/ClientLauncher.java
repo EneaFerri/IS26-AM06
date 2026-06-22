@@ -13,30 +13,41 @@ import java.util.Scanner;
 import static it.polimi.ingsw.network.utils.NetworkUtils.resolveLocalIp;
 
 /**
- * Unified client entry point — unico launcher per TUI e GUI.
+ * Unified client entry point — single launcher for both TUI and GUI.
  *
- * Avvio da terminale (IntelliJ o riga di comando):
- *   1 → TUI : tutta l'interazione rimane nel terminale (CLIView).
- *   2 → GUI : avvia JavaFX tramite Application.launch() e apre la finestra grafica.
+ * <p>Launch from the terminal (IntelliJ or command line):
+ * <ul>
+ *   <li>1 → TUI : all interaction stays in the terminal ({@link CLIView}).</li>
+ *   <li>2 → GUI : starts JavaFX via {@code Application.launch()} and opens the graphical window.</li>
+ * </ul>
  *
- * ── Note architetturali ────────────────────────────────────────────────────
- *  • Lo Scanner viene ottenuto da CLIView (getScanner()) in modo che esista
- *    UN SOLO Scanner su System.in per tutta la vita del processo TUI.
- *  • Application.launch() blocca il thread main fino alla chiusura della
- *    finestra JavaFX — comportamento corretto e atteso.
- *  • ClientLauncherGUI mantiene il proprio main() per poter essere avviato
- *    anche in standalone (es. run configuration JavaFX dedicata).
+ * <p>Architectural notes:
+ * <ul>
+ *   <li>The {@link Scanner} is obtained from {@link CLIView#getScanner()} so that exactly one
+ *       Scanner exists on {@code System.in} for the entire lifetime of the TUI process.</li>
+ *   <li>{@code Application.launch()} blocks the main thread until the JavaFX window is closed —
+ *       the expected and correct behavior.</li>
+ *   <li>{@link ClientLauncherGUI} keeps its own {@code main()} so it can also be launched
+ *       standalone (e.g. a dedicated JavaFX run configuration).</li>
+ * </ul>
  */
 public class ClientLauncher {
 
+    /**
+     * Application entry point. Prompts the user to choose TUI or GUI and the network transport,
+     * then wires up the client components and starts the chosen interface.
+     *
+     * @param args command-line arguments (not used)
+     * @throws Exception if the connection or JavaFX launch fails
+     */
     public static void main(String[] args) throws Exception {
 
         System.setProperty("apple.awt.application.name", "Mesos");
         System.setProperty("com.apple.mrj.application.apple.menu.about.name", "Mesos");
 
-        // ── Scelta interfaccia ────────────────────────────────────────────
-        //    Usiamo lo scanner di CLIView per non aprire mai due Scanner su
-        //    System.in contemporaneamente nel percorso TUI.
+        // ── Interface selection ───────────────────────────────────────────
+        //    Use CLIView's Scanner so we never open two Scanners on
+        //    System.in simultaneously on the TUI path.
         CLIView     view    = new CLIView();
         Scanner     scanner = view.getScanner();
 
@@ -50,19 +61,19 @@ public class ClientLauncher {
         System.out.print("Scelta: ");
         String uiChoice = scanner.nextLine().trim();
 
-        // ── Percorso GUI ──────────────────────────────────────────────────
+        // ── GUI path ──────────────────────────────────────────────────────
         if (uiChoice.equals("2")) {
-            // Application.launch() deve essere chiamato dal thread main ed è
-            // bloccante: ritorna solo quando la finestra JavaFX viene chiusa.
+            // Application.launch() must be called from the main thread and is
+            // blocking: it returns only when the JavaFX window is closed.
             Application.launch(ClientLauncherGUI.class, args);
             return;
         }
 
-        // ── Percorso TUI ──────────────────────────────────────────────────
+        // ── TUI path ──────────────────────────────────────────────────────
         ClientModel model = new ClientModel();
         model.registerObserver(view);
 
-        // Scelta trasporto
+        // Transport selection
         System.out.println();
         System.out.println("╔══════════════════════════════════════╗");
         System.out.println("║   Seleziona tipo di connessione:     ║");
@@ -72,27 +83,27 @@ public class ClientLauncher {
         System.out.print("Scelta: ");
         String netChoice = scanner.nextLine().trim();
 
-        // IP server
+        // Server IP
         System.out.print("IP del server (INVIO = localhost): ");
         String input = scanner.nextLine().trim();
         String host  = input.isEmpty() ? "localhost" : input;
 
         // Wire-up
         if (netChoice.equals("1")) {
-            // Percorso RMI
+            // RMI path
             System.setProperty("java.rmi.server.hostname", resolveLocalIp());
             RmiClient rmiClient = RmiClient.connect(host, model);
             view.setServer(rmiClient);
             view.doLoginCli();
         } else {
-            // Percorso Socket (default)
+            // Socket path (default)
             SocketClient      socketClient = new SocketClient(model);
             SocketServerProxy proxy        = socketClient.connect(host);
             view.setServer(proxy);
             view.doLoginCli();
         }
 
-        // Il thread main rimane vivo; tutta l'interazione successiva è event-driven.
+        // The main thread stays alive; all subsequent interaction is event-driven.
         try { Thread.currentThread().join(); }
         catch (InterruptedException e) { System.out.println("Client terminato."); }
     }

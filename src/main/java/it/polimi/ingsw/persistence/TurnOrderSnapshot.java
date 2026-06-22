@@ -3,12 +3,12 @@ package it.polimi.ingsw.persistence;
 import java.util.List;
 
 /**
- * Snapshot JSON-serializzabile del TurnOrder.
- * tag identifica il blocco di configurazione (numberOfPlayers - 1).
- * blockTotemColors ha un elemento per ogni OrderBlock;
- * null indica che il block è libero (nessun totem posizionato).
+ * JSON-serializable snapshot of TurnOrder.
+ * {@code tag} identifies the configuration block (numberOfPlayers - 1).
+ * {@code blockTotemColors} has one entry per OrderBlock;
+ * {@code null} means the block is free (no totem placed).
  */
 public record TurnOrderSnapshot(
         int tag,
-        List<String> blockTotemColors   // TotemColor.name() oppure null
+        List<String> blockTotemColors   // TotemColor.name() or null
 ) {}

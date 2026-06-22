@@ -3,9 +3,9 @@ package it.polimi.ingsw.persistence;
 import java.util.List;
 
 /**
- * Snapshot JSON-serializzabile di un Player.
- * Tutti i campi sono primitivi, String o liste di tali tipi:
- * nessun riferimento a oggetti del model.
+ * JSON-serializable snapshot of a Player.
+ * All fields are primitives, {@code String}, or lists of such types —
+ * no references to model objects.
  */
 public record PlayerSnapshot(
         String nickname,

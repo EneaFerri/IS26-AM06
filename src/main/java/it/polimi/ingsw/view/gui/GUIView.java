@@ -33,6 +33,12 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * JavaFX-based GUI view that implements {@link ModelObserver}.
+ * Receives callbacks from {@link ClientModel} and updates the graphical interface
+ * by switching scenes (lobby → waiting → game → end-game) and delegating
+ * fine-grained rendering to {@link GameScreen}.
+ */
 public class GUIView implements ModelObserver {
 
     private final Stage       stage;
@@ -42,7 +48,7 @@ public class GUIView implements ModelObserver {
 
     private List<String> players = new ArrayList<>();
 
-    // Riferimenti agli elementi lobby che aggiorniamo live
+    // References to lobby UI elements that are updated live
     private VBox lobbyListBox;
     private Label lobbyStatusLabel;
 
@@ -74,7 +80,7 @@ public class GUIView implements ModelObserver {
     public void setNick(String nick)              { this.nick   = nick;   }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  SCHERMATA LOBBY
+    //  LOBBY SCREEN
     // ─────────────────────────────────────────────────────────────────────
 
     public void showLobbyScreen() {
@@ -91,7 +97,7 @@ public class GUIView implements ModelObserver {
         VBox header = new VBox(4, title, welcome);
         header.setAlignment(Pos.CENTER_LEFT);
 
-        // ── Lista lobby ───────────────────────────────────────────────────
+        // ── Lobby list ────────────────────────────────────────────────────
         lobbyStatusLabel = new Label("Ricerca lobby in corso…");
         lobbyStatusLabel.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
                 "-fx-font-size:13;-fx-text-fill:rgba(255,255,255,0.45);");
@@ -105,10 +111,10 @@ public class GUIView implements ModelObserver {
         scroll.setStyle("-fx-background:transparent;-fx-background-color:transparent;" +
                 "-fx-border-color:transparent;");
 
-        // ── Separatore ────────────────────────────────────────────────────
+        // ── Separator ─────────────────────────────────────────────────────
         Region sep = separator();
 
-        // ── Crea nuova lobby ──────────────────────────────────────────────
+        // ── Create new lobby ──────────────────────────────────────────────
         Label createLabel = new Label("CREA NUOVA LOBBY");
         createLabel.setStyle(styleSmallCaps());
 
@@ -147,7 +153,7 @@ public class GUIView implements ModelObserver {
             }, "gui-create-lobby").start();
         });
 
-        // ── Card contenitore ──────────────────────────────────────────────
+        // ── Container card ────────────────────────────────────────────────
         VBox card = new VBox(20,
                 header,
                 separator(),
@@ -174,7 +180,7 @@ public class GUIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  SCHERMATA ATTESA (dopo login / join)
+    //  WAITING SCREEN (after login / join)
     // ─────────────────────────────────────────────────────────────────────
 
     private void showWaitingScreen(int current, int expected) {
@@ -187,7 +193,7 @@ public class GUIView implements ModelObserver {
         info.setStyle("-fx-font-family:'SF Pro Text','Helvetica Neue',Arial;" +
                 "-fx-font-size:16;-fx-text-fill:rgba(255,255,255,0.75);");
 
-        // Indicatore visivo giocatori
+        // Visual player indicator
         HBox dots = new HBox(12);
         dots.setAlignment(Pos.CENTER);
         for (int i = 0; i < expected; i++) {
@@ -217,29 +223,29 @@ public class GUIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  SCHERMATA DI GIOCO
+    //  GAME SCREEN
     // ─────────────────────────────────────────────────────────────────────
 
     private GameScreen gameScreen;
 
     public void showGameScreen() {
-        showGameScreen(false);
-    }
-
-    // === SPECTATOR ===
-    private void showGameScreen(boolean spectator) {
         List<String> activeSpaces = getActiveSpaces(players.size());
-        gameScreen = new GameScreen(server, model, nick, players, activeSpaces, spectator, this);
+        gameScreen = new GameScreen(server, model, nick, players, activeSpaces);
         Scene scene = gameScreen.build(stage);
         applyGlobalStyles(scene);
         stage.setScene(scene);
         stage.setResizable(true);
     }
+     /*
+    // === SPECTATOR ===
+    private void showGameScreen(boolean spectator) {
+
+    }
 
     /**
      * Called by GameScreen's "Torna alla Lobby" button when in spectator mode.
      * Leaves spectator mode and requests a fresh lobby list.
-     */
+
     public void leaveSpectatorView() {
         // This runs on the FX thread (button action), so showLobbyScreen() is safe here.
         // We rebuild the lobby UI immediately so that when onLobbyList arrives from the
@@ -257,8 +263,11 @@ public class GUIView implements ModelObserver {
     }
     // === END SPECTATOR ===
 
+      */
+
+
     private List<String> getActiveSpaces(int numPlayers) {
-        // Specchio esatto di Board.prepareGameBoardSpace
+        // Exact mirror of Board.prepareGameBoardSpace
         List<String> spaces = new ArrayList<>(List.of("A","B","C","D","E","F","G"));
         if (numPlayers <= 4) spaces.remove("A");
         if (numPlayers <= 3) spaces.remove("G");
@@ -266,7 +275,7 @@ public class GUIView implements ModelObserver {
         return spaces;
     }
 
-    // il metodo restituisce gli id delle carte nella riga del marker passato (e si limita a leggere quelle della riga E NON anche quelle pescate)
+    // Returns the card IDs in the row identified by the given marker (reads only the row cards, NOT the already-drawn ones)
     private List<Integer> parseCardIds(String text, String marker) {
         List<Integer> ids = new ArrayList<>();
         int markerIdx = text.indexOf(marker);
@@ -339,7 +348,7 @@ public class GUIView implements ModelObserver {
                 it.polimi.ingsw.model.enums.TotemColor.values();
         for (int i = 0; i < playerNicknames.size(); i++)
             totemColors.put(playerNicknames.get(i), colors[i % colors.length]);
-        Platform.runLater(() -> showGameScreen(false));
+        Platform.runLater(() -> showGameScreen());
     }
 
     @Override
@@ -435,10 +444,10 @@ public class GUIView implements ModelObserver {
             boolean pickTop;
 
             if (phase == GameState.PICKING_CARD) {
-                // Carte con marker ##HAS_TOP## / ##HAS_BOT##
+                // Cards with markers ##HAS_TOP## / ##HAS_BOT##
                 top     = parseCardIds(extraInfo, "##HAS_TOP##");
                 bot     = parseCardIds(extraInfo, "##HAS_BOT##");
-                pickTop = !top.isEmpty(); // può pescare dall'alto se ci sono carte lì
+                pickTop = !top.isEmpty(); // can pick from top if there are cards there
             } else {
                 top     = parseTopCards(extraInfo);
                 bot     = parseBotCards(extraInfo);
@@ -457,7 +466,7 @@ public class GUIView implements ModelObserver {
             gameScreen.setOtherPlayerTurn(currentPlayerNick);
             List<Integer> top = parseTopCards(boardSummary);
             List<Integer> bot = parseBotCards(boardSummary);
-            // Passa sempre — updateBoardCards ignora le liste vuote internamente
+            // Always passes — updateBoardCards ignores empty lists internally
             gameScreen.updateBoardCards(top, bot, false, false);
             parseAndUpdateAllStats(boardSummary);
             Map<String, List<Integer>> ownedByPlayerSnap = parsePlayerOwnedCards(boardSummary);
@@ -494,7 +503,7 @@ public class GUIView implements ModelObserver {
                     java.util.regex.Pattern.compile("CardId:\\s*(\\d+)").matcher(cardId);
             if (m.find()) {
                 int id = Integer.parseInt(m.group(1));
-                // Rimuovi la carta dal board per tutti (anche se la prende un altro) CON ANIMAZIONE!!!
+                // Remove the card from the board for everyone (even if taken by another player) WITH ANIMATION
                 gameScreen.handleCardTaken(id, nickname.equals(nick));
             }
         });
@@ -502,8 +511,8 @@ public class GUIView implements ModelObserver {
 
     @Override
     public void onPlayerUpdated(String nickname) {
-        // Non abbiamo lo stato aggiornato qui, arriverà con il prossimo onYourTurn/onTurnSnapshot
-        // Ma possiamo forzare un aggiornamento se riceviamo boardSummary nell'extraInfo
+        // Updated state is not available here; it will arrive with the next onYourTurn/onTurnSnapshot.
+        // We could force an update if we receive a boardSummary in extraInfo.
         Platform.runLater(() -> System.out.println("[GUI] playerUpdated: " + nickname));
     }
 
@@ -823,6 +832,7 @@ public class GUIView implements ModelObserver {
 
     // === END SERVER CRASH & RECONNECT ===
 
+    /*
     // === SPECTATOR ===
     @Override
     public void onSpectatorJoined(String currentPlayerNick, String boardSummary) {
@@ -862,10 +872,13 @@ public class GUIView implements ModelObserver {
         });
     }
 
+     */
+
     /**
      * Parses ordered player nicknames from the ##PLAYER_CARDS_BEGIN## block.
      * Spectators use this because they never receive onGameStarting().
-     */
+     **/
+
     private List<String> parsePlayerNamesFromSummary(String boardSummary) {
         List<String> names = new ArrayList<>();
         if (boardSummary == null) return names;
@@ -879,9 +892,11 @@ public class GUIView implements ModelObserver {
     }
 
     /**
-     * Legge l'era corrente dal blocco machine-readable inviato dal server.
-     * Se il blocco non c'è o il valore è sporco, ritorno null e lascio invariata la GUI.
-     */
+     * Reads the current era from the machine-readable block sent by the server.
+     * Returns {@code null} if the block is absent or the value is unrecognised,
+     * leaving the GUI unchanged.
+     **/
+
     private Age parseDeckAge(String text) {
         if (text == null) return null;
 
@@ -898,8 +913,8 @@ public class GUIView implements ModelObserver {
     }
 
     /**
-     * Legge quante carte restano nel mazzo dell'era attiva.
-     * Il default è 0 perché in assenza del marker preferisco non inventare numeri.
+     * Reads how many cards remain in the active era's deck.
+     * Defaults to {@code 0} when the marker is absent to avoid fabricating a number.
      */
     private int parseDeckRemaining(String text) {
         if (text == null) return 0;
@@ -913,7 +928,7 @@ public class GUIView implements ModelObserver {
             return 0;
         }
     }
-// === END SPECTATOR ===
+
 
     // ─────────────────────────────────────────────────────────────────────
     //  UI helpers
@@ -921,11 +936,11 @@ public class GUIView implements ModelObserver {
 
     private void parseAndUpdateAllStats(String text) {
         if (gameScreen == null || text == null) return;
-        // Formato tabella: │  nickname<spaces>food<spaces>prestige<spaces>turno
+        // Table format: │  nickname<spaces>food<spaces>prestige<spaces>turn
         String[] lines = text.split("\n");
         for (String line : lines) {
             if (!line.contains("│")) continue;
-            // Rimuove il prefisso "│  " e splitta per 2+ spazi
+            // Strip the "│  " prefix and split on 2+ spaces
             String content = line.replaceFirst(".*?│\\s{2}", "").trim();
             String[] parts = content.split("\\s{2,}");
             if (parts.length < 3) continue;
@@ -994,7 +1009,7 @@ public class GUIView implements ModelObserver {
                 try {
                     // === SPECTATOR ===
                     if (spectate) {
-                        server.joinAsSpectator(nick, lobby.id());
+                        //server.joinAsSpectator(nick, lobby.id());
                     } else {
                         server.loginToLobby(nick, lobby.id());
                     }

@@ -68,6 +68,11 @@ public class DatabaseManager {
     /**
      * Inserts one row per player using a batch INSERT.
      * Called once at game end by GameController.onGameOver().
+     *
+     * @param players    list of players whose results will be saved
+     * @param numPlayers total number of players in the game (used for leaderboard filtering)
+     * @param date       date the game was played
+     * @throws SQLException if the batch insert fails
      */
     public synchronized void saveGameResults(List<Player> players,
                                              int numPlayers,
@@ -89,6 +94,10 @@ public class DatabaseManager {
      * Returns all historical results for games of the given player count,
      * ordered by score DESC with SQL RANK() assigned sequentially.
      * Requires MySQL 8+ or PostgreSQL 9.4+.
+     *
+     * @param numPlayers number of players to filter by
+     * @return ranked list of all results for the given player count
+     * @throws SQLException if the query fails
      */
     public synchronized List<RankingEntry> getRanking(int numPlayers) throws SQLException {
         String sql = """
@@ -119,6 +128,12 @@ public class DatabaseManager {
     /**
      * Returns the historical rank of a specific player for games of a given
      * player count. Uses COUNT to avoid a second window-function query.
+     *
+     * @param nickname   the player's nickname
+     * @param score      the player's score to rank against historical results
+     * @param numPlayers number of players to filter by
+     * @return 1-based rank (1 = best score)
+     * @throws SQLException if the query fails
      */
     public synchronized int getPlayerRank(String nickname,
                                           int score,

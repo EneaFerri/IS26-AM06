@@ -39,6 +39,14 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     private final ClientModel         model;
     private String                    hostname;
 
+    /**
+     * Creates an RMI client wired to the given server stub and client model.
+     * Prefer the {@link #connect} factory method for normal use.
+     *
+     * @param server the RMI server stub
+     * @param model  the client-side model that receives all server callbacks
+     * @throws RemoteException if the RMI runtime cannot export this object
+     */
     public RmiClient(VirtualServerRmi server, ClientModel model) throws RemoteException {
         super();
         this.server = server;
@@ -80,12 +88,14 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
         }, HEARTBEAT_SEC, HEARTBEAT_SEC, TimeUnit.SECONDS);
     }
 
+    /** Called on heartbeat failure; notifies the model and starts the reconnect loop. */
     private synchronized void handleServerDisconnect() {
         System.err.println("\n[RmiClient] Connessione al server persa.");
         model.onWaitingForServer("Connessione RMI al server persa. Attendo che il server si riavvii...");
         startReconnectLoop();
     }
 
+    /** Retries RMI registry lookup every 5 seconds until the server comes back. */
     private void startReconnectLoop() {
         Thread t = new Thread(() -> {
             while (true) {
@@ -109,116 +119,152 @@ public class RmiClient extends UnicastRemoteObject implements VirtualViewRmi, Ga
     //  GameServerProxy  (CLIView/GUIView calls these)
     // ─────────────────────────────────────────────────────────────────────
 
+    /** {@inheritDoc} */
     @Override
     public void loginFirstPlayer(String nickname, int numPlayers) throws RemoteException {
         server.loginFirstPlayer(nickname, numPlayers, this);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void loginToLobby(String nickname, int lobbyId) throws RemoteException {
         server.loginToLobby(nickname, lobbyId, this);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void requestLobbyList() throws RemoteException {
         server.requestLobbyList(this);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void placeTotem(String nickname, char boardSpaceLetter) throws RemoteException {
         server.placeTotem(nickname, boardSpaceLetter);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void pickCard(String nickname, int cardIndex, boolean fromTop) throws RemoteException {
         server.pickCard(nickname, cardIndex, fromTop);
     }
 
+    /*
     // === SPECTATOR ===
+
+    /** {@inheritDoc}
     @Override
     public void joinAsSpectator(String nickname, int lobbyId) throws RemoteException {
         server.joinAsSpectator(nickname, lobbyId, this);
     }
 
+    /** {@inheritDoc}
     @Override
     public void leaveSpectator(String nickname) throws RemoteException {
         server.leaveSpectator(nickname, this);
     }
     // === END SPECTATOR ===
+    */
 
     // ─────────────────────────────────────────────────────────────────────
     //  VirtualViewRmi  (server calls these as callbacks)
     // ─────────────────────────────────────────────────────────────────────
 
+    /** {@inheritDoc} */
     @Override public void onLoginAccepted(String nickname, int expectedPlayers) throws RemoteException {
         model.onLoginAccepted(nickname, expectedPlayers);
     }
+    /** {@inheritDoc} */
     @Override public void onPlayerJoined(String nickname, int currentCount, int expected) throws RemoteException {
         model.onPlayerJoined(nickname, currentCount, expected);
     }
+    /** {@inheritDoc} */
     @Override public void onGameStarting(List<String> playerNicknames) throws RemoteException {
         model.onGameStarting(playerNicknames);
     }
+    /** {@inheritDoc} */
     @Override public void onError(String message) throws RemoteException {
         model.onError(message);
     }
+    /** {@inheritDoc} */
     @Override public void onNoLobbyAvailable() throws RemoteException {
         model.onNoLobbyAvailable();
     }
+    /** {@inheritDoc} */
     @Override public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) throws RemoteException {
         model.onLobbyList(lobbies);
     }
+    /** {@inheritDoc} */
     @Override public void onTurnSnapshot(String currentPlayerNick, String boardSummary) throws RemoteException {
         model.onTurnSnapshot(currentPlayerNick, boardSummary);
     }
+    /** {@inheritDoc} */
     @Override public void onYourTurn(String nickname, GameState phase, String extraInfo) throws RemoteException {
         model.onYourTurn(nickname, phase, extraInfo);
     }
+    /** {@inheritDoc} */
     @Override public void onTotemPlaced(String nickname, String boardSpaceId) throws RemoteException {
         model.onTotemPlaced(nickname, boardSpaceId);
     }
+    /** {@inheritDoc} */
     @Override public void onInvalidAction(String nicknameTarget, String errorMessage) throws RemoteException {
         model.onInvalidAction(nicknameTarget, errorMessage);
     }
+    /** {@inheritDoc} */
     @Override public void onCardTaken(String nickname, String cardId) throws RemoteException {
         model.onCardTaken(nickname, cardId);
     }
+    /** {@inheritDoc} */
     @Override public void onPlayerUpdated(String nickname) throws RemoteException {
         model.onPlayerUpdated(nickname);
     }
+    /** {@inheritDoc} */
     @Override public void onTurnOrderUpdated(List<String> newOrderedNicknames) throws RemoteException {
         model.onTurnOrderUpdated(newOrderedNicknames);
     }
+    /** {@inheritDoc} */
     @Override public void onEventResolved(String eventName, String resultDetails) throws RemoteException {
         model.onEventResolved(eventName, resultDetails);
     }
+    /** {@inheritDoc} */
     @Override public void onBoardUpdated() throws RemoteException {
         model.onBoardUpdated();
     }
+    /** {@inheritDoc} */
     @Override public void onNewEraStarted(Age newEra) throws RemoteException {
         model.onNewEraStarted(newEra);
     }
+    /** {@inheritDoc} */
     @Override public void onGameOver(String results) throws RemoteException {
         model.onGameOver(results);
     }
+    /** {@inheritDoc} */
     @Override public void onRankingData(int myRank, int totalEntries,
                                         List<RankingEntry> fullRanking) throws RemoteException {
         model.onRankingData(myRank, totalEntries, fullRanking);
     }
+    /** {@inheritDoc} */
     @Override public void onPlayerDisconnected(String nickname) throws RemoteException {
         model.onPlayerDisconnected(nickname);
     }
+    /** {@inheritDoc} */
     @Override public void onPlayerReplacedByBot(String nickname) throws RemoteException {
         model.onPlayerReplacedByBot(nickname);
     }
 
+    /*
     // === SPECTATOR ===
+    /** {@inheritDoc}
     @Override public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws RemoteException {
         model.onSpectatorJoined(currentPlayerNick, boardSummary);
     }
     // === END SPECTATOR ===
 
+     */
+
     // --- HEARTBEAT ---
+
+    /** No-op: the successful return of this call confirms to the server that this client is alive. */
     @Override public void ping() throws RemoteException {
         // no-op: the successful return confirms this client is alive
     }

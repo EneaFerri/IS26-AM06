@@ -12,9 +12,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents the game board, holding the card rows (tribe and building),
+ * the offer field (totem placement spaces), and utility methods for game flow.
+ */
 public class Board {
-
-
 
     private List<TribeCard> topTribeCards;
     private List<TribeCard> bottomTribeCards;
@@ -24,7 +26,9 @@ public class Board {
 
     private List<BoardSpace> offerField;
 
-
+    /**
+     * Creates a new Board and configures the offer field from the JSON resource.
+     */
     public Board() {
         topTribeCards = new ArrayList<>();
         bottomTribeCards = new ArrayList<>();
@@ -62,10 +66,15 @@ public class Board {
                 offerField.add(BoardConfiguration.createBoardSpace(node));
             }
         }catch(IOException e){
-            throw new RuntimeException("errore caricamento da JSON", e);
+            throw new RuntimeException("error loading from JSON", e);
         }
     }
 
+    /**
+     * Removes offer-field spaces that are not used for the given player count.
+     *
+     * @param numberOfPlayers the number of players in the game (2–5)
+     */
     public void prepareGameBoardSpace(int numberOfPlayers) {
 
         if (numberOfPlayers == 5) {
@@ -87,38 +96,86 @@ public class Board {
         offerField.removeIf(boardSpace -> boardSpace.getLetter() == letter);
     }
 
+    /**
+     * Returns the top row of tribe cards.
+     *
+     * @return list of tribe cards in the top row
+     */
     public List<TribeCard> getTopRowTribe() {
         return topTribeCards;
     }
 
+    /**
+     * Returns the bottom row of tribe cards.
+     *
+     * @return list of tribe cards in the bottom row
+     */
     public List<TribeCard> getLowRowTribe() {
         return bottomTribeCards;
     }
 
+    /**
+     * Returns the top row of building cards.
+     *
+     * @return list of building cards in the top row
+     */
     public List<BuildingCard> getTopRowBuild() {
         return topBuildingCards;
     }
 
+    /**
+     * Returns the bottom row of building cards.
+     *
+     * @return list of building cards in the bottom row
+     */
     public List<BuildingCard> getLowRowBuild() {
         return bottomBuildingCards;
     }
 
+    /**
+     * Returns all offer-field spaces (active spaces for totem placement).
+     *
+     * @return list of board spaces in the offer field
+     */
     public List<BoardSpace> getOfferField() {
         return offerField;
     }
 
+    /**
+     * Places a totem on the given board space.
+     *
+     * @param totem the totem to place
+     * @param space the target board space
+     */
     public void placeTotem(Totem totem, BoardSpace space) {
         space.setTotem(totem);
         totem.place(space);
     }
 
+    /**
+     * Adds a tribe card to the bottom row (used during first-turn setup).
+     *
+     * @param card the tribe card to add
+     */
     public void addBottomTribeCardsFirstTurn(TribeCard card) {
         this.bottomTribeCards.add(card);
     }
+
+    /**
+     * Adds a tribe card to the top row.
+     *
+     * @param card the tribe card to add
+     */
     public void addTopTribeCards(TribeCard card) {
         this.topTribeCards.add(card);
     }
 
+    /**
+     * Replaces the top building card row with cards belonging to the given age.
+     *
+     * @param cards the full list of building cards to filter
+     * @param ERA   the age whose cards should be placed in the top row
+     */
     public void setTopBuildingCards(List<BuildingCard> cards, Age ERA) {
         List<BuildingCard> filtered = new ArrayList<>();
         for (BuildingCard card : cards) {
@@ -129,6 +186,12 @@ public class Board {
         this.topBuildingCards = filtered;
     }
 
+    /**
+     * Returns the board space identified by the given letter, or {@code null} if not found.
+     *
+     * @param letter the letter identifier of the space
+     * @return the matching {@link BoardSpace}, or {@code null}
+     */
     public BoardSpace getBoardSpace(char letter){
         for (BoardSpace space : offerField) {
             if (space.getLetter() == letter) {
@@ -138,6 +201,11 @@ public class Board {
         return null;
     }
 
+    /**
+     * Returns all offer-field spaces that are currently unoccupied.
+     *
+     * @return list of free board spaces
+     */
     public List<BoardSpace> getFreeBoardSpaces(){
         List<BoardSpace> freeSpaces = new ArrayList<>();
         for (BoardSpace space : offerField) {
@@ -148,6 +216,12 @@ public class Board {
         return freeSpaces;
     }
 
+    /**
+     * Returns the players ordered by their totem position on the offer field.
+     *
+     * @param players all players in the game
+     * @return players sorted by offer-field placement order
+     */
     public List<Player> getPlayerInOfferOrder(List <Player> players){
         List<Player> ordered = new ArrayList<>();
         for (BoardSpace space : offerField) {
@@ -163,6 +237,11 @@ public class Board {
         return ordered;
     }
 
+    /**
+     * Returns tribe cards in the top row that have not yet been drawn.
+     *
+     * @return list of available top-row tribe cards
+     */
     public List<TribeCard> getAvailableUpperTribeCards(){
         List<TribeCard> availableTribeUp = new ArrayList<>();
         for (TribeCard card : topTribeCards) {
@@ -173,6 +252,11 @@ public class Board {
         return availableTribeUp;
     }
 
+    /**
+     * Returns tribe cards in the bottom row that have not yet been drawn.
+     *
+     * @return list of available bottom-row tribe cards
+     */
     public List<TribeCard> getAvailableBottomTribeCards(){
         List<TribeCard> availableTribeBo = new ArrayList<>();
         for (TribeCard card : bottomTribeCards) {
@@ -183,6 +267,11 @@ public class Board {
         return availableTribeBo;
     }
 
+    /**
+     * Returns building cards in the top row that have not yet been drawn.
+     *
+     * @return list of available top-row building cards
+     */
     public List<BuildingCard> getAvailableUpperBuildingCards() {
         List<BuildingCard> availableBuildUp = new ArrayList<>();
         for (BuildingCard card : topBuildingCards ) {
@@ -193,6 +282,11 @@ public class Board {
         return availableBuildUp;
     }
 
+    /**
+     * Returns building cards in the bottom row that have not yet been drawn.
+     *
+     * @return list of available bottom-row building cards
+     */
     public List<BuildingCard> getAvailableBottomBuildingCards(){
         List<BuildingCard> availableBuildBo = new ArrayList<>();
         for (BuildingCard card : bottomBuildingCards ) {
@@ -203,6 +297,11 @@ public class Board {
         return availableBuildBo;
     }
 
+    /**
+     * Removes the given card from whichever row it currently belongs to.
+     *
+     * @param card the card to remove
+     */
     public void removeCard(Card card) {
         if (topTribeCards.remove(card)) return;
         if (bottomTribeCards.remove(card)) return;
@@ -210,6 +309,9 @@ public class Board {
         bottomBuildingCards.remove(card);
     }
 
+    /**
+     * Shifts the tribe card rows: the current top row becomes the new bottom row and the top row is cleared.
+     */
     public void shiftRows() {
 
         bottomTribeCards.clear();
@@ -218,6 +320,9 @@ public class Board {
 
     }
 
+    /**
+     * Shifts the building card rows: the current top row becomes the new bottom row and the top row is cleared.
+     */
     public void shiftRowsBuildings() {
 
         bottomBuildingCards.clear();
@@ -226,7 +331,14 @@ public class Board {
 
     }
 
-    /** Sovrascrive le quattro righe carte — usato solo dal PersistenceManager al ripristino. */
+    /**
+     * Overwrites all four card rows — used only by {@code PersistenceManager} during game restoration.
+     *
+     * @param topTribe    tribe cards to restore in the top row
+     * @param bottomTribe tribe cards to restore in the bottom row
+     * @param topBuild    building cards to restore in the top row
+     * @param bottomBuild building cards to restore in the bottom row
+     */
     public void restoreCardRows(List<TribeCard> topTribe, List<TribeCard> bottomTribe,
                                 List<BuildingCard> topBuild, List<BuildingCard> bottomBuild) {
         this.topTribeCards    = new ArrayList<>(topTribe);
@@ -235,17 +347,25 @@ public class Board {
         this.bottomBuildingCards = new ArrayList<>(bottomBuild);
     }
 
+    /**
+     * Removes all totems from every offer-field space.
+     */
     public void clearBoardSpaces(){
         for (BoardSpace space : offerField) {
             space.removeTotem();
         }
     }
 
+    /**
+     * Returns the event cards currently in the bottom tribe row, preserving their order.
+     *
+     * @return list of event cards in the bottom row
+     */
     public List<EventCard> getLowRowEvents() {
 
         List<EventCard> lowRowEvents = new ArrayList<>();
 
-        for (TribeCard card : bottomTribeCards) { //così salviamo anche l'ordine
+        for (TribeCard card : bottomTribeCards) { // preserving card order
             if (card.isEvent()) {
                 lowRowEvents.add((EventCard) card);
             }
@@ -254,6 +374,11 @@ public class Board {
         return lowRowEvents;
     }
 
+    /**
+     * Returns the event cards currently in the top tribe row.
+     *
+     * @return list of event cards in the top row
+     */
     public List<EventCard> getUpRowEvents() {
 
         List<EventCard> upRowEvents = new ArrayList<>();
@@ -267,6 +392,11 @@ public class Board {
         return upRowEvents;
     }
 
+    /**
+     * Returns a string representation of the board showing all card rows and offer spaces.
+     *
+     * @return string describing the board state
+     */
     public String toString(){
         return "Top row: " + topTribeCards + ", Top row buildings: " + topBuildingCards +
                 "\n" +  "OfferSPace: " + printBoardSpaces() +

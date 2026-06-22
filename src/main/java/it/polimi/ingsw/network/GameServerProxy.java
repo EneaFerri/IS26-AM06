@@ -31,11 +31,13 @@ public interface GameServerProxy {
     // ── Phase 2 — card selection ──────────────────────────────────────────
     void pickCard(String nickname, int cardIndex, boolean fromTop) throws Exception;
 
+    /*
     // === SPECTATOR ===
-    /** Joins a game in progress as a read-only spectator. */
+    /** Joins a game in progress as a read-only spectator.
     void joinAsSpectator(String nickname, int lobbyId) throws Exception;
 
-    /** Leaves spectator mode; the server replies with an updated onLobbyList. */
+    /** Leaves spectator mode; the server replies with an updated onLobbyList.
     void leaveSpectator(String nickname) throws Exception;
     // === END SPECTATOR ===
+    */
 }
