@@ -317,7 +317,8 @@ public class Game implements GameActions {
      */
     public int getRemainingTopPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
-        return space.getTopCardsNumber() - topPicks;
+        int bonus = player.hasExtraCard() ? 1 : 0;
+        return space.getTopCardsNumber() + bonus - topPicks;
     }
 
     /**
@@ -521,7 +522,8 @@ public class Game implements GameActions {
         boolean consumed = false;
 
         if (getRemainingTopPicks(player) > 0 && !hasPickableCardsInRow(player, true)) {
-            topPicks = player.getTotem().getPosition().getTopCardsNumber();
+            int bonus = player.hasExtraCard() ? 1 : 0;
+            topPicks = player.getTotem().getPosition().getTopCardsNumber() + bonus;
             consumed = true;
         }
 
