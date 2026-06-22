@@ -25,6 +25,11 @@ public class SocketServer {
     private ServerSocket        serverSocket;
     private volatile boolean    running = true;
 
+    /**
+     * Creates a SocketServer that delegates all client messages to the given lobby manager.
+     *
+     * @param lobbyManager the shared lobby manager (also used by RmiServer)
+     */
     public SocketServer(LobbyManager lobbyManager) {
         this.lobbyManager = lobbyManager;
     }
@@ -54,6 +59,7 @@ public class SocketServer {
         }
     }
 
+    /** Stops the accept loop and closes the server socket. */
     public void stop() {
         running = false;
         try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) {}

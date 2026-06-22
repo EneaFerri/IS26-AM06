@@ -49,6 +49,11 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
 
+    /**
+     * Creates the RMI registry and binds this server under {@code "GameServer"}.
+     *
+     * @throws RemoteException if the registry cannot be created or the bind fails
+     */
     public void start() throws RemoteException {
         Registry registry = LocateRegistry.createRegistry(RMI_PORT);
         registry.rebind(SERVER_NAME, this);
@@ -58,6 +63,12 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         System.out.printf("╚══════════════════════════════════╝%n");
     }
 
+    /**
+     * Standalone entry point: resolves the local IP, sets the RMI hostname property, and starts the server.
+     *
+     * @param args command-line arguments (ignored)
+     * @throws RemoteException if the server cannot be started
+     */
     public static void main(String[] args) throws RemoteException {
         String ip = NetworkUtils.resolveLocalIp();
         System.setProperty("java.rmi.server.hostname", ip);
@@ -89,6 +100,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
 
     // ── VirtualServerRmi ───────────────────────────────────────────────────
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void loginFirstPlayer(String nickname, int numPlayers,
                                               VirtualViewRmi clientView) throws RemoteException {
@@ -97,6 +109,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         startClientHeartbeat(nickname, clientView);
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void loginToLobby(String nickname, int lobbyId,
                                           VirtualViewRmi clientView) throws RemoteException {
@@ -105,11 +118,13 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         startClientHeartbeat(nickname, clientView);
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void requestLobbyList(VirtualViewRmi clientView) throws RemoteException {
         lobbyManager.requestLobbyList(clientView);
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void placeTotem(String nickname,
                                         char boardSpaceLetter) throws RemoteException {
@@ -117,6 +132,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         lobbyManager.placeTotem(nickname, boardSpaceLetter);
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized void pickCard(String nickname, int cardIndex,
                                       boolean fromTop) throws RemoteException {
@@ -125,8 +141,10 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         lobbyManager.pickCard(nickname, cardIndex, fromTop);
     }
 
+    /*
     // === SPECTATOR ===
 
+    /** {@inheritDoc}
     @Override
     public synchronized void joinAsSpectator(String nickname, int lobbyId,
                                              VirtualViewRmi clientView) throws RemoteException {
@@ -134,6 +152,7 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
         lobbyManager.joinAsSpectator(nickname, lobbyId, clientView);
     }
 
+    /** {@inheritDoc}
     @Override
     public synchronized void leaveSpectator(String nickname,
                                             VirtualViewRmi clientView) throws RemoteException {
@@ -142,8 +161,11 @@ public class RmiServer extends UnicastRemoteObject implements VirtualServerRmi {
     }
 
     // === END SPECTATOR ===
+    */
 
     // --- HEARTBEAT ---
+
+    /** No-op: the successful return of this call confirms to the client that the server is alive. */
     @Override
     public synchronized void ping() throws RemoteException {
         // no-op: the successful return confirms the server is alive

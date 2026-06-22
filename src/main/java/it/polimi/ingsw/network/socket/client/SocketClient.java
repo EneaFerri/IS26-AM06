@@ -43,6 +43,11 @@ public class SocketClient {
     private SocketServerProxy proxy;
     private volatile boolean  running = true;
 
+    /**
+     * Creates a SocketClient that will deliver all server callbacks to the given model.
+     *
+     * @param model the client-side model that receives all server callbacks
+     */
     public SocketClient(ClientModel model) {
         this.model = model;
     }
@@ -92,6 +97,7 @@ public class SocketClient {
     //  READ LOOP
     // ─────────────────────────────────────────────────────────────────────
 
+    /** Reads JSON lines from the server and dispatches them until the connection closes. */
     private void readLoop(BufferedReader in, Socket socket) {
         try {
             String line;
@@ -113,6 +119,11 @@ public class SocketClient {
     //  MESSAGE DISPATCH  (Server → Client)
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Routes an incoming server message to the appropriate {@link ClientModel} callback.
+     *
+     * @param msg the deserialized message received from the server
+     */
     private void dispatch(NetworkMessage msg) {
         MessageType type;
         try {
@@ -226,11 +237,13 @@ public class SocketClient {
 
             case ON_PLAYER_REPLACED_BY_BOT ->
                     model.onPlayerReplacedByBot(msg.str("nickname"));
-
+            /*
             // === SPECTATOR ===
             case ON_SPECTATOR_JOINED ->
                     model.onSpectatorJoined(msg.str("currentPlayerNick"), msg.str("boardSummary"));
             // === END SPECTATOR ===
+
+             */
 
             // ── Heartbeat ─────────────────────────────────────────────────
             case PING -> {
@@ -246,6 +259,7 @@ public class SocketClient {
     //  DISCONNECTION & RECONNECT
     // ─────────────────────────────────────────────────────────────────────
 
+    /** Called on any read error or heartbeat timeout; stops the client and starts the reconnect loop. */
     private synchronized void handleServerDisconnect() {
         if (!running) return;
         running = false;
@@ -255,6 +269,7 @@ public class SocketClient {
         startReconnectLoop();
     }
 
+    /** Retries a TCP connection to the server every 5 seconds until it comes back. */
     private void startReconnectLoop() {
         Thread t = new Thread(() -> {
             while (true) {

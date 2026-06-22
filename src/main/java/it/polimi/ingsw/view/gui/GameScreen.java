@@ -396,34 +396,42 @@ public class GameScreen {
         }
     }
 
-
+    /*
     // === SPECTATOR ===
     private final boolean   isSpectator;
     private final GUIView   guiView;     // needed for "Torna alla Lobby" callback
     // === END SPECTATOR ===
 
+     */
+
     public GameScreen(GameServerProxy server, ClientModel model,
                       String myNick, List<String> players, List<String> activeSpaces) {
-        this(server, model, myNick, players, activeSpaces, false, null);
-    }
-
-    // === SPECTATOR ===
-    /**
-     * Full constructor used when entering as spectator.
-     * isSpectator=true disables all game actions and shows the "Torna alla Lobby" button.
-     */
-    public GameScreen(GameServerProxy server, ClientModel model,
-                      String myNick, List<String> players, List<String> activeSpaces,
-                      boolean isSpectator, GUIView guiView) {
         this.server       = server;
         this.model        = model;
         this.myNick       = myNick;
         this.players      = players;
         this.activeSpaces = activeSpaces;
-        this.isSpectator  = isSpectator;
+    }
+
+    /*
+    // === SPECTATOR ===
+    /**
+     * Full constructor used when entering as spectator.
+     * isSpectator=true disables all game actions and shows the "Torna alla Lobby" button.
+
+
+    public GameScreen(GameServerProxy server, ClientModel model,
+                      String myNick, List<String> players, List<String> activeSpaces,GUIView guiView) {
+        this.server       = server;
+        this.model        = model;
+        this.myNick       = myNick;
+        this.players      = players;
+        this.activeSpaces = activeSpaces;
         this.guiView      = guiView;
     }
     // === END SPECTATOR ===
+    */
+
 
     // ─────────────────────────────────────────────────────────────────────
     //  BUILD SCENE
@@ -545,6 +553,7 @@ public class GameScreen {
         rootWrapper.getChildren().add(buildReferenceOverlay());
         StackPane.setAlignment(referenceOverlay, Pos.CENTER);
 
+        /*
         // === SPECTATOR: overlay button to leave spectator mode ===
         if (isSpectator) {
             Label spectatorBadge = new Label("MODALITÀ SPETTATORE");
@@ -573,6 +582,8 @@ public class GameScreen {
             StackPane.setAlignment(spectatorBar, Pos.CENTER_RIGHT);
         }
         // === END SPECTATOR ===
+
+         */
 
         Scene scene = new Scene(rootWrapper, 1400, 860);
         playGameOpeningAnimation();
@@ -2511,13 +2522,6 @@ public class GameScreen {
     // ─────────────────────────────────────────────────────────────────────
 
     private HBox buildHandPanel() {
-
-        if (isSpectator) {
-            HBox placeholder = new HBox();
-            placeholder.setVisible(false);
-            placeholder.setManaged(false);
-            return placeholder;
-        }
 
         Label title = new Label("LA TUA TRIBÙ");
         title.setStyle(labelStyle(10, "rgba(255,255,255,0.40)"));

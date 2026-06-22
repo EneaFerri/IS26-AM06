@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  * - Holds the nickname → VirtualView map
  * - Receives client actions, validates them, and delegates them to the model (Game class)
  * - Implements GameObserver: translates model notifications into callbacks to clients
- * - buildExtraInfo() builds the "info panel" sent to the current player (here for a direct connection to the Player class)
+ * - buildExtraInfo() builds the "info panel" sent to the current player (better here for direct connection to the Player class)
  */
 
 public class GameController implements GameObserver {
@@ -47,19 +47,22 @@ public class GameController implements GameObserver {
     private final List<String> nicks = new CopyOnWriteArrayList<>();
     private int expectedPlayers = -1;
 
-    // true during the period when players are expected to reconnect after a crash.
+    /** True while the server waits for players to reconnect after a crash. */
     private boolean recovering = false;
 
-    // true when all real players have disconnected — the bots stop acting.
+    /** True when all real players have disconnected — bots stop acting. */
     private volatile boolean gameAborted = false;
 
-    // Nicknames of players currently replaced by a bot (both in-game and during recovery).
+    /** Nicknames of players currently replaced by a bot (both during gameplay and recovery). */
     private final Set<String> botNicknames = new HashSet<>();
 
-    // Spectator
+    /*
+    // === SPECTATOR ===
     private final List<VirtualView> spectators = new CopyOnWriteArrayList<>();
     private final List<String> spectatorNicks = new CopyOnWriteArrayList<>();
-    // Spectator
+    // === END SPECTATOR ===
+
+     */
 
     private static final TotemColor[] TOTEM_COLORS = TotemColor.values();
 
@@ -68,8 +71,12 @@ public class GameController implements GameObserver {
         game.addObserver(this);
     }
 
-    /* Constructor for games restored from disk: recovering=true blocks saving
-     *  and waits for all players to reconnect before resuming.
+    /**
+     * Constructor for games restored from disk: {@code recovering=true} blocks auto-save
+     * and waits for all players to reconnect before resuming.
+     *
+     * @param game       the restored game model
+     * @param recovering whether the game is in recovery mode
      */
     public GameController(Game game, boolean recovering) {
         this.game = game;
@@ -78,10 +85,14 @@ public class GameController implements GameObserver {
         game.addObserver(this);
     }
 
-    /*
-     * Constructor for games restored from disk with saved bots.
-     * Nicknames in savedBotNicknames do not need to reconnect: they are automatically
-     * recreated as bots as soon as all real players have returned.
+    /**
+     * Constructor for games restored from disk that had active bots.
+     * Nicknames in {@code savedBotNicknames} do not need to reconnect: they are automatically
+     * recreated as {@link Bot} instances once all real players have returned.
+     *
+     * @param game              the restored game model
+     * @param recovering        whether the game is in recovery mode
+     * @param savedBotNicknames nicknames that were represented by bots at crash time
      */
     public GameController(Game game, boolean recovering, List<String> savedBotNicknames) {
         this.game = game;
@@ -91,12 +102,11 @@ public class GameController implements GameObserver {
         game.addObserver(this);
     }
 
-
     // ================================================================== //
     //  LOBBY STATE
     // ================================================================== //
 
-    /*
+    /**
      * True if the lobby is still accepting players (expectedPlayers not yet
      * reached and the game has not yet started).
      * synchronized: isOpen() reads fields written by loginFirstPlayer() (synchronized).
@@ -108,57 +118,76 @@ public class GameController implements GameObserver {
     }
 
 
+    /** Returns true if this game has finished (reached the END state). */
     public synchronized boolean isFinished() {
         return game.getStatus() == GameState.END;
     }
 
+    /** Returns true if the game is running and is no longer accepting new players. */
     public synchronized boolean isInProgress() {
         return !isOpen() && !isFinished();
     }
 
+    /** Returns the number of players currently registered in this lobby. */
     public synchronized int getCurrentPlayers()  { return game.getNumberOfPlayers(); }
 
+    /** Returns the total number of players this lobby is configured to accept. */
     public int getExpectedPlayers() { return expectedPlayers; }
 
-    // True if a player with that nickname is registered in this lobby.
+    /**
+     * Returns true if a player with the given nickname is registered in this lobby.
+     *
+     * @param nickname the player's nickname
+     * @return true if the nickname is present in the player list
+     */
     public boolean hasPlayer(String nickname) {
         return nicks.contains(nickname);
     }
 
+    /** Returns true if the game is in recovery mode (waiting for players to reconnect). */
     public boolean isRecovering() { return recovering; }
+
+    /** Returns true if the game has been aborted due to all players disconnecting. */
     public boolean isAborted()    { return gameAborted; }
 
-    /* True if the Game model (restored from disk) contains a player with this nickname
-     * and that player was not already a bot at the time of the crash (bots reconnect automatically).
+    /**
+     * Returns true if the restored game model contains a player with this nickname
+     * and that player was not a bot at the time of the crash (bots reconnect automatically).
+     *
+     * @param nickname the player's nickname to look up
+     * @return true if the nickname belongs to a real player in the saved game
      */
     public boolean hasPlayerInGame(String nickname) {
         return game.getPlayers().stream().anyMatch(p -> p.getNickname().equals(nickname))
                 && !botNicknames.contains(nickname);
     }
 
-    /*
-     * Reconnects a client that is re-establishing a connection following a server crash.
-     * Once all expected players have reconnected, the game resumes
-     * by sending `onGameStarting` along with the current turn.
+    /**
+     * Reconnects a client that is rejoining after a server crash.
+     * When all expected players have reconnected, resumes the game by broadcasting
+     * {@code onGameStarting} and triggering the current player's turn.
+     *
+     * @param nickname the reconnecting player's nickname
+     * @param caller   the player's VirtualView (new network connection)
      */
     public synchronized void reconnectPlayer(String nickname, VirtualView caller) {
         clients.add(caller);
         nicks.add(nickname);
         try { caller.onLoginAccepted(nickname, expectedPlayers); } catch (Exception ignored) {}
 
-        // The "real" players to wait for are those who were not bots at the time of the crash.
+        // Real players to wait for are those who were not bots at the time of the crash.
         int realExpected = expectedPlayers - botNicknames.size();
         System.out.println("[GameController] Reconnected: " + nickname
-                + " (" + nicks.size() + "/" + realExpected + " Real players, "
-                + botNicknames.size() + " bot to respawn)");
+                + " (" + nicks.size() + "/" + realExpected + " reali, "
+                + botNicknames.size() + " bot da respawnare)");
 
         if (nicks.size() == realExpected) {
-
+            // All real players are back — recreate bots for the missing slots.
             for (String botNick : botNicknames) {
                 Bot bot = new Bot(botNick, this, game);
                 clients.add(bot);
                 nicks.add(botNick);
-                System.out.println("[GameController] Bot for: " + botNick);
+                System.out.println("[GameController] Bot ricreato per: " + botNick);
             }
 
             recovering = false;
@@ -172,20 +201,23 @@ public class GameController implements GameObserver {
         }
     }
 
-    // Spectator
+    /*
+    // === SPECTATOR ===
     //True if a spectator with that nickname is registered in this lobby.
     public boolean hasSpectator(String nickname) {
         return spectatorNicks.contains(nickname);
     }
 
-    /*
+    /**
      * Adds a spectator: receives all public broadcast events but never onYourTurn.
      * Sends an immediate board snapshot so the spectator sees the current state.
-     */
+
     public void addSpectator(String nick, VirtualView view) {
         spectators.add(view);
         spectatorNicks.add(nick);
         // Build snapshot synchronously, then send it in a separate thread.
+        // This prevents the caller (LobbyManager, which is synchronized) from
+        // holding its lock while waiting on a blocking network call → no deadlock.
         Player current = game.getCurrentPlayer();
         String currentNick = (current != null) ? current.getNickname() : "";
         String snapshot = buildBoardSummaryForWatchers();
@@ -198,7 +230,7 @@ public class GameController implements GameObserver {
         }, "spectator-snapshot-" + nick).start();
     }
 
-    //Removes a spectator by view reference.
+    /** Removes a spectator by view reference.
     public void removeSpectator(String nick) {
         int idx = spectatorNicks.indexOf(nick);
         if (idx >= 0) {
@@ -206,21 +238,29 @@ public class GameController implements GameObserver {
             spectatorNicks.remove(idx);
         }
     }
-    // Spectator
+    // === END SPECTATOR ===
+    */
 
 
     // ─────────────────────────────────────────────────────────────────────
     //  LOBBY
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Creates a new lobby and registers the first player.
+     *
+     * @param nickname   the creating player's nickname
+     * @param numPlayers the total number of players expected (2–5)
+     * @param caller     the creating player's VirtualView
+     */
     public synchronized void loginFirstPlayer(String nickname, int numPlayers, VirtualView caller) {
         try {
             if (numPlayers < 2 || numPlayers > 5) {
-                caller.onError("Invalid number of players (2-5).");
+                caller.onError("Numero di giocatori non valido (2-5).");
                 return;
             }
             if (expectedPlayers != -1) {
-                caller.onError("lobby already exists");
+                caller.onError("Lobby già creata.");
                 return;
             }
 
@@ -236,18 +276,24 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Registers an additional player in an existing lobby.
+     *
+     * @param nickname the joining player's nickname
+     * @param caller   the joining player's VirtualView
+     */
     public synchronized void login(String nickname, VirtualView caller) {
         try {
             if (expectedPlayers == -1) {
-                caller.onError("No open lobby");
+                caller.onError("Nessuna lobby attiva.");
                 return;
             }
             if (game.getNumberOfPlayers() >= expectedPlayers) {
-                caller.onError("lobby is full!");
+                caller.onError("Lobby piena.");
                 return;
             }
             if (nicks.contains(nickname)) {
-                caller.onError("Nickname '" + nickname + "already taken");
+                caller.onError("Nickname '" + nickname + "' già in uso.");
                 return;
             }
             registerClient(nickname, caller);
@@ -260,7 +306,7 @@ public class GameController implements GameObserver {
     }
 
     private void registerClient(String nickname, VirtualView caller) {
-        TotemColor color = TOTEM_COLORS[game.getNumberOfPlayers() % TOTEM_COLORS.length]; //color choose - random ?
+        TotemColor color = TOTEM_COLORS[game.getNumberOfPlayers() % TOTEM_COLORS.length]; //color choose - random
 
         game.addPlayer(new Player(nickname, new Totem(color)));
 
@@ -277,7 +323,7 @@ public class GameController implements GameObserver {
         if (game.getNumberOfPlayers() < expectedPlayers) return;
 
         List<String> allNicks = game.getPlayers().stream().map(Player::getNickname).toList();
-        System.out.println("\n=== GAME STARTING === " + allNicks);
+        System.out.println("\n=== INIZIO PARTITA === " + allNicks);
 
         for (VirtualView v : clients) v.onGameStarting(allNicks);
 
@@ -286,31 +332,37 @@ public class GameController implements GameObserver {
 
 
     // ─────────────────────────────────────────────────────────────────────
-    // CLIENT ACTIONS → GAME MODEL
+    //  ACTIONS CLIENT → GAME
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Handles a player's request to place their totem on an offer space.
+     *
+     * @param nickname the acting player's nickname
+     * @param letter   the letter identifying the target offer space
+     */
     public synchronized void placeTotem(String nickname, char letter) {
         try {
             Player player = findPlayer(nickname);
-            if (player == null) { safeError(nickname, "Player not found"); return; }
+            if (player == null) { safeError(nickname, "Giocatore non trovato."); return; }
 
             if (!isPlayerTurn(nickname)) {
-                safeError(nickname, "Not your turn");
+                safeError(nickname, "Non è il tuo turno.");
                 return;
             }
             if (game.getStatus() != GameState.OFFER_SPACE_CHOOSE) {
-                safeError(nickname, "Not in offer space choose phase");
+                safeError(nickname, "Non siamo nella fase di piazzamento totem.");
                 return;
             }
 
             BoardSpace space = game.getBoard().getBoardSpace(letter);
             if (space == null) {
-                safeInvalidAction(nickname, "Space '" + letter + "not valid");
+                safeInvalidAction(nickname, "Spazio '" + letter + "' non esiste o non è in gioco.");
                 return;
             }
 
             game.placeTotemOnOfferSpace(player, space);
-            // → Game notyfy onTotemPlaced (broadcast) + onTurnStarted (next player)
+            // → Game notifica onTotemPlaced (broadcast) + onTurnStarted (al prossimo giocatore)
 
         } catch (IllegalStateException e) {
             safeInvalidAction(nickname, e.getMessage());
@@ -319,17 +371,24 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Handles a player's request to pick a card from one of the board rows.
+     *
+     * @param nickname  the acting player's nickname
+     * @param cardIndex 0-based index of the card within the chosen row
+     * @param fromTop   true to pick from the top row, false for the bottom row
+     */
     public synchronized void pickCard(String nickname, int cardIndex, boolean fromTop) {
         try {
             Player player = findPlayer(nickname);
-            if (player == null) { safeError(nickname, "Player not found"); return; }
+            if (player == null) { safeError(nickname, "Giocatore non trovato."); return; }
 
             if (!isPlayerTurn(nickname)) {
-                safeError(nickname, "Not your turn");
+                safeError(nickname, "Non è il tuo turno.");
                 return;
             }
             if (game.getStatus() != GameState.PICKING_CARD) {
-                safeError(nickname, "Not in picking card phase");
+                safeError(nickname, "Non siamo nella fase di selezione carte.");
                 return;
             }
 
@@ -347,16 +406,17 @@ public class GameController implements GameObserver {
             }
 
             if (cardIndex < 0 || cardIndex >= available.size()) {
-                safeInvalidAction(nickname, "Not a valid index (0–" + (available.size() - 1) + ").");
+                safeInvalidAction(nickname, "Indice carta non valido (0–" + (available.size() - 1) + ").");
                 return;
             }
 
             Card card = available.get(cardIndex);
 
-            // Guard on event cards choosen: event cards sit in the tribe row but cannot be picked by players.
+            // ── Guard: event cards sit in the tribe row but cannot be picked by players.
             if (card instanceof EventCard) {
                 safeInvalidAction(nickname,
-                        "Card [" + card + "] is an event card and cannot be picked by players.");
+                        "La carta [" + card + "] è una carta Evento: non può essere pescata. "
+                                + "Scegli un'altra carta.");
                 return;
             }
 
@@ -374,12 +434,18 @@ public class GameController implements GameObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  GAME MODEL NOTIFY -> CLIENT (via GameObserver)
+    //  GameObserver — model notify → client callback
     // ─────────────────────────────────────────────────────────────────────
 
+    /** No-op: player join notifications are managed directly in {@link #broadcastPlayerJoined}. */
     @Override public void onPlayerJoined(String nickname) { /* managed in broadcastPlayerJoined */ }
 
-    @Override // errors sended to right clients
+    /**
+     * Forwards a model-level error to the currently active player.
+     *
+     * @param message the error message to deliver
+     */
+    @Override
     public void onPlayerError(String message) {
         try {
             Player current = game.getCurrentPlayer();
@@ -391,9 +457,10 @@ public class GameController implements GameObserver {
         }
     }
 
+    /** No-op: game start is broadcast directly in {@link #checkAndStartIfReady}. */
     @Override public void onGameStarted() { /* managed in checkAndStartIfReady */ }
 
-    /*
+    /**
      * The model tells us who must act and in which phase.
      *
      * Strategy:
@@ -415,15 +482,17 @@ public class GameController implements GameObserver {
                 }
             }
 
-            // Spectator
-            // snapshot sent to all spectators at every turn ===
+            /*
+            // === SPECTATOR: snapshot sent to all spectators at every turn ===
             for (VirtualView spectator : spectators) {
                 try { spectator.onTurnSnapshot(nickname, boardSummary); }
                 catch (Exception e) {
                     System.err.println("[Controller] onTurnSnapshot → spectator: " + e.getMessage());
                 }
             }
-            // spectator
+            // === END SPECTATOR ===
+
+             */
 
             // ── 2. Full action panel → active player only ─────────────────
             VirtualView target = viewOf(nickname);
@@ -435,15 +504,27 @@ public class GameController implements GameObserver {
             System.err.println("[Controller] onTurnStarted: " + e.getMessage());
         }
 
-        // ── Persistence: save after each turn (not if recovering) ──
+        // Persistence: save after each turn change (skipped during recovery).
         if (!recovering) PersistenceManager.getInstance().save(game, botNicknames);
     }
 
+    /**
+     * Broadcasts a totem-placed event to all clients.
+     *
+     * @param nickname    the player who placed the totem
+     * @param boardSpaceId identifier of the offer space where the totem was placed
+     */
     @Override
     public void onTotemPlaced(String nickname, String boardSpaceId) {
         broadcast(v -> v.onTotemPlaced(nickname, boardSpaceId));
     }
 
+    /**
+     * Forwards an invalid-action notification to the specific target player.
+     *
+     * @param nicknameTarget the player who attempted the invalid action
+     * @param errorMessage   description of why the action was rejected
+     */
     @Override
     public void onInvalidAction(String nicknameTarget, String errorMessage) {
         try {
@@ -454,36 +535,63 @@ public class GameController implements GameObserver {
         }
     }
 
+    /**
+     * Broadcasts a card-taken event to all clients.
+     *
+     * @param nickname the player who picked the card
+     * @param cardId   identifier of the card that was taken
+     */
     @Override
     public void onCardTaken(String nickname, String cardId) {
         broadcast(v -> v.onCardTaken(nickname, cardId));
     }
 
+    /**
+     * Broadcasts a player-updated event so all clients can refresh the player's stats.
+     *
+     * @param nickname the player whose state changed
+     */
     @Override
     public void onPlayerUpdated(String nickname) {
         broadcast(v -> v.onPlayerUpdated(nickname));
     }
 
+    /**
+     * Broadcasts the new turn order to all clients after totems are returned.
+     *
+     * @param ordered list of player nicknames in the new turn order
+     */
     @Override
     public void onTurnOrderUpdated(List<String> ordered) {
         broadcast(v -> v.onTurnOrderUpdated(ordered));
     }
 
+    /**
+     * Broadcasts an event-resolved notification with an animation payload to all clients.
+     *
+     * @param eventName name of the event that was resolved
+     * @param details   raw detail string from the model, enriched with per-player stats
+     */
     @Override
     public void onEventResolved(String eventName, String details) {
-        String payload = buildEventAnimationPayload(details); //event animations
+        String payload = buildEventAnimationPayload(details);
         broadcast(v -> v.onEventResolved(eventName, payload));
     }
 
+    /** Broadcasts a board-updated notification to all clients. */
     @Override
     public void onBoardUpdated() {
         broadcast(v -> v.onBoardUpdated());
     }
 
+    /**
+     * Broadcasts a new-era notification and persists the updated game state.
+     *
+     * @param newEra the era that has just started
+     */
     @Override
     public void onNewEraStarted(Age newEra) {
         broadcast(v -> v.onNewEraStarted(newEra));
-        // - Persistence: save after each era ? //
         if (!recovering) PersistenceManager.getInstance().save(game, botNicknames);
     }
 
@@ -492,7 +600,7 @@ public class GameController implements GameObserver {
         String results = buildFinalResults();
         broadcast(v -> v.onGameOver(results));
 
-        // FA1: save to DB and send individual ranking to each player
+        // FA1: save to DB and send individual ranking to each player (not spectators)
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             int numPlayers = game.getNumberOfPlayers();
@@ -517,11 +625,11 @@ public class GameController implements GameObserver {
             System.err.println("[DB] Ranking unavailable: " + e.getMessage());
         }
 
-        // Persistence -  match ended normally → delete the save file
+        // Persistence: game ended normally — delete the save file.
         PersistenceManager.getInstance().delete(game.getGameID());
     }
 
-    /*
+    /**
      * Called by LobbyManager when a client connection drops unexpectedly.
      *
      * If real players remain, the disconnected player's VirtualView is replaced
@@ -534,15 +642,17 @@ public class GameController implements GameObserver {
 
         int idx = nicks.indexOf(nickname);
         if (idx < 0) {
-            // Player not in the active list
+            // Player not in the active list (spectator path already handled by LobbyManager).
             broadcast(v -> v.onPlayerDisconnected(nickname));
             return;
         }
 
-        //If the player is already represented by a Bot, ignore
+        // If the player is already represented by a Bot, this notification is stale:
+        // it comes from a new connection created by the reconnect loop (which did not find a
+        // recovering game and opened a new lobby instead). Ignore to avoid spurious abort.
         if (clients.get(idx) instanceof Bot) {
             System.out.println("[GameController] Player " + nickname
-                    + " already a bot. Ignoring disconnect notification. ");
+                    + " è già un bot — notifica stale ignorata.");
             return;
         }
 
@@ -554,17 +664,17 @@ public class GameController implements GameObserver {
             System.out.println("[GameController] All players disconnected — aborting game " + game.getGameID());
             broadcast(v -> v.onPlayerDisconnected(nickname));
             gameAborted = true;
-            PersistenceManager.getInstance().delete(game.getGameID());
+            PersistenceManager.getInstance().delete(game.getGameID()); // no players left — clean up the save file
             return;
         }
 
         // Replace the disconnected player's VirtualView with a bot.
         Bot bot = new Bot(nickname, this, game);
         clients.set(idx, bot);
-        botNicknames.add(nickname);
+        botNicknames.add(nickname);  // track this slot as a bot for persistence
 
-        broadcast(v -> v.onPlayerDisconnected(nickname));    // "X diconnected"
-        broadcast(v -> v.onPlayerReplacedByBot(nickname));   // "X is now a bot"
+        broadcast(v -> v.onPlayerDisconnected(nickname));    // "X has disconnected"
+        broadcast(v -> v.onPlayerReplacedByBot(nickname));   // "X will be replaced by a bot"
 
         // If it was the disconnected player's turn, re-trigger the turn for the bot.
         Player cur = game.getCurrentPlayer();
@@ -573,9 +683,14 @@ public class GameController implements GameObserver {
         }
     }
 
-    /*
+    /**
      * Forces the end of a bot's turn when no valid card pick is available.
+     * Package-private so BotVirtualView (same package) can call it.
      *
+     * Replicates the exact advancement logic that Game.pickCard() executes
+     * after the last pick: returnTotemToTurnOrder → advanceNextPlayer →
+     * resolveEvents (if needed) → notify next player.
+     * All three Game methods are public, so Game.java is not modified.
      */
     synchronized void skipBotPick(String nickname) {
         Player player = findPlayer(nickname);
@@ -590,11 +705,19 @@ public class GameController implements GameObserver {
         if (next != null) onTurnStarted(next.getNickname(), game.getStatus());
     }
 
-    /* Number of connected clients that are real players (not BotVirtualView instances). */
+    /** Number of connected clients that are real players (not BotVirtualView instances). */
     private long countRealClients() {
         return clients.stream().filter(v -> !(v instanceof Bot)).count();
     }
 
+    /**
+     * Returns true if the player with the given nickname is currently represented by a {@link Bot}
+     * rather than a real network client.
+     * Used by LobbyManager to prefer lobbies where the player is still a real client.
+     *
+     * @param nickname the player's nickname
+     * @return true if a {@link Bot} is acting on behalf of this nickname
+     */
     public synchronized boolean isBotPlayer(String nickname) {
         int idx = nicks.indexOf(nickname);
         return idx >= 0 && clients.get(idx) instanceof Bot;
@@ -602,11 +725,11 @@ public class GameController implements GameObserver {
 
 
     // ─────────────────────────────────────────────────────────────────────
-    // UTILITY - for TUI/GUI
+    // building extrainformations panel - for TUI and GUI - implemented here for better connection with players info
     // ─────────────────────────────────────────────────────────────────────
 
-    /*
-     * building extrainformations panel - for TUI and GUI - implemented here for better connection with players info
+    /**
+     * Builds the multi-line text sent to the active player.
      *
      * OFFER_SPACE_CHOOSE phase:
      *   • Full board (card rows + offer spaces + free spaces)
@@ -638,15 +761,15 @@ public class GameController implements GameObserver {
             int remTop = game.getRemainingTopPicks(player);
             int remBot = game.getRemainingBottomPicks(player);
 
-            sb.append("  Remaining picks → top: ").append(remTop)
-                    .append("  |  bottom: ").append(remBot).append("\n");
-            sb.append("  Your Food: ").append(player.getFood())
+            sb.append("  Pescate rimaste → sopra: ").append(remTop)
+                    .append("  |  sotto: ").append(remBot).append("\n");
+            sb.append("  Il tuo cibo: ").append(player.getFood())
                     .append("  |  Prestige: ").append(player.getPrestige()).append("\n");
             sb.append("\n");
 
             if (remTop > 0) {
                 sb.append("##HAS_TOP##");   // machine-readable marker for CLIView
-                sb.append("  ┌── TOP: ──────────────────────────────────────────────┐\n");
+                sb.append("  ┌── Riga SUPERIORE: ──────────────────────────────────────────────┐\n");
                 List<Card> topCards = new ArrayList<>();
                 topCards.addAll(game.getBoard().getAvailableUpperTribeCards());
                 topCards.addAll(game.getBoard().getAvailableUpperBuildingCards());
@@ -659,7 +782,7 @@ public class GameController implements GameObserver {
 
             if (remBot > 0) {
                 sb.append("##HAS_BOT##");   // machine-readable marker for CLIView
-                sb.append("  ┌── BOTTOM: ──────────────────────────────────────────────┐\n");
+                sb.append("  ┌── Riga INFERIORE: ──────────────────────────────────────────────┐\n");
                 List<Card> botCards = new ArrayList<>();
                 botCards.addAll(game.getBoard().getAvailableBottomTribeCards());
                 botCards.addAll(game.getBoard().getAvailableBottomBuildingCards());
@@ -678,13 +801,14 @@ public class GameController implements GameObserver {
         return sb.toString();
     }
 
-    /*
+    /**
      * Builds a concise board snapshot for all waiting players.
      * Contains: card rows, offer spaces, player status.
      */
     private String buildBoardSummaryForWatchers() {
         StringBuilder sb = new StringBuilder();
 
+        // include a deck status snapshot — the GUI uses it to keep era, card back, and remaining count in sync
         appendDeckStatus(sb);
 
         appendBoardDisplay(sb);
@@ -693,8 +817,12 @@ public class GameController implements GameObserver {
         return sb.toString();
     }
 
-    /*
-     * deck snapshot
+    /**
+     * Appends a machine-readable block with the current deck status.
+     * Kept separate from human-readable text so the GUI can parse it robustly
+     * without fragile parsing of game labels or descriptions.
+     *
+     * @param sb the target StringBuilder
      */
     private void appendDeckStatus(StringBuilder sb) {
         sb.append("##DECK_STATUS_BEGIN##\n");
@@ -708,21 +836,21 @@ public class GameController implements GameObserver {
         List<it.polimi.ingsw.model.cards.CharacterCard> chars    = player.getCharacterCards();
         List<it.polimi.ingsw.model.cards.BuildingCard>  buildings = player.getBuildingCards();
 
-        sb.append("\n  ┌── YOUR CARDS ─────────────────────────────────────────────────┐\n");
+        sb.append("\n  ┌── Le tue carte ─────────────────────────────────────────────────┐\n");
 
         if (chars.isEmpty()) {
-            sb.append("  │  [Characters] no cards\n");
+            sb.append("  │  [Personaggi] nessuna carta\n");
         } else {
-            sb.append("  │  [Characters]\n");
+            sb.append("  │  [Personaggi]\n");
             for (it.polimi.ingsw.model.cards.CharacterCard c : chars) {
                 sb.append("  │    • ").append(c.toDisplayString()).append("\n");
             }
         }
 
         if (buildings.isEmpty()) {
-            sb.append("  │  [Buildings] nessuna carta\n");
+            sb.append("  │  [Edifici] nessuna carta\n");
         } else {
-            sb.append("  │  [Buildings]\n");
+            sb.append("  │  [Edifici]\n");
             for (it.polimi.ingsw.model.cards.BuildingCard c : buildings) {
                 sb.append("  │    • ").append(c.toDisplayString()).append("\n");
             }
@@ -735,13 +863,13 @@ public class GameController implements GameObserver {
     private void appendBoardDisplay(StringBuilder sb) {
 
         // ── top row ──────────────────────────────────────────
-        sb.append("  ┌── TOP ────────────────────────────────────────────────┐\n");
+        sb.append("  ┌── Riga SUPERIORE ────────────────────────────────────────────────┐\n");
 
         List<TribeCard>   topTribe = game.getBoard().getAvailableUpperTribeCards();
         List<BuildingCard> topBld  = game.getBoard().getAvailableUpperBuildingCards();
 
         if (topTribe.isEmpty() && topBld.isEmpty()) {
-            sb.append("  │  (empty)\n");
+            sb.append("  │  (vuota)\n");
         } else {
             for (TribeCard c : topTribe)   sb.append(String.format("  │  [T] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
             for (BuildingCard c : topBld)  sb.append(String.format("  │  [B] %-52s (CardId: %d)%n", c.toDisplayString(), c.getID()));
@@ -749,7 +877,7 @@ public class GameController implements GameObserver {
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n\n");
 
         // ── BoardSpaces ───────────────────────────────────────────────────
-        sb.append("  ┌── BOARDSPACES ─────────────────────────────────────────────────┐\n");
+        sb.append("  ┌── Spazi Offerta ─────────────────────────────────────────────────┐\n");
         sb.append(String.format("  │  %-4s  %-6s  %-6s  %-6s  %-18s%n",
                 "Lett.", "↑ Carte", "↓ Carte", "Cibo", "Totem"));
 
@@ -767,7 +895,7 @@ public class GameController implements GameObserver {
 
 
         // ── bottom row ──────────────────────────────────────────
-        sb.append("  ┌── BOTTOM ────────────────────────────────────────────────┐\n");
+        sb.append("  ┌── Riga INFERIORE ────────────────────────────────────────────────┐\n");
 
         List<TribeCard>   botTribe = game.getBoard().getAvailableBottomTribeCards();
         List<BuildingCard> botBld  = game.getBoard().getAvailableBottomBuildingCards();
@@ -784,7 +912,7 @@ public class GameController implements GameObserver {
         List<String> free = game.getBoard().getFreeBoardSpaces().stream()
                 .map(s -> String.valueOf(s.getLetter()))
                 .toList();
-        sb.append("  free spaces: ").append(String.join(", ", free)).append("\n");
+        sb.append("  Spazi liberi: ").append(String.join(", ", free)).append("\n");
 
 
 
@@ -792,11 +920,11 @@ public class GameController implements GameObserver {
 
     //players section
     private void appendPlayersSummary(StringBuilder sb) {
-        sb.append("\n  ┌── PLAYERS STATE ──────────────────────────────────────────────┐\n");
+        sb.append("\n  ┌── Stato giocatori ──────────────────────────────────────────────┐\n");
         sb.append(String.format("  │  %-18s  %-6s  %-8s  %-10s%n",
-                "Name", "Food", "Prestige", "Turn"));
+                "Nome", "Cibo", "Prestige", "Turno"));
         for (Player p : game.getPlayers()) {
-            String turnMark = p.isInTurn() ? "← YOUR TURN" : "";
+            String turnMark = p.isInTurn() ? "← TUO TURNO" : "";
             sb.append(String.format("  │  %-18s  %-6d  %-8d  %-10s%n",
                     p.getNickname(),
                     p.getFood(),
@@ -806,9 +934,9 @@ public class GameController implements GameObserver {
         sb.append("  └──────────────────────────────────────────────────────────────────┘\n");
     }
 
-    //player cards section
+    //players card section
     private void appendAllPlayersCardsSummary(StringBuilder sb) {
-        //  machine-readable — for gui PLAYER= / CARD= / END_PLAYER
+        // Machine-readable block — the GUI looks for PLAYER= / CARD= / END_PLAYER
         sb.append("\n##PLAYER_CARDS_BEGIN##\n");
         for (Player p : game.getPlayers()) {
             sb.append("PLAYER=").append(p.getNickname()).append("\n");
@@ -820,23 +948,23 @@ public class GameController implements GameObserver {
         }
         sb.append("##PLAYER_CARDS_END##\n");
 
-
-        sb.append("\n┌── PLAYERS CARDS (resume) ─────────────────────────────\n");
+        // Human-readable section — TUI only; the GUI ignores this text
+        sb.append("\n┌── Riepilogo carte giocatori ─────────────────────────────\n");
         for (Player p : game.getPlayers()) {
             sb.append("│\n│  ").append(p.getNickname()).append("\n");
             appendCharTypeLine(sb, p, CharacterType.SHAMAN,
-                    "Shamans",     "→  " + p.getStarsFromShamans() + " total stars");
+                    "Sciamani",     "→  " + p.getStarsFromShamans() + " stelle totali");
             appendCharTypeLine(sb, p, CharacterType.BUILDER,
-                    "Builders",  "→  builds discount: -" + p.foodDiscountToBuyBuildings() + " food");
+                    "Costruttori",  "→  sconto build: -" + p.foodDiscountToBuyBuildings() + " cibo");
             appendCharTypeLine(sb, p, CharacterType.COLLECTOR,
-                    "Farmers", "→  food discount: -" + p.getCollectorsFoodDiscount());
+                    "Raccoglitori", "→  sconto cibo: -" + p.getCollectorsFoodDiscount());
             appendCharTypeLine(sb, p, CharacterType.INVENTOR,
-                    "Inventors",    "→  " + p.getNumInventions() + " different inventions");
-            appendCharTypeLine(sb, p, CharacterType.ARTIST,    "Artists",    null);
-            appendCharTypeLine(sb, p, CharacterType.HUNTER,    "Hunters", null);
+                    "Inventori",    "→  " + p.getNumInventions() + " invenzioni diverse");
+            appendCharTypeLine(sb, p, CharacterType.ARTIST,    "Artisti",    null);
+            appendCharTypeLine(sb, p, CharacterType.HUNTER,    "Cacciatori", null);
             List<? extends BuildingCard> bList = p.getBuildingCards();
             if (!bList.isEmpty()) {
-                sb.append("│    Buildings (").append(bList.size()).append("):\n");
+                sb.append("│    Costruzioni (").append(bList.size()).append("):\n");
                 for (BuildingCard b : bList)
                     sb.append("│      · ").append(buildingLabel(b)).append("\n");
             }
@@ -857,45 +985,45 @@ public class GameController implements GameObserver {
     private String buildingLabel(BuildingCard b) {
         if (b instanceof BuildingEachTurn bet) {
             return switch (bet.getBType()) {
-                case BUILDER_DOUBLEPOINTS   -> "×2 builders points";
-                case RITUAL_DOUBLEPOINTS    -> "×2 ritual points";
-                case RITUAL_THREEEXTRASTARS -> "+3 extra stars";
-                case RITUAL_NOMALUS         -> "Rituals: no malus";
-                case EXTRAFOOD_SET          -> "food bonus for complete set";
-                case EXTRAFOOD_INVENTORS    -> "food bonus for couples of inventors";
-                case EXTRAFOOD_TURNORDER    -> "food bonus for turn position";
-                case EXTRACARD              -> "extra card";
+                case BUILDER_DOUBLEPOINTS   -> "×2 punti Costruttori";
+                case RITUAL_DOUBLEPOINTS    -> "×2 punti Rituali";
+                case RITUAL_THREEEXTRASTARS -> "+3 stelle extra (Rituali)";
+                case RITUAL_NOMALUS         -> "Rituali: no malus";
+                case EXTRAFOOD_SET          -> "Cibo bonus per set completo";
+                case EXTRAFOOD_INVENTORS    -> "Cibo bonus per Inventori doppi";
+                case EXTRAFOOD_TURNORDER    -> "Cibo bonus posizione turno";
+                case EXTRACARD              -> "Carta extra dalla riga superiore";
             };
         }
         if (b instanceof BuildingEnd be)
-            return "Endgame effect: +" + be.getPrestigeEndEffect()
-                    + " for each " + charTypeName(be.getCharacterToConsider());
+            return "Fine partita: +" + be.getPrestigeEndEffect()
+                    + " per ogni " + charTypeName(be.getCharacterToConsider());
         if (b instanceof BuildingEvent bev)
-            return "Event effect " + eventTypeName(bev.getEventToRespond())
-                    + ": bonus on " + charTypeName(bev.getCharacterToConsider());
+            return "Evento " + eventTypeName(bev.getEventToRespond())
+                    + ": bonus su " + charTypeName(bev.getCharacterToConsider());
         return b.getClass().getSimpleName();
     }
 
     private String charTypeName(CharacterType t) {
         if (t == null) return "?";
         return switch (t) {
-            case ARTIST     -> "Artists";
-            case BUILDER    -> "Builders";
-            case COLLECTOR  -> "Collectors";
-            case HUNTER     -> "Hunters";
-            case INVENTOR   -> "Inventors";
-            case SHAMAN     -> "Shamans";
-            case SET_OF_CHAR -> "Set";
+            case ARTIST     -> "Artisti";
+            case BUILDER    -> "Costruttori";
+            case COLLECTOR  -> "Raccoglitori";
+            case HUNTER     -> "Cacciatori";
+            case INVENTOR   -> "Inventori";
+            case SHAMAN     -> "Sciamani";
+            case SET_OF_CHAR -> "Set completi";
         };
     }
 
     private String eventTypeName(EventType t) {
         if (t == null) return "?";
         return switch (t) {
-            case HUNT       -> "Hunt";
-            case PICTURES   -> "Pictures";
-            case RITUAL     -> "Rituals";
-            case SUSTENANCE -> "Sustenance";
+            case HUNT       -> "Caccia";
+            case PICTURES   -> "Pitture";
+            case RITUAL     -> "Rituali";
+            case SUSTENANCE -> "Sostentamento";
         };
     }
 
@@ -933,7 +1061,7 @@ public class GameController implements GameObserver {
 
 
     // ─────────────────────────────────────────────────────────────────────
-    //  OTHER PRIVATE UTILITY
+    //  UTILITY
     // ─────────────────────────────────────────────────────────────────────
 
     private Player findPlayer(String nickname) {
@@ -979,12 +1107,15 @@ public class GameController implements GameObserver {
             catch (Exception e) { System.err.println("[Controller] broadcast: " + e.getMessage()); }
         }
 
-        // Spectator
+        /*
+        // === SPECTATOR: spectators receive all public game events ===
         for (VirtualView v : spectators) {
             try { action.execute(v); }
             catch (Exception e) { System.err.println("[Controller] broadcast→spectator: " + e.getMessage()); }
         }
-        // Spectator
+        // === END SPECTATOR ===
+
+         */
 
     }
 }

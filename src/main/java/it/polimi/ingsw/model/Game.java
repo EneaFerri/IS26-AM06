@@ -12,6 +12,18 @@ import it.polimi.ingsw.model.player.Player;
 
 import java.util.*;
 
+/**
+ * Core game model implementing all game-flow logic for a single match of Mesos.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>Maintains the authoritative game state (players, board, decks, turn order).</li>
+ *   <li>Implements {@link GameActions}: validates and applies all player actions.</li>
+ *   <li>Notifies registered {@link GameObserver}s after every state change so that
+ *       {@link it.polimi.ingsw.controller.GameController} can relay updates to clients.</li>
+ * </ul>
+ * </p>
+ */
 public class Game implements GameActions {
     private final int gameID;
 
@@ -38,10 +50,16 @@ public class Game implements GameActions {
 
     private final Board gameBoard;
 
-    // variabili d'appoggio per pescare carte
+    // helper variables for card picking
     private int topPicks = 0;
     private int bottomPicks = 0;
 
+    /**
+     * Creates a new game with the given identifier.
+     * Initialises all decks, the board, and sets state to {@link GameState#LOGIN}.
+     *
+     * @param gameID the unique identifier for this game session
+     */
     public Game(int gameID) {
         this.gameID = gameID;
         this.players = new ArrayList<>();
@@ -64,33 +82,58 @@ public class Game implements GameActions {
         this.finalEvents = mainDeck.getFinalsEvents();
     }
 
+    /**
+     * Registers a {@link GameObserver} that will receive all model notifications.
+     *
+     * @param observer the observer to register
+     */
     public void addObserver(GameObserver observer) {
         this.observers.add(observer);
     }
 
+    /** @return the unique identifier of this game session */
     public int getGameID()             { return gameID; }
+    /** @return the list of players in this game */
     public List<Player> getPlayers()   { return players; }
+    /** @return the current turn-order track */
     public TurnOrder getTurnOrder()    { return turnOrder; }
+    /** @return the player whose turn it currently is, or {@code null} between turns */
     public Player getCurrentPlayer()   { return playerInTurn; }
+    /** @return the total number of players in this game */
     public int getNumberOfPlayers()    { return numberOfPlayers; }
+    /** @return the current {@link GameState} */
     public GameState getStatus()       { return gameState; }
+    /** @return the current {@link Age} era */
     public Age getCurrentAge()         { return currentAge; }
+    /** @return the game board */
     public Board getBoard()            { return gameBoard; }
+    /** @return the main card deck used as a catalogue */
     public Deck getMainDeck()          { return mainDeck; }
 
-    // Getter aggiuntivi per la persistenza — non modificano lo stato
+    // Additional getters for persistence — do not modify state
+    /** @return the remaining Era I tribe cards */
     public List<TribeCard>   getDeckEraI()          { return deck_ERA_I; }
+    /** @return the remaining Era II tribe cards */
     public List<TribeCard>   getDeckEraII()         { return deck_ERA_II; }
+    /** @return the remaining Era III tribe cards */
     public List<TribeCard>   getDeckEraIII()        { return deck_ERA_III; }
+    /** @return the remaining final event cards */
     public List<EventCard>   getFinalEvents()       { return finalEvents; }
+    /** @return the building cards currently in the game */
     public List<BuildingCard> getBuildingsInGame()  { return buldingsInGame; }
+    /** @return the number of top-row picks already used by the current player this turn */
     public int getTopPicks()                        { return topPicks; }
+    /** @return the number of bottom-row picks already used by the current player this turn */
     public int getBottomPicks()                     { return bottomPicks; }
+    /** @return the current round's player order */
     public List<Player>      getCurrentRoundOrder() { return currentRoundOrder; }
+
     /**
-     * Restituisce quante tribe card restano complessivamente nel gioco.
-     * La GUI usa questo numero per il contatore del mazzo centrale,
-     * che deve riflettere il "mazzo generale" e non solo l'era attiva.
+     * Returns the total number of tribe cards remaining across all era decks.
+     * The GUI uses this value for the central-deck counter, which reflects the
+     * overall remaining supply rather than just the active era.
+     *
+     * @return the sum of remaining tribe cards in Era I, II, and III decks
      */
     public int getRemainingCardsInTotalDeck() {
         return deck_ERA_I.size() + deck_ERA_II.size() + deck_ERA_III.size();
@@ -139,7 +182,7 @@ public class Game implements GameActions {
             obs.onBoardUpdated();
         }
 
-        // Notifica il primo giocatore di turno
+        // notify the first player whose turn it is
         notifyCurrentPlayerTurn();
     }
 
@@ -208,7 +251,7 @@ public class Game implements GameActions {
     }
 
     // ────────────────────────────────────────────────
-    //  FASE 1: PIAZZAMENTO TOTEM
+    //  PHASE 1: TOTEM PLACEMENT
     // ────────────────────────────────────────────────
 
     @Override
@@ -244,7 +287,7 @@ public class Game implements GameActions {
             playerInTurn = currentRoundOrder.get(0);
             playerInTurn.setInTurn(true);
 
-            // gestione spazio A (solo partite a 5 giocatori)
+            // handle space A (5-player games only)
             if (numberOfPlayers == 5) {
                 BoardSpace firstBoardSpace = playerInTurn.getTotem().getPosition();
                 if (firstBoardSpace.getLetter() == 'A') {
@@ -256,26 +299,48 @@ public class Game implements GameActions {
             }
         }
 
-        // Notifica il prossimo giocatore (che sia ancora in OFFER_SPACE_CHOOSE o già in PICKING_CARD)
+        // notify the next player (whether still in OFFER_SPACE_CHOOSE or already in PICKING_CARD)
         if (playerInTurn != null) {
             notifyCurrentPlayerTurn();
         }
     }
 
     // ────────────────────────────────────────────────
-    //  FASE 2: SELEZIONE CARTE
+    //  PHASE 2: CARD SELECTION
     // ────────────────────────────────────────────────
 
+    /**
+     * Returns the number of top-row picks the given player still has available this turn.
+     *
+     * @param player the player to check
+     * @return the number of remaining top-row picks
+     */
     public int getRemainingTopPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
-        return space.getTopCardsNumber() - topPicks;
+        int bonus = player.hasExtraCard() ? 1 : 0;
+        return space.getTopCardsNumber() + bonus - topPicks;
     }
 
+    /**
+     * Returns the number of bottom-row picks the given player still has available this turn.
+     *
+     * @param player the player to check
+     * @return the number of remaining bottom-row picks
+     */
     public int getRemainingBottomPicks(Player player) {
         BoardSpace space = player.getTotem().getPosition();
         return space.getBottomCardsNumber() - bottomPicks;
     }
 
+    /**
+     * Picks a card from the board and applies it to the given player.
+     * Automatically advances the turn when all picks are exhausted.
+     *
+     * @param player the player picking the card
+     * @param card   the card to pick
+     * @throws IllegalStateException if the game is not in the {@code PICKING_CARD} state,
+     *                               or the player has no remaining picks for the chosen row
+     */
     public void pickCard(Player player, Card card) {
         if (gameState != GameState.PICKING_CARD) {
             throw new IllegalStateException("Cannot pick card: wrong game state");
@@ -306,27 +371,33 @@ public class Game implements GameActions {
         if (fromTopRow) topPicks++;
         else bottomPicks++;
 
-        // Se il giocatore ha esaurito tutte le pescate, passa al prossimo
+        // if the player has used all their picks, advance to the next player
         if (getRemainingTopPicks(player) == 0 && getRemainingBottomPicks(player) == 0) {
             returnTotemToTurnOrder(player);
             advanceNextPlayer();
 
-            // Se siamo passati a EVENTS, risolvi automaticamente
+            // if we transitioned to EVENTS state, resolve them automatically
             if (gameState == GameState.EVENTS) {
                 resolveEvents();
                 return;
             }
 
-            // Altrimenti notifica il prossimo giocatore
+            // otherwise notify the next player
             if (playerInTurn != null) {
                 notifyCurrentPlayerTurn();
             }
         } else {
-            // Il giocatore ha ancora pescate da fare: ri-notificalo
+            // the player still has remaining picks: re-notify them
             notifyCurrentPlayerTurn();
         }
     }
 
+    /**
+     * Picks a character card from the board and adds it to the player's hand.
+     *
+     * @param player the player picking the card
+     * @param card   the {@link CharacterCard} to pick
+     */
     public void pickCharacterCard(Player player, CharacterCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -340,6 +411,13 @@ public class Game implements GameActions {
         }
     }
 
+    /**
+     * Picks a building card from the board, deducts its food cost, and adds it to the player's hand.
+     *
+     * @param player the player picking the card
+     * @param card   the {@link BuildingCard} to pick
+     * @throws IllegalStateException if the player does not have enough food to afford the card
+     */
     public void pickBuildingCard(Player player, BuildingCard card) {
         Objects.requireNonNull(player, "player cannot be null");
         Objects.requireNonNull(card, "card cannot be null");
@@ -378,9 +456,14 @@ public class Game implements GameActions {
     }
 
     // ────────────────────────────────────────────────
-    //  AVANZAMENTO TURNO (privato)
+    //  TURN ADVANCEMENT
     // ────────────────────────────────────────────────
 
+    /**
+     * Advances the active player to the next in the current round order.
+     * Resets per-turn pick counters and sets state to {@link GameState#EVENTS}
+     * when all players have taken their turn.
+     */
     public void advanceNextPlayer() {
         topPicks = 0;
         bottomPicks = 0;
@@ -400,12 +483,9 @@ public class Game implements GameActions {
         }
     }
 
-    /*
-     * Notifica via observer il giocatore di turno attuale,
-     * comunicando la fase corrente.
-     * Il GameController la tradurrà in onYourTurn sul client corretto.
-     */
-    // così risolviamo il bug del freeze quando non ci sono più carte da pescare
+    // Notifies the current player via observer, communicating the active phase.
+    // GameController translates this into onYourTurn on the correct client.
+    // This also resolves the freeze bug that occurred when no cards remained to pick.
 
     private static final String AUTO_ADVANCE_MESSAGE =
             "Non ci sono più carte da pescare. Avanzamento automatico.";
@@ -442,7 +522,8 @@ public class Game implements GameActions {
         boolean consumed = false;
 
         if (getRemainingTopPicks(player) > 0 && !hasPickableCardsInRow(player, true)) {
-            topPicks = player.getTotem().getPosition().getTopCardsNumber();
+            int bonus = player.hasExtraCard() ? 1 : 0;
+            topPicks = player.getTotem().getPosition().getTopCardsNumber() + bonus;
             consumed = true;
         }
 
@@ -491,7 +572,7 @@ public class Game implements GameActions {
 
 
     // ────────────────────────────────────────────────
-    //  FINE ROUND: EVENTI (chiamato automaticamente)
+    //  END OF ROUND: EVENTS (called automatically)
     // ────────────────────────────────────────────────
 
     @Override
@@ -502,7 +583,7 @@ public class Game implements GameActions {
 
         List<EventCard> events = gameBoard.getLowRowEvents();
 
-        // Sustenance sempre per ultimo — regola esplicita
+        // Sustenance is always last — explicit rule
         events.sort(Comparator.comparingInt(e ->
                 e.getType() == EventType.SUSTENANCE ? 1 : 0));
 
@@ -520,7 +601,7 @@ public class Game implements GameActions {
         if (currentAge != Age.Last_Event) {
             nextRound();
         } else {
-            // Ultimo evento: risolvi anche la riga superiore (eventi finali)
+            // last event: also resolve the top row (final events)
             List<EventCard> lastEvents = gameBoard.getUpRowEvents();
             lastEvents.sort(Comparator.comparingInt(e ->
                     e.getType() == EventType.SUSTENANCE ? 1 : 0));
@@ -539,7 +620,7 @@ public class Game implements GameActions {
     }
 
     // ────────────────────────────────────────────────
-    //  PROSSIMO ROUND (chiamato automaticamente da resolveEvents)
+    //  NEXT ROUND (called automatically by resolveEvents)
     // ────────────────────────────────────────────────
 
     @Override
@@ -608,7 +689,7 @@ public class Game implements GameActions {
             throw new IllegalStateException("Error, not enough cards to draw");
         }
 
-        // Aggiorna stato e ordine turno per il prossimo round
+        // update state and turn order for the next round
         gameState = GameState.OFFER_SPACE_CHOOSE;
         currentRoundOrder = new ArrayList<>(turnOrder.getOrder(players));
         playerInTurn = currentRoundOrder.get(0);
@@ -618,10 +699,14 @@ public class Game implements GameActions {
             obs.onBoardUpdated();
         }
 
-        // Notifica il primo giocatore del nuovo round
+        // notify the first player of the new round
         notifyCurrentPlayerTurn();
     }
 
+    /**
+     * Handles the transition to a new era: shifts building card rows, deals new building
+     * cards for the current era, and notifies observers.
+     */
     public void updatedAge() {
         gameBoard.shiftRowsBuildings();
         gameBoard.setTopBuildingCards(buldingsInGame, currentAge);
@@ -633,7 +718,7 @@ public class Game implements GameActions {
     }
 
     // ────────────────────────────────────────────────
-    //  FINE PARTITA (chiamato automaticamente da resolveEvents)
+    //  END OF GAME (called automatically by resolveEvents)
     // ────────────────────────────────────────────────
 
     @Override
@@ -652,31 +737,37 @@ public class Game implements GameActions {
     }
 
     // ────────────────────────────────────────────────
-    //  RIPRISTINO DA SNAPSHOT (chiamato solo da PersistenceManager)
+    //  RESTORE FROM SNAPSHOT (called only by PersistenceManager)
     // ────────────────────────────────────────────────
 
     /**
-     * Ricostruisce lo stato interno del Game da un snapshot precedentemente salvato.
-     * Viene chiamato una sola volta da PersistenceManager.restore() subito dopo
-     * la creazione del Game con new Game(gameId).
+     * Rebuilds the internal state of this Game from a previously saved snapshot.
+     * Called exactly once by {@code PersistenceManager.restore()} immediately after
+     * creating the Game with {@code new Game(gameId)}.
      *
-     * Non tocca mainDeck (usato come catalogo per il lookup carte) né gli observer.
-     * Le liste e i riferimenti non-final vengono impostati direttamente.
+     * <p>Does not touch {@code mainDeck} (used as a card catalogue for lookups)
+     * or observers. Non-final lists and references are set directly.</p>
      *
-     * @param restoredPlayers      Player già ricostruiti con le loro carte e flag
-     * @param playerInTurnNick     nickname del giocatore di turno, null se nessuno
-     * @param roundOrderNicks      ordine del round corrente come lista di nickname
-     * @param state                GameState da ripristinare
-     * @param age                  Era corrente
-     * @param numPlayers           numero di giocatori
-     * @param deckI/II/III         carte residue nei deck per era
-     * @param finalEvts            eventi finali residui
-     * @param buildings            edifici in partita
-     * @param topPicks/bottomPicks contatori pescate correnti
-     * @param boardTopTribe etc.   righe carte del board
-     * @param spaceTotemColors     mappa lettera spazio → TotemColor.name() (null = libero)
-     * @param turnOrderTag         tag di configurazione TurnOrder
-     * @param blockTotemColors     colore totem per ogni block (null = libero)
+     * @param restoredPlayers       players already rebuilt with their cards and flags
+     * @param playerInTurnNick      nickname of the current player, or {@code null} if none
+     * @param roundOrderNicks       current round order as a list of nicknames
+     * @param state                 game state to restore
+     * @param age                   current era
+     * @param numPlayers            number of players
+     * @param deckI                 remaining Era I tribe cards
+     * @param deckII                remaining Era II tribe cards
+     * @param deckIII               remaining Era III tribe cards
+     * @param finalEvts             remaining final event cards
+     * @param buildings             building cards in the game
+     * @param topPicks              current top-row pick counter
+     * @param bottomPicks           current bottom-row pick counter
+     * @param boardTopTribe         top tribe card row of the board
+     * @param boardBottomTribe      bottom tribe card row of the board
+     * @param boardTopBuild         top building card row of the board
+     * @param boardBottomBuild      bottom building card row of the board
+     * @param spaceTotemColors      map from space letter to TotemColor name ({@code null} means empty)
+     * @param turnOrderTag          configuration tag for {@link TurnOrder}
+     * @param blockTotemColors      totem color for each order block ({@code null} means empty)
      */
     public void restorePersistedState(
             List<Player> restoredPlayers,
@@ -722,8 +813,8 @@ public class Game implements GameActions {
         // ── Board card rows ───────────────────────────────────────────────────
         gameBoard.restoreCardRows(boardTopTribe, boardBottomTribe, boardTopBuild, boardBottomBuild);
 
-        // ── Totem su board spaces ─────────────────────────────────────────────
-        // Prima pulisco tutti gli spazi (il Board viene dalla new Game() con spazi vuoti)
+        // ── Totems on board spaces ────────────────────────────────────────────
+        // first clear all spaces (Board comes from new Game() with empty spaces)
         gameBoard.clearBoardSpaces();
         for (it.polimi.ingsw.model.board.BoardSpace space : gameBoard.getOfferField()) {
             String colorName = spaceTotemColors.get(space.getLetter());
@@ -747,7 +838,7 @@ public class Game implements GameActions {
                         .findFirst()
                         .ifPresent(p -> {
                             block.setTotem(p.getTotem());
-                            p.getTotem().remove(); // totem.position=null quando è sul TurnOrder
+                            p.getTotem().remove(); // totem.position=null when on the TurnOrder track
                         });
             }
         }
@@ -759,6 +850,12 @@ public class Game implements GameActions {
         }
     }
 
+    /**
+     * Returns the list of winners at the end of the game.
+     * Winners are players with the highest prestige; ties are broken by food count.
+     *
+     * @return a list of winning {@link Player}s (may contain more than one in case of a tie)
+     */
     public List<Player> getWinners() {
         int maxScore = players.stream()
                 .mapToInt(Player::getPrestige)

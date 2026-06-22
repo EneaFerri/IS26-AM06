@@ -45,14 +45,17 @@ public class CLIView implements ModelObserver {
     private volatile String  myNick           = "";
     private volatile Thread  inputThread      = null;
     private          int     savedNumPlayers  = 2;
+    /*
     // === SPECTATOR ===
     private volatile boolean isSpectator = false;
     // === END SPECTATOR ===
 
+     */
+
     private volatile int  cachedWidth   = -1;
     private volatile long widthCachedAt = 0;
 
-    // ── Colori ANSI (disabilitati — testo plain) ────────────────────────────
+    // ── ANSI colours (disabled — plain text) ────────────────────────────────
     private static final String RST  = "";
     private static final String CYN  = "";
     private static final String BCYN = "";
@@ -159,11 +162,6 @@ public class CLIView implements ModelObserver {
     public void onLobbyList(List<LobbyManager.LobbyInfo> lobbies) {
         // Runs on a callback thread — spawn a new thread for blocking scanner input.
         new Thread(() -> {
-            // === SPECTATOR: if returning from spectator mode, just show the updated list ===
-            // The spectator-exit thread has already cleared isSpectator.
-            // This list arrives as the server's reply to leaveSpectator().
-            // Fall through to normal display.
-            // === END SPECTATOR ===
 
             List<LobbyManager.LobbyInfo> open = lobbies.stream()
                     .filter(l -> !l.inProgress()).collect(Collectors.toList());
@@ -185,21 +183,21 @@ public class CLIView implements ModelObserver {
                 System.out.println("  Nessuna lobby aperta.");
             }
 
-            // === SPECTATOR ===
             if (!inProgress.isEmpty()) {
-                System.out.println("  Partite in corso (solo spettatori):");
+                System.out.println("  Partite in corso:");
                 for (int i = 0; i < inProgress.size(); i++) {
                     System.out.printf("    [s%d] %s%n", i + 1, inProgress.get(i));
                 }
             }
-            // === END SPECTATOR ===
 
-            System.out.println("  Digita: numero per entrare, s+numero per guardare, 'nuova' per creare.");
+
+            System.out.println("  Digita: numero per entrare, 'nuova' per creare.");
             String choice = scanner.nextLine().trim().toLowerCase();
             try {
                 if (choice.equals("nuova")) {
                     int n = askNumPlayers();
                     server.loginFirstPlayer(myNick, n);
+                /*
                 // === SPECTATOR ===
                 } else if (choice.startsWith("s") && choice.length() > 1) {
                     try {
@@ -213,6 +211,8 @@ public class CLIView implements ModelObserver {
                         System.out.println("  Formato non valido. Usa: s1, s2, ecc.");
                     }
                 // === END SPECTATOR ===
+
+                 */
                 } else {
                     try {
                         int idx = Integer.parseInt(choice) - 1;
@@ -224,7 +224,7 @@ public class CLIView implements ModelObserver {
                             System.out.println("  Nessuna lobby aperta disponibile.");
                         }
                     } catch (NumberFormatException e) {
-                        // INVIO senza input → prima lobby aperta
+                        // Enter without input → join the first open lobby
                         if (!open.isEmpty()) {
                             server.loginToLobby(myNick, open.get(0).id());
                         }
@@ -235,7 +235,7 @@ public class CLIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  TURNO
+    //  TURN
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -258,7 +258,7 @@ public class CLIView implements ModelObserver {
         System.out.println();
         printBanner("★ TOCCA A TE, " + nickname.toUpperCase() + "!");
 
-        // Interrompe l'eventuale thread di input del turno precedente
+        // Interrupt any input thread left over from the previous turn
         Thread prev = inputThread;
         if (prev != null) prev.interrupt();
 
@@ -279,7 +279,7 @@ public class CLIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  LOOP FASE 1 — piazzamento totem
+    //  PHASE 1 LOOP — totem placement
     // ─────────────────────────────────────────────────────────────────────
 
     private void runPlaceTotemLoop(String nickname, String extraInfo) throws InterruptedException {
@@ -303,7 +303,7 @@ public class CLIView implements ModelObserver {
                 continue;
             }
 
-            // Aspetta la risposta del server (timeout 30s per evitare blocco permanente)
+            // Wait for the server response (30 s timeout to avoid blocking indefinitely)
             String result = actionResultQueue.poll(30, TimeUnit.SECONDS);
             if (result == null) {
                 System.out.println("  ✗ Nessuna risposta dal server (timeout). Riprova.");
@@ -311,13 +311,13 @@ public class CLIView implements ModelObserver {
             }
             if (result.equals("OK")) return;
 
-            // RETRY:<messaggio>
+            // RETRY:<message>
             System.out.println("  ✗ " + (result.startsWith("RETRY:") ? result.substring(6) : result));
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  LOOP FASE 2 — selezione carte
+    //  PHASE 2 LOOP — card selection
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -386,7 +386,7 @@ public class CLIView implements ModelObserver {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  CALLBACK — segnalano al loop il risultato dell'azione
+    //  CALLBACKS — signal the action result to the input loop
     // ─────────────────────────────────────────────────────────────────────
 
     @Override
@@ -410,19 +410,19 @@ public class CLIView implements ModelObserver {
         if (nickname.equals(myNick)) signal("OK");
     }
 
-    /** Invia il segnale alla queue senza mai bloccare il callback thread. */
+    /** Sends the result signal to the queue without ever blocking the callback thread. */
     private void signal(String value) {
-        actionResultQueue.clear();   // scarica eventuali segnali stale
-        actionResultQueue.offer(value); // non-blocking: se piena (caso anomalo) scarta silenziosamente
+        actionResultQueue.clear();   // drain any stale signals
+        actionResultQueue.offer(value); // non-blocking: if full (anomalous case), discards silently
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  ALTRI CALLBACK
+    //  OTHER CALLBACKS
     // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public void onPlayerUpdated(String nickname) {
-        // silenzioso: frequente, dettaglio visualizzato in onYourTurn
+        // silent: this fires frequently; details are shown in onYourTurn
     }
 
     @Override
@@ -479,7 +479,7 @@ public class CLIView implements ModelObserver {
     @Override
     public void onRankingData(int myRank, int totalEntries, List<RankingEntry> fullRanking) {
         int w = terminalWidth();
-        // Totale riga = 34 + nickWidth; la colonna nickname si espande con il terminale
+        // Total row = 34 + nickWidth; the nickname column expands with the terminal width
         int nickWidth = Math.max(24, w - 34);
         int nickCol   = nickWidth + 2; // dashes separatore = nick + 2 spazi
         System.out.println();
@@ -537,6 +537,7 @@ public class CLIView implements ModelObserver {
         catch (Exception e) { System.err.println("  ✗ Errore rientro: " + e.getMessage()); }
     }
 
+    /*
     // === SPECTATOR ===
 
     @Override
@@ -572,6 +573,8 @@ public class CLIView implements ModelObserver {
 
     // === END SPECTATOR ===
 
+     */
+
     // ─────────────────────────────────────────────────────────────────────
     //  UTILITY
     // ─────────────────────────────────────────────────────────────────────
@@ -600,7 +603,7 @@ public class CLIView implements ModelObserver {
     }
 
     private String adaptLine(String line, int width) {
-        // Top border "  ┌── LABEL ─────┐" — espande + colora
+        // Top border "  ┌── LABEL ─────┐" — expands and colours
         if (line.endsWith("┐") && line.contains("┌")) {
             int idx    = line.indexOf('┌');
             String indent = line.substring(0, idx);
@@ -612,18 +615,18 @@ public class CLIView implements ModelObserver {
             int dashes = Math.max(1, targetInner - label.length());
             return CYN + indent + "┌" + YLW + label + CYN + "─".repeat(dashes) + "┐" + RST;
         }
-        // Bottom border "  └──────────────┘" — espande + colora
+        // Bottom border "  └──────────────┘" — expands and colours
         if (line.endsWith("┘") && line.contains("└")) {
             int idx = line.indexOf('└');
             String indent = line.substring(0, idx);
             int targetInner = Math.max(1, width - indent.length() - 2);
             return CYN + indent + "└" + "─".repeat(targetInner) + "┘" + RST;
         }
-        // Righe carte: "  │  [T]", "  │  [B]", "  │  [0]" ecc.
+        // Card rows: "  │  [T]", "  │  [B]", "  │  [0]" etc.
         if (line.length() > 7 && line.startsWith("  │  [") && line.charAt(7) == ']') {
             return colorCardLine(line);
         }
-        // Intestazioni categoria personaggi/edifici
+        // Character/building category headers
         if (line.startsWith("  │  [Personaggi]")) {
             boolean empty = line.contains("nessuna carta");
             return CYN + "  │  " + RST + (empty ? GRY : BGRN)
@@ -634,18 +637,18 @@ public class CLIView implements ModelObserver {
             return CYN + "  │  " + RST + (empty ? GRY : BYLW)
                    + "▦ Edifici" + (empty ? " — nessuna carta" : "") + RST;
         }
-        // Bullet carte in mano: "  │    • Artista..."
+        // Hand card bullets: "  │    • Artista..."
         if (line.startsWith("  │    • ")) {
             String cardName = line.substring(9);
             String c = cardName.contains("⚑") ? MGT
                      : cardName.startsWith("Edificio") ? BYLW : GRN;
             return CYN + "  │    • " + RST + c + cardName + RST;
         }
-        // Altre righe con │ bordo
+        // Other rows with │ border
         if (line.startsWith("  │")) {
             return CYN + "  │" + RST + line.substring(3);
         }
-        // Riga troppo lunga: tronca
+        // Line too long: truncate
         if (line.length() > width) return line.substring(0, width - 1) + "…";
         return line;
     }
@@ -680,17 +683,17 @@ public class CLIView implements ModelObserver {
         return label;
     }
 
-    // Larghezza terminale reale: stty size legge /dev/tty anche da subprocess (cache 5s)
+    // Real terminal width: stty size reads /dev/tty even from a subprocess (cached for 5 s)
     private int terminalWidth() {
         long now = System.currentTimeMillis();
         if (cachedWidth > 0 && now - widthCachedAt < 5_000) return cachedWidth;
-        // 1) variabile d'ambiente (export COLUMNS=... la imposta esplicitamente)
+        // 1) environment variable (export COLUMNS=... sets it explicitly)
         String cols = System.getenv("COLUMNS");
         if (cols != null) {
             try { return cacheWidth(Math.max(40, Integer.parseInt(cols.trim())), now); }
             catch (NumberFormatException ignored) {}
         }
-        // 2) stty size </dev/tty → stampa "rows cols" leggendo il terminale reale
+        // 2) stty size </dev/tty → prints "rows cols" by reading the real terminal
         try {
             Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty 2>/dev/null")
                     .redirectErrorStream(true).start();
@@ -702,7 +705,7 @@ public class CLIView implements ModelObserver {
                 if (w > 0) return cacheWidth(Math.max(40, w), now);
             }
         } catch (Exception ignored) {}
-        // 3) tput cols come ulteriore fallback
+        // 3) tput cols as a further fallback
         try {
             Process p = new ProcessBuilder("sh", "-c", "tput cols 2>/dev/null")
                     .redirectErrorStream(true).start();
@@ -716,18 +719,18 @@ public class CLIView implements ModelObserver {
 
     private int cacheWidth(int w, long t) { cachedWidth = w; widthCachedAt = t; return w; }
 
-    // "  ┌{label}{dashes}┐" colorata — larghezza totale = width
+    // "  ┌{label}{dashes}┐" coloured — total width = width
     private String boxTop(int width, String label) {
         int dashes = Math.max(1, width - 4 - label.length());
         return CYN + "  ┌" + YLW + label + CYN + "─".repeat(dashes) + "┐" + RST;
     }
 
-    // "  └{dashes}┘" colorata — larghezza totale = width
+    // "  └{dashes}┘" coloured — total width = width
     private String boxBottom(int width) {
         return CYN + "  └" + "─".repeat(Math.max(1, width - 4)) + "┘" + RST;
     }
 
-    // "  │  {content paddato}│" colorata — larghezza totale = width
+    // "  │  {padded content}│" coloured — total width = width
     private String boxLine(int width, String content) {
         int fieldWidth = Math.max(1, width - 6);
         if (content.length() > fieldWidth) content = content.substring(0, fieldWidth);

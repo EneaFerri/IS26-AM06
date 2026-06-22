@@ -1,4 +1,4 @@
 package it.polimi.ingsw.persistence;
 
-/** Riferimento minimo a una carta: ID univoco + flag drawed. */
+/** Minimal card reference: unique card ID and whether the card has already been drawn. */
 public record CardRef(int cardId, boolean drawed) {}

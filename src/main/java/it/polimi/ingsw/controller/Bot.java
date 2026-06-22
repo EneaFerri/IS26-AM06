@@ -19,10 +19,11 @@ import java.util.concurrent.Executors;
  * Server-side bot that replaces a disconnected player.
  *
  * Implements VirtualView so that GameController treats it exactly like a real
- * network client.
+ * network client. When GameController calls onYourTurn(), the bot schedules
+ * its action on a daemon thread to avoid holding the controller's synchronized
+ * lock (which would cause a deadlock since placeTotem/pickCard are also synchronized).
  *
- * Only onYourTurn() and onGameOver() implemented.
- * All other VirtualView methods are not implemented — the bot has no UI.
+ * All other VirtualView methods are intentional no-ops — the bot has no UI.
  */
 public class Bot implements VirtualView {
 
@@ -46,15 +47,17 @@ public class Bot implements VirtualView {
         });
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  KEY CALLBACK — triggers bot action
+    // ─────────────────────────────────────────────────────────────────────
+
     @Override
     public void onYourTurn(String nick, GameState phase, String extraInfo) throws Exception {
-
-        /* Schedule asynchronously: onYourTurn is called from within a synchronized
-        block in GameController.onTurnStarted(). Calling controller.placeTotem()
-        or controller.pickCard() (both synchronized) from here directly would
-        deadlock. The executor thread acquires the lock only after onTurnStarted
-         has released it.
-         */
+        // Schedule asynchronously: onYourTurn is called from within a synchronized
+        // block in GameController.onTurnStarted(). Calling controller.placeTotem()
+        // or controller.pickCard() (both synchronized) from here directly would
+        // deadlock. The executor thread acquires the lock only after onTurnStarted
+        // has released it.
         executor.execute(() -> {
             try {
                 Thread.sleep(ACTION_DELAY_MS);
@@ -72,7 +75,7 @@ public class Bot implements VirtualView {
 
             try {
                 // Re-read the current phase instead of using the captured parameter:
-
+                // the closure may be stale if onYourTurn was called via an unusual path.
                 GameState currentPhase = game.getStatus();
                 if (currentPhase == GameState.OFFER_SPACE_CHOOSE) {
                     decideAndPlaceTotem();
@@ -85,12 +88,11 @@ public class Bot implements VirtualView {
         });
     }
 
-    // Shutdown the executor when the game ends.
+    /** Shutdown the executor when the game ends. */
     @Override
     public void onGameOver(String results) throws Exception {
         executor.shutdown();
     }
-
 
     // ─────────────────────────────────────────────────────────────────────
     //  BOT DECISION LOGIC
@@ -115,22 +117,29 @@ public class Bot implements VirtualView {
 
         int remTop = game.getRemainingTopPicks(player);
         int remBot = game.getRemainingBottomPicks(player);
+        int discount = player.foodDiscountToBuyBuildings();
 
         // ── Build candidate lists for each row ────────────────────────────
 
-        // Top row: tribe cards (excluding events)
+        // Top row: tribe cards (excluding events) + affordable buildings
         List<Card> topCandidates = new ArrayList<>();
         if (remTop > 0) {
             game.getBoard().getAvailableUpperTribeCards().stream()
                     .filter(c -> !c.isEvent())
                     .forEach(topCandidates::add);
+            game.getBoard().getAvailableUpperBuildingCards().stream()
+                    .filter(c -> player.getFood() >= Math.max(0, c.getFoodCost() - discount))
+                    .forEach(topCandidates::add);
         }
 
-        // Bottom row: tribe cards (excluding events)
+        // Bottom row: tribe cards (excluding events) + affordable buildings
         List<Card> botCandidates = new ArrayList<>();
         if (remBot > 0) {
             game.getBoard().getAvailableBottomTribeCards().stream()
                     .filter(c -> !c.isEvent())
+                    .forEach(botCandidates::add);
+            game.getBoard().getAvailableBottomBuildingCards().stream()
+                    .filter(c -> player.getFood() >= Math.max(0, c.getFoodCost() - discount))
                     .forEach(botCandidates::add);
         }
 
@@ -157,16 +166,16 @@ public class Bot implements VirtualView {
 
         // ── Compute the 0-based index that GameController.pickCard() expects ──
         // GameController builds its list as:
-        //   fromTop=true  → getAvailableUpperTribeCards()
-        //   fromTop=false → getAvailableBottomTribeCards()
+        //   fromTop=true  → getAvailableUpperTribeCards() + getAvailableUpperBuildingCards()
+        //   fromTop=false → getAvailableBottomTribeCards() + getAvailableBottomBuildingCards()
 
         List<Card> fullList = new ArrayList<>();
         if (useTop) {
             fullList.addAll(game.getBoard().getAvailableUpperTribeCards());
-
+            fullList.addAll(game.getBoard().getAvailableUpperBuildingCards());
         } else {
             fullList.addAll(game.getBoard().getAvailableBottomTribeCards());
-
+            fullList.addAll(game.getBoard().getAvailableBottomBuildingCards());
         }
 
         int index = fullList.indexOf(card);
@@ -204,5 +213,8 @@ public class Bot implements VirtualView {
                                         java.util.List<RankingEntry> fullRanking)         throws Exception {}
     @Override public void onPlayerDisconnected(String nickname)                           throws Exception {}
     @Override public void onPlayerReplacedByBot(String nickname)                          throws Exception {}
+    /*
     @Override public void onSpectatorJoined(String currentPlayerNick, String boardSummary) throws Exception {}
+
+     */
 }

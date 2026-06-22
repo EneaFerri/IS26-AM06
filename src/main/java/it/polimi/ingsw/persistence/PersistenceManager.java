@@ -19,15 +19,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Gestisce il salvataggio e il ripristino delle partite su disco (FA Persistenza).
+ * Manages saving and restoring games to/from disk (Persistence feature).
  *
- * Ogni partita viene salvata come saves/game_{id}.json usando Jackson.
- * Il salvataggio avviene dopo ogni transizione di turno; il file viene eliminato
- * quando la partita termina normalmente.
+ * <p>Each game is saved as {@code saves/game_{id}.json} using Jackson.
+ * Saving occurs after every turn transition; the file is deleted when the game
+ * ends normally.
  *
- * Al riavvio del server, loadAll() carica tutti i file presenti e restore()
- * ricostruisce il grafo di oggetti completo usando il catalogo carte di un Deck
- * fresco (già presente nel Game dopo new Game(id)).
+ * <p>On server restart, {@link #loadAll()} reads all existing files and
+ * {@link #restore(GameSnapshot)} reconstructs the full object graph using the
+ * card catalogue from a fresh {@link it.polimi.ingsw.model.cards.Deck}
+ * (already present in the {@link Game} after {@code new Game(id)}).
  */
 public class PersistenceManager {
 
@@ -41,6 +42,11 @@ public class PersistenceManager {
         if (!dir.exists()) dir.mkdirs();
     }
 
+    /**
+     * Returns the singleton instance, creating it on first call.
+     *
+     * @return the singleton {@code PersistenceManager}
+     */
     public static synchronized PersistenceManager getInstance() {
         if (instance == null) instance = new PersistenceManager();
         return instance;
@@ -50,7 +56,12 @@ public class PersistenceManager {
     //  SAVE
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Serializza lo stato corrente della partita su disco, includendo i nickname dei bot attivi. */
+    /**
+     * Serialises the current game state to disk, including the nicknames of active bots.
+     *
+     * @param game         the game to save
+     * @param botNicknames nicknames of players currently replaced by bots
+     */
     public void save(Game game, Collection<String> botNicknames) {
         try {
             GameSnapshot snap = toSnapshot(game, botNicknames);
@@ -61,7 +72,11 @@ public class PersistenceManager {
         }
     }
 
-    /** Elimina il file di salvataggio (chiamato quando la partita finisce normalmente). */
+    /**
+     * Deletes the save file for the given game (called when the game ends normally).
+     *
+     * @param gameId ID of the game whose save file should be removed
+     */
     public void delete(int gameId) {
         File file = saveFile(gameId);
         if (file.exists() && !file.delete()) {
@@ -73,7 +88,11 @@ public class PersistenceManager {
     //  LOAD + RESTORE
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Carica tutti i file saves/game_*.json e li deserializza in snapshot. */
+    /**
+     * Loads all {@code saves/game_*.json} files and deserialises them into snapshots.
+     *
+     * @return list of all successfully loaded {@link GameSnapshot} objects
+     */
     public List<GameSnapshot> loadAll() {
         List<GameSnapshot> result = new ArrayList<>();
         Path dir = Paths.get(SAVE_DIR);
@@ -96,19 +115,24 @@ public class PersistenceManager {
     }
 
     /**
-     * Ricostruisce un oggetto Game completo a partire da un GameSnapshot.
+     * Reconstructs a complete {@link Game} object from a {@link GameSnapshot}.
      *
-     * Strategia:
-     *  1. Crea new Game(id) → il costruttore crea un mainDeck fresco con tutte le carte
-     *  2. Costruisce un catalogo cardId → Card da mainDeck.getAllCards()
-     *  3. Ricostruisce i Player (con le loro carte, senza side-effect)
-     *  4. Ricostruisce le righe board, i totem sugli spazi e sul TurnOrder
-     *  5. Chiama game.restorePersistedState() che imposta tutti i campi non-final
+     * <p>Strategy:
+     * <ol>
+     *   <li>Creates {@code new Game(id)} — the constructor produces a fresh main deck with all cards.</li>
+     *   <li>Builds a {@code cardId → Card} catalogue from {@code mainDeck.getAllCards()}.</li>
+     *   <li>Reconstructs each {@link Player} (with their cards, without side-effects).</li>
+     *   <li>Reconstructs the board rows, totems on spaces, and the TurnOrder.</li>
+     *   <li>Calls {@code game.restorePersistedState()} to set all non-final fields.</li>
+     * </ol>
+     *
+     * @param snap the snapshot to restore from
+     * @return a fully initialised {@link Game} reflecting the saved state
      */
     public Game restore(GameSnapshot snap) {
         Game game = new Game(snap.gameId());
 
-        // Catalogo carte: id → oggetto
+        // Card catalogue: id → object
         Map<Integer, Card> catalog = game.getMainDeck().getAllCards().stream()
                 .collect(Collectors.toMap(Card::getID, c -> c));
 
@@ -124,14 +148,14 @@ public class PersistenceManager {
         List<BuildingCard> boardTopBuild    = resolveCardRefs(snap.board().topBuildingCards(), catalog, BuildingCard.class);
         List<BuildingCard> boardBottomBuild = resolveCardRefs(snap.board().bottomBuildingCards(), catalog, BuildingCard.class);
 
-        // ── Deck residui ───────────────────────────────────────────────────
+        // ── Remaining decks ────────────────────────────────────────────────
         List<TribeCard>    deckI     = resolveIds(snap.deckEraI(),         catalog, TribeCard.class);
         List<TribeCard>    deckII    = resolveIds(snap.deckEraII(),        catalog, TribeCard.class);
         List<TribeCard>    deckIII   = resolveIds(snap.deckEraIII(),       catalog, TribeCard.class);
         List<EventCard>    finalEvts = resolveIds(snap.finalEventIds(),    catalog, EventCard.class);
         List<BuildingCard> buildings = resolveIds(snap.buildingsInGameIds(), catalog, BuildingCard.class);
 
-        // ── Totem su board spaces: lettera → TotemColor name ──────────────
+        // ── Totem on board spaces: letter → TotemColor name ───────────────
         Map<Character, String> spaceTotemColors = new HashMap<>();
         for (BoardSnapshot.SpaceSnap ss : snap.board().spaces()) {
             if (ss.totemColor() != null) {
@@ -139,15 +163,15 @@ public class PersistenceManager {
             }
         }
 
-        // ── Enum da stringa ────────────────────────────────────────────────
+        // ── Enum from string ───────────────────────────────────────────────
         GameState state = GameState.valueOf(snap.gameState());
         Age age         = Age.valueOf(snap.currentAge());
 
-        // ── Costruisci il board ripristinato (con removeFromOfferField per il numero giocatori) ─
-        // Il board fresco ha TUTTI gli spazi (A-G); ricalcoliamo quelli in gioco
+        // ── Rebuild restored board (recalculate active spaces for player count) ─
+        // The fresh board has ALL spaces (A-G); recalculate which are in play
         game.getBoard().prepareGameBoardSpace(snap.numberOfPlayers());
 
-        // ── Richiama restorePersistedState sul Game ────────────────────────
+        // ── Call restorePersistedState on Game ─────────────────────────────
         game.restorePersistedState(
                 players,
                 snap.playerInTurnNick(),
@@ -167,22 +191,17 @@ public class PersistenceManager {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  CONVERSIONE Game → GameSnapshot
+    //  Game → GameSnapshot CONVERSION
     // ─────────────────────────────────────────────────────────────────────────
 
     private GameSnapshot toSnapshot(Game game, Collection<String> botNicknames) {
-        // Players
         List<PlayerSnapshot> playerSnaps = game.getPlayers().stream()
                 .map(this::playerToSnapshot)
                 .collect(Collectors.toList());
 
-        // Board
         BoardSnapshot boardSnap = boardToSnapshot(game);
-
-        // TurnOrder
         TurnOrderSnapshot toSnap = turnOrderToSnapshot(game);
 
-        // Deck residui
         List<Integer> deckI   = toIdList(game.getDeckEraI());
         List<Integer> deckII  = toIdList(game.getDeckEraII());
         List<Integer> deckIII = toIdList(game.getDeckEraIII());
@@ -259,7 +278,7 @@ public class PersistenceManager {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  RIPRISTINO PLAYER
+    //  PLAYER RESTORE
     // ─────────────────────────────────────────────────────────────────────────
 
     private Player restorePlayer(PlayerSnapshot ps, Map<Integer, Card> catalog) {
@@ -270,7 +289,7 @@ public class PersistenceManager {
                 .map(id -> (CharacterCard) catalog.get(id))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-        // Imposta drawed sulle carte personaggio
+        // Mark character cards as drawn
         chars.forEach(Card::markAsDrawed);
 
         List<BuildingCard> buildings = ps.buildingCardIds().stream()
@@ -313,7 +332,16 @@ public class PersistenceManager {
                 .collect(Collectors.toList());
     }
 
-    /** Risolve una lista di CardRef in oggetti Card del tipo richiesto, impostando il flag drawed. */
+    /**
+     * Resolves a list of {@link CardRef} objects into typed {@link Card} instances,
+     * restoring the {@code drawed} flag on each resolved card.
+     *
+     * @param <T>     the expected card subtype
+     * @param refs    list of card references to resolve
+     * @param catalog mapping from card ID to card instance
+     * @param type    the expected runtime type
+     * @return list of resolved, typed card instances
+     */
     @SuppressWarnings("unchecked")
     private <T extends Card> List<T> resolveCardRefs(List<CardRef> refs, Map<Integer, Card> catalog, Class<T> type) {
         List<T> result = new ArrayList<>();
@@ -327,7 +355,15 @@ public class PersistenceManager {
         return result;
     }
 
-    /** Risolve una lista di ID in oggetti Card del tipo richiesto. */
+    /**
+     * Resolves a list of card IDs into typed {@link Card} instances.
+     *
+     * @param <T>     the expected card subtype
+     * @param ids     list of card IDs to resolve
+     * @param catalog mapping from card ID to card instance
+     * @param type    the expected runtime type
+     * @return list of resolved, typed card instances
+     */
     @SuppressWarnings("unchecked")
     private <T extends Card> List<T> resolveIds(List<Integer> ids, Map<Integer, Card> catalog, Class<T> type) {
         List<T> result = new ArrayList<>();

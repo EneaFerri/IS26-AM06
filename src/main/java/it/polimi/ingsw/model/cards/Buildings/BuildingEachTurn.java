@@ -5,15 +5,36 @@ import it.polimi.ingsw.model.enums.Age;
 import it.polimi.ingsw.model.enums.BuildingEachTurnType;
 import it.polimi.ingsw.model.player.Player;
 
+/**
+ * A building card that grants a persistent per-turn or permanent bonus effect.
+ *
+ * <p>When added to a player's collection, this card enables one of several
+ * recurring abilities on the player, such as doubling prestige from Builders,
+ * gaining extra food, or drawing an additional card each turn.</p>
+ */
 public class BuildingEachTurn extends BuildingCard {
 
     private BuildingEachTurnType bType;
 
+    /**
+     * Creates a new per-turn building card.
+     *
+     * @param cardID        the unique identifier for this card
+     * @param cardAge       the era this card belongs to
+     * @param foodCost      the food cost to purchase this building
+     * @param prestigePoint the prestige points granted on purchase
+     * @param bType         the type of recurring effect this building provides
+     */
     public BuildingEachTurn(int cardID, Age cardAge, int foodCost, int prestigePoint, BuildingEachTurnType bType) {
         super(cardID, cardAge, foodCost, prestigePoint);
         this.bType = bType;
     }
 
+    /**
+     * Enables the corresponding recurring ability on the player when this building is purchased.
+     *
+     * @param player the player who purchased this building
+     */
     @Override
     public void onAddedToPlayer(Player player) {
         if (getBType() == BuildingEachTurnType.BUILDER_DOUBLEPOINTS) {
@@ -35,11 +56,20 @@ public class BuildingEachTurn extends BuildingCard {
         }
     }
 
-
+    /**
+     * Returns the recurring effect type of this building.
+     *
+     * @return the {@link BuildingEachTurnType}
+     */
     public  BuildingEachTurnType getBType() {
         return bType;
     }
 
+    /**
+     * Returns a formatted display string describing this building's effect for the UI.
+     *
+     * @return the display string
+     */
     @Override
     public String toDisplayString() {
         String effect = switch (bType) {
@@ -55,6 +85,11 @@ public class BuildingEachTurn extends BuildingCard {
         return "Edificio (" + ageLabel() + ")  [" + effect + " | costo: " + getFoodCost() + " | PP: " + getPrestigePoint() + "]";
     }
 
+    /**
+     * Returns a string representation of this building card.
+     *
+     * @return a string containing the building type and base card info
+     */
     public String toString() {
         return " {BUILDING_" + bType + ", " +  super.toString()+  "} ";
     }
