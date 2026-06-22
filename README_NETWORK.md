@@ -264,7 +264,7 @@ GameController.broadcast(v -> v.onTotemPlaced(nick, spaceId))
 ```text
 GameController.broadcast(v -> v.onTotemPlaced(nick, spaceId))
   └── SocketClientHandler.onTotemPlaced(nick, spaceId)
-        └── enqueua il JSON nella sendQueue
+        └── mette in coda il JSON nella sendQueue
               └── senderThread scrive sul socket
                     └── SocketClient.readLoop()
                           └── ClientModel.onTotemPlaced(...)
