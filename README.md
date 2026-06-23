@@ -2,7 +2,7 @@
 
 Progetto di Ingegneria del Software per la realizzazione software del gioco da tavolo **Mesos**.
 
-L'obiettivo del progetto é stato sviluppare una versione completa e giocabile del titolo, rispettando le regole del manuale e i vincoli architetturali richiesti dalla consegna: architettura client-server, pattern MVC, comunicazione tramite **RMI** e **Socket**, interfaccia **TUI/GUI**, e funzionalitá avanzate come persistenza, classifica su database e resilienza alle disconnessioni.
+L'obiettivo del progetto é stato sviluppare una versione completa e giocabile del titolo, rispettando le regole del manuale e i vincoli architetturali richiesti dalla consegna: architettura client-server, pattern MVC, comunicazione tramite **RMI** e **Socket**, interfaccia **TUI/GUI**, e funzionalitá avanzate come multi-lobby, persistenza e classifica su database.
 
 ## Contenuti
 
