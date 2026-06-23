@@ -38,7 +38,7 @@ Questa funzionalità usa MySQL (versione 8+). Ogni sviluppatore deve:
        db.user=TUO_UTENTE
        db.password=TUA_PASSWORD
 
-  IMPORTANTE: db.properties è nel .gitignore — NON viene committato su git.
+  IMPORTANTE: db.properties NON andrebbe committato ma per semplicità abbiamo usato tutte le stesse credenziali.
               db.properties.example (con valori placeholder) SI viene committato.
               schema.sql viene committato così i compagni sanno come creare il DB.
 
