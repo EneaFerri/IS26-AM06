@@ -206,10 +206,12 @@ Prima di avviare il server, configurare il database tramite:
 - [`schema.sql`](schema.sql)
 - [`src/main/resources/db/db.properties`](src/main/resources/db/db.properties)
 
-Per maggiori dettagli rimando al file Implementazione DB info all'interno del progetto.
+Per maggiori dettagli vedere file Implementazione DB info all'interno del progetto.
 
 ## Documentazione aggiuntiva
 
 - Documentazione di rete: [`README_NETWORK.md`](README_NETWORK.md)
 - Schema database: [`schema.sql`](schema.sql)
 - Risorse grafiche e audio: `src/main/resources`
+- Diagrammi UML ad alto livello, di dettaglio e sequence diagram di rete
+- Documentazione Javadoc generata dal codice
